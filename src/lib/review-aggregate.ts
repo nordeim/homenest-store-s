@@ -22,3 +22,42 @@ export function mergeReviewAggregate(
     current.reviewCount > 0 ? (current.rating * current.reviewCount + newRating) / reviewCount : newRating;
   return { rating: Math.round(average * 10) / 10, reviewCount };
 }
+
+/**
+ * Minimal structural surface of `db` / a transaction client that
+ * `growReviewAggregate` touches — keeps the helper unit-testable with an
+ * in-memory fake and lets the caller decide the transaction boundary.
+ */
+export interface ReviewAggregateClient {
+  product: {
+    findUnique: (args: {
+      where: { id: string };
+      select: { rating: true; reviewCount: true };
+    }) => Promise<{ rating: number; reviewCount: number } | null>;
+    update: (args: {
+      where: { id: string };
+      data: { rating: number; reviewCount: number };
+    }) => Promise<unknown>;
+  };
+}
+
+/**
+ * Read the live baseline, merge the new rating, and write the grown
+ * aggregate back. Session-8 S8-2: the read-modify-write MUST run inside the
+ * caller's transaction — two concurrent submissions outside one transaction
+ * both read `reviewCount = N` and one increment is lost. The caller wraps
+ * this in `db.$transaction`, so the sequence is serialized on SQLite.
+ */
+export async function growReviewAggregate(
+  client: ReviewAggregateClient,
+  productId: string,
+  newRating: number,
+): Promise<void> {
+  const live = await client.product.findUnique({
+    where: { id: productId },
+    select: { rating: true, reviewCount: true },
+  });
+  if (!live) return; // product vanished mid-flight — nothing to grow
+  const next = mergeReviewAggregate(live, newRating);
+  await client.product.update({ where: { id: productId }, data: next });
+}

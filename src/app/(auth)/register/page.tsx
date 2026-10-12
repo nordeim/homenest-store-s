@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   title: "Create Account",
   description:
     "Create your HomeNest Kitchen account for faster checkout, saved addresses, order tracking, and a synced wishlist.",
+  // Session-8 S8-9: utility pages — keep them out of the index.
+  robots: { index: false, follow: true },
 };
 
 export default function RegisterPage() {

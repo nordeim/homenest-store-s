@@ -575,3 +575,80 @@ Visual parity re-verified against the LIVE reference (logged in via agent-browse
 - [x] Screenshots refreshed; AGENTS/CLAUDE/README/PAD/SKILL/worklog updated
 
 **Post-remediation totals (session 7):** 197/197 unit tests, 41/41 e2e tests, lint/typecheck/typecheck:tests/build clean.
+
+---
+
+# Session 8 — Post-push audit & address-book/review-integrity completion (2026-10-13)
+
+> **Status:** EXECUTED (see the Session-8 Execution Log at the end)
+> **Scope:** Re-validation of the session-7 deliverables on the pulled tree (`636faa5` = `131220a` + docs/session_8.md), a fresh read-only deep audit (repo `code-review-checklist` 12-category scan over every `src/lib` module, all API routes, all actions, every storefront/admin/auth page, components, configs, seed + schema, tests + docs), and TDD remediation of the newly identified findings (2 MEDIUM + 7 LOW + 4 NIT).
+> **Method:** unchanged — failing tests first, then the fix, then the full gate chain (`lint && typecheck && typecheck:tests && test && build && test:e2e`).
+
+## 1. Re-validation (all session-7 gates green on the pulled tree)
+
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · 197/197 unit ✓ · build ✓ · 41/41 e2e ✓ (sandbox `DATABASE_URL` shadow converged via symlink per the documented trap; health `db:up`).
+Visual parity re-verified against the LIVE reference (agent-browser): home hero ("Elevate Your Kitchen"), trust badges, 8 category tiles, featured products (identical names/prices/review counts: Damascus Steel Chef Knife Set $199.99/412, Artisan Copper Frying Pan $89.99/234) — reference unchanged; the clone remains the superset. **Mobile menu re-verified on the production build** (iPhone 390×844: open → `expanded=true`, push-down panel with all 7 links; navigate → closes, `expanded=false`, lands on `/products`) — the Tailwind v4 conditional-mount pattern is intact.
+
+## 2. Session-7 fix verification (read-only subagent + spot-checks)
+
+**12 WIRED / 1 PARTIAL / 0 MISSING.** S7-8 is PARTIAL: the cap is fully wired (API 409 + checkout skip-save + e2e), but the single-default invariant was only maintained on the checkout `saveAddress` path — the account-book POST never sets `isDefault` at all (folded into S8-1 below). All other fixes verified with file:line evidence (S7-1 guarded claim; S7-2 resolveReplay in the recovery path; S7-3 seed policy; S7-4 siteBaseUrl; S7-5 contactEmail tokens; S7-6 root-relative images; S7-7 price bounds; S7-9 jsonLdScript; S7-10 newRequestId; S7-11 500 shapes; S7-12 session sweep; S7-13 wishlist labels).
+
+## 3. Session-8 audit findings (evidence-based)
+
+**2 MEDIUM / 7 LOW / 4 NIT.** Verified clean again: integer-cents money end-to-end, atomic stock + coupon cap, ownership-bound replay, anti-enumeration shells, admin role gates, rate limiter + spoof-resistant clientIp, Zod boundaries, CSP nonce, robots/sitemap privacy, auth (scrypt, uniform errors), auth-secret gate, db-path contract, no committed secrets, no `any`, no console.log in src/.
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| S8-1 | MED | **Account-saved addresses are never `isDefault`, so they never prefill checkout — and there is no way to set a default or edit an address.** The account POST creates rows with the schema default (`isDefault: false`); the only writers of `isDefault: true` are the seed and checkout `saveAddress`. Checkout prefill (`findFirst({ isDefault: true })`) therefore never fires for account-created addresses, the "Default" badge can never render for them, and the empty-state copy ("check out in seconds on every future order") is false. | `api/addresses/route.ts:53-67`; `checkout/page.tsx:29`; `account/page.tsx:203,218` |
+| S8-2 | MED | **Review aggregate is read-modify-write outside a transaction** — two concurrent submissions both read `reviewCount = N` and both write `N + 1` (lost update; rating drift). The one remaining non-atomic counter in the codebase. | `actions/reviews.ts:69-82` |
+| S8-3 | LOW | **`uniqueTarget()` only recognizes field-shaped P2002 targets** — a constraint-name string (`"Order_idempotencyKey_key"`) silently disables the S7-2 idempotency recovery branch; the retry loop then retries 5× with the same key and 500s. Latent (SQLite returns field arrays today) and untested. | `api/checkout/route.ts:218,399-409` |
+| S8-4 | LOW | **Wishlist toggle delete race surfaces as a 500** — check-then-delete; a concurrent toggle makes `delete` throw P2025 into the generic catch. The create path already handles its race (P2002 → `inWishlist: true`); delete is the asymmetric leftover. | `api/wishlist/route.ts:43-48` |
+| S8-5 | LOW | **Hero carousel renders permanently blank if the slide list shrinks below the active index** — `active` is never clamped when `slides` shrinks (admin deletes the last slide while a visitor has the page open); the whole hero returns `null` until a reload. ProductGallery already uses the derived-clamp pattern. | `hero-carousel.tsx:30,56-58` |
+| S8-6 | LOW | **Wishlist is unbounded; the page query is unbounded; "Add All to Cart" trips the shared 60/min cart limiter** for wishlists > ~60 items (hard failures mid-loop, misleading "out of stock" toast). Asymmetric with the bounded address book. | `lib/wishlist.ts` (no cap); `wishlist/page.tsx:25-29` (no `take`); `add-all-button.tsx:29-46` (sequential POSTs) |
+| S8-7 | LOW | **Cart drawer declares `role="dialog" aria-modal="true"` but has no focus trap** — Tab/Shift+Tab walk into the page behind the backdrop. Radix dialogs trap correctly; the custom drawer is the outlier. | `store-chrome.tsx:161-169` vs `:90-98` |
+| S8-8 | LOW | **Per-email login limiter key enables targeted account lockout** — `login:<email>` is attacker-chosen; 30 sustained attempts/min keep a victim permanently over budget. The per-IP budget caps amplification, not the lockout itself. Documented design tradeoff. | `actions/auth.ts:85,89` |
+| S8-9 | LOW | **Private-ish pages lack `noindex`** — cart, track-order, account, checkout, login, register expose `?number=…&email=…`-style query permutations to crawlers; only wishlist/checkout-success/admin/not-found carry the flag. Docs claim canonicals/noindex are site-wide. | grep `index: false` → 4 files only |
+| S8-10 | NIT | **Schema has 18 models; docs say 17** (README ×2, PAD ×3 — NewsletterSubscriber/ContactMessage era). | `rg -c "^model " prisma/schema.prisma` → 18 |
+| S8-11 | NIT | **Dead code/dead deps** — `ui/sheet.tsx` never imported; `searchOpen`/`setSearchSearchOpen` context fields never consumed; `@radix-ui/react-tabs` + `@radix-ui/react-radio-group` unused. | grep verification |
+| S8-12 | NIT | **Contract gaps in tests** — the checkout P2002 recovery branch has zero coverage; review submission has no e2e; account-address prefill untested; wishlist flows untested. | see S8-3/S8-1/S8-6 |
+| S8-13 | NIT | **`upsertCategoryAction` maps every failure — including a P2002 slug race — to "Category not found."** (the product path distinguishes P2002). | `actions/admin.ts:184-192` |
+
+## 4. Remediation plan (TDD)
+
+1. **S8-1** — `/api/addresses` POST wraps count + create in ONE `$transaction`; the FIRST address a user saves becomes `isDefault: true` (count-inside-tx is race-free on SQLite; a converging `updateMany` unset pass guarantees single-default even under odd interleavings). New PATCH handler (`{ id, isDefault: true }` via `addressDefaultSchema`) sets a default in one tx (unset others + set this). Account page gains a per-card "Set as default" control (`SetDefaultAddressButton`, mirroring the delete control). E2E `addresses-default.spec.ts`: fresh account → add address → Default badge visible → checkout prefills line1; second address → set default → badge moves.
+2. **S8-2** — `growReviewAggregate(client, productId, rating)` in `review-aggregate.ts` (structural client: findUnique + update); `submitReviewAction` runs read→merge→write inside `db.$transaction`. Unit-tested red-first with an in-memory fake client (baseline read, merged write).
+3. **S8-3** — new `src/lib/prisma-errors.ts`: `isUniqueViolation(error)` + `uniqueTargetField(error, field)` (matches array targets by last segment, exact string fields, AND constraint-name strings containing the field). Checkout route drops its private copies and routes both checks through it. Unit fixtures: `["idempotencyKey"]`, `["Order.idempotencyKey"]`, `"idempotencyKey"`, `"Order_idempotencyKey_key"` (match), `"Order_number_key"` (no match), non-P2002 (null/false).
+4. **S8-4** — wishlist delete branch → `deleteMany({ where: { id, wishlistId } })` (never throws on 0 rows), returns `{ inWishlist: false }` unconditionally.
+5. **S8-5** — hero carousel derives `activeIndex = Math.min(active, count - 1)` at render (the ProductGallery pattern); dots/track/aria-current all read the derived index.
+6. **S8-6** — `MAX_WISHLIST_ITEMS = 100` + `assertWishlistCap`/`WishlistCapError` in `lib/wishlist.ts` (structural count client, mirrors addresses.ts); POST checks the cap before creating (friendly 409); wishlist page query gains `take: MAX_WISHLIST_ITEMS`. New `POST /api/cart/bulk` (`cartBulkSchema`, ≤100 lines, deduped by product with summed quantities) applies the SAME per-line clamp/upsert as the single POST inside ONE `$transaction`, limiter `cart-bulk:` 10/min per IP, returns `{ itemCount, added, skipped }`; `add-all-button` sends one bulk request (no more limiter-fighting sequential loop).
+7. **S8-9** — `robots: { index: false, follow: true }` on cart, track-order, account, checkout, login, register; seo-platform spec pins the header on /cart + /login.
+8. **S8-13** — `upsertCategoryAction` catches P2002 → "A category with this slug already exists." before the generic fallback.
+9. **S8-11** — delete `src/components/ui/sheet.tsx`; drop the `searchOpen`/`setSearchSearchOpen` context fields; remove the two unused Radix deps (`@radix-ui/react-tabs`, `@radix-ui/react-radio-group`) from package.json.
+10. **S8-10 + docs sweep** — model count 17 → 18 (README, PAD); AGENTS.md (address-book invariant now covers the account path + PATCH; review-aggregate invariant notes the transaction; wishlist cap + bulk endpoint; noindex list), CLAUDE.md (module list + tests), README (counts, features), DEPLOYMENT.md (bulk limiter row), SKILL.md v1.5.0, `docs/session_8.md` gains a one-line header note (it narrates the session-7 execution), worklog entry.
+11. **S8-12** — the new unit tests + `addresses-default`/`reviews`/`wishlist` e2e specs close the gaps that S8-1/S8-2/S8-3/S8-6 exposed.
+
+### Deferred (with justification)
+
+| # | Item | Why |
+|---|---|---|
+| 1 | Cart-drawer focus trap (S8-7) | The drawer is the most traffic-critical interactive island; a hand-rolled trap risks destabilizing checkout e2e late in the arc. Radix dialogs already trap; defect is a11y-enhancement grade. Documented for a dedicated pass. |
+| 2 | Login limiter lockout tradeoff (S8-8) | Deliberate keying design (per-email budget + per-IP amplification cap) documented in AGENTS.md; changing it needs an abuse-model decision (delay/captcha escalation is an epic). |
+| 3 | Address dedup by content | Same rationale as the S7-8 saveAddress dedup deferral (users may intentionally save variant addresses); cap + deterministic default close the operational risk. |
+| 4 | 404-shell CSP nonce, `__Host-` prefix, shared-store limiter, admin coupon UI, real mailer, wishlist filled-state, radiogroup roving focus | Carried unchanged from sessions 5–7 with the same justifications. |
+
+## 5. Execution log (session 8)
+
+- [x] S8-1 — first-address default (tx) + PATCH set-default + account "Set as default" control; `addresses-default.spec.ts` (red → green)
+- [x] S8-2 — `growReviewAggregate` + transactional aggregate update (+4 unit cases, red → green)
+- [x] S8-3 — `prisma-errors.ts` tolerant `uniqueTargetField` (+6 unit cases); checkout routes through it (red → green)
+- [x] S8-4 — wishlist delete race → `deleteMany`
+- [x] S8-5 — carousel derived index clamp
+- [x] S8-6 — wishlist cap 100 (+2 unit cases) + page `take`; `POST /api/cart/bulk` (one-tx, shared clamp, 10/min limiter) + single-request Add All; `wishlist.spec.ts` (red → green)
+- [x] S8-9 — noindex on cart/track-order/account/checkout/login/register; seo-platform pins /cart + /login
+- [x] S8-13 — category P2002 duplicate message
+- [x] S8-11 — sheet.tsx, searchOpen context fields, 2 unused Radix deps removed
+- [x] S8-10 — model count 17 → 18 (README, PAD); docs sweep (AGENTS/CLAUDE/README/DEPLOYMENT/SKILL v1.5.0, session_8.md header note)
+- [x] Full gate chain re-run green; manual agent-browser verification (mobile menu, checkout prefill, wishlist add-all)
+- [x] Screenshots refreshed; worklog updated
+
+**Post-remediation totals (session 8):** 210/210 unit tests, 48/48 e2e tests, lint/typecheck/typecheck:tests/build clean.

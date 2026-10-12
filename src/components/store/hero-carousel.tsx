@@ -54,7 +54,15 @@ export function HeroCarousel({ slides, autoRotateMs = 6000 }: { slides: Slide[];
   }, [next, autoRotateMs, count, paused, reducedMotion]);
 
   if (count === 0) return null;
-  const activeSlide = slides[active];
+  // Session-8 S8-5: `active` is state and can exceed the array bounds when
+  // the slides prop SHRINKS under a live client (admin deletes the last
+  // slide while the home page is open → router.refresh delivers a smaller
+  // array). Storing the index unclamped used to blank the whole hero (the
+  // `!activeSlide` guard returned null and nothing recovered it). Derive the
+  // rendered index instead — the same pattern ProductGallery uses — so the
+  // carousel always lands on a valid slide and the next wrap corrects state.
+  const activeIndex = Math.min(active, count - 1);
+  const activeSlide = slides[activeIndex];
   if (!activeSlide) return null;
 
   return (
@@ -71,10 +79,10 @@ export function HeroCarousel({ slides, autoRotateMs = 6000 }: { slides: Slide[];
         {slides.map((slide, i) => (
           <div
             key={slide.id}
-            aria-hidden={i !== active}
+            aria-hidden={i !== activeIndex}
             className={cn(
               "absolute inset-0 transition-opacity duration-700 ease-out",
-              i === active ? "opacity-100" : "pointer-events-none opacity-0",
+              i === activeIndex ? "opacity-100" : "pointer-events-none opacity-0",
             )}
           >
             <Image
@@ -112,12 +120,12 @@ export function HeroCarousel({ slides, autoRotateMs = 6000 }: { slides: Slide[];
             <button
               key={slide.id}
               type="button"
-              aria-current={i === active}
+              aria-current={i === activeIndex}
               aria-label={`Slide ${i + 1}: ${slide.title}`}
               onClick={() => setActive(i)}
               className={cn(
                 "h-2 rounded-full transition-all",
-                i === active ? "w-8 bg-white" : "w-2 bg-white/50 hover:bg-white/80",
+                i === activeIndex ? "w-8 bg-white" : "w-2 bg-white/50 hover:bg-white/80",
               )}
             />
           ))}

@@ -4,7 +4,7 @@ import { Heart } from "lucide-react";
 
 import { db } from "@/lib/db";
 import { toCardData } from "@/lib/products";
-import { getWishlistIds } from "@/lib/wishlist";
+import { getWishlistIds, MAX_WISHLIST_ITEMS } from "@/lib/wishlist";
 import { ProductCard } from "@/components/store/product-card";
 
 import { AddAllToCartButton } from "./add-all-button";
@@ -26,6 +26,9 @@ export default async function WishlistPage() {
           where: { id: { in: Array.from(ids) }, isActive: true },
           include: { category: { select: { name: true, slug: true } } },
           orderBy: { createdAt: "desc" },
+          // The write path caps the wishlist at MAX_WISHLIST_ITEMS (S8-6);
+          // the read mirrors that bound instead of loading unbounded rows.
+          take: MAX_WISHLIST_ITEMS,
         })
       : [];
 

@@ -11,6 +11,44 @@ import { cookieOptions } from "./cart";
 export const WISHLIST_COOKIE = "homenest_wishlist";
 const TTL_S = 60 * 60 * 24 * 120; // 120 days
 
+/**
+ * Session-8 S8-6: the wishlist is a bounded surface like the address book
+ * (session-7 S7-8). A scripted client could otherwise grow WishlistItem rows
+ * at the limiter's pace forever. The cap is enforced on the only write path
+ * that creates items (POST /api/wishlist) with a friendly 409; the wishlist
+ * page reads at most this many rows (`take`).
+ */
+export const MAX_WISHLIST_ITEMS = 100;
+
+/** Minimal shape shared by `db` and transaction clients — just what we touch. */
+export interface WishlistCountingClient {
+  wishlistItem: {
+    count: (args: { where: { wishlistId: string } }) => Promise<number>;
+  };
+}
+
+/** Thrown by `assertWishlistCap` when the wishlist is full. */
+export class WishlistCapError extends Error {
+  readonly cap: number;
+
+  constructor(cap: number) {
+    super(`Your wishlist is full (${cap} items maximum). Please remove one before adding another.`);
+    this.name = "WishlistCapError";
+    this.cap = cap;
+  }
+}
+
+/** Throws WishlistCapError when the wishlist already has MAX_WISHLIST_ITEMS rows. */
+export async function assertWishlistCap(
+  client: WishlistCountingClient,
+  wishlistId: string,
+): Promise<void> {
+  const count = await client.wishlistItem.count({ where: { wishlistId } });
+  if (count >= MAX_WISHLIST_ITEMS) {
+    throw new WishlistCapError(MAX_WISHLIST_ITEMS);
+  }
+}
+
 export async function getOrCreateWishlist(userId: string | null): Promise<string> {
   const store = await cookies();
   const token = store.get(WISHLIST_COOKIE)?.value;

@@ -133,6 +133,15 @@ test.describe("seo + platform", () => {
     expect(icon.status()).toBe(200);
   });
 
+  test("private surfaces ship noindex (session-8 S8-9)", async ({ request }) => {
+    for (const path of ["/cart", "/login", "/track-order", "/account", "/checkout"]) {
+      const res = await request.get(path);
+      expect(res.status(), `${path} should render`).toBeLessThan(500);
+      const html = await res.text();
+      expect(html, `${path} should carry noindex`).toMatch(/name="robots"\s+content="[^"]*noindex[^"]*"/);
+    }
+  });
+
   test("security headers ship and the framework fingerprint does not", async ({ request }) => {
     const res = await request.get("/");
     expect(res.status()).toBe(200);

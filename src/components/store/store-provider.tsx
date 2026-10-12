@@ -8,8 +8,6 @@ import * as React from "react";
 type StoreState = {
   mobileNavOpen: boolean;
   setMobileNavOpen: (open: boolean) => void;
-  searchOpen: boolean;
-  setSearchSearchOpen: (open: boolean) => void;
   cartDrawerOpen: boolean;
   setCartDrawerOpen: (open: boolean) => void;
   cartCount: number;
@@ -20,7 +18,6 @@ const StoreContext = React.createContext<StoreState | null>(null);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
-  const [searchOpen, setSearchSearchOpen] = React.useState(false);
   const [cartDrawerOpen, setCartDrawerOpen] = React.useState(false);
   const [cartCount, setCartCount] = React.useState(0);
 
@@ -43,14 +40,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     () => ({
       mobileNavOpen,
       setMobileNavOpen,
-      searchOpen,
-      setSearchSearchOpen,
       cartDrawerOpen,
       setCartDrawerOpen,
       cartCount,
       setCartCount,
     }),
-    [mobileNavOpen, searchOpen, cartDrawerOpen, cartCount],
+    [mobileNavOpen, cartDrawerOpen, cartCount],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

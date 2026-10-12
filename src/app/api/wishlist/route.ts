@@ -5,7 +5,7 @@ import { Prisma } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
-import { getOrCreateWishlist } from "@/lib/wishlist";
+import { assertWishlistCap, WishlistCapError, getOrCreateWishlist } from "@/lib/wishlist";
 
 const wishlistToggleSchema = z.object({
   productId: z.string().min(1),
@@ -45,8 +45,23 @@ export async function POST(request: NextRequest) {
     });
 
     if (existing) {
-      await db.wishlistItem.delete({ where: { id: existing.id } });
+      // Session-8 S8-4: a genuine double-click interleaves two toggles — the
+      // concurrent request may have already deleted the row between our read
+      // and our write. `delete` would throw P2025 into the generic catch and
+      // surface a 500 for a click that conceptually succeeded; `deleteMany`
+      // never throws on zero rows, and the end state is the same.
+      await db.wishlistItem.deleteMany({ where: { id: existing.id, wishlistId } });
       return NextResponse.json({ inWishlist: false });
+    }
+    // Session-8 S8-6: the wishlist is a bounded surface (mirrors the address
+    // book cap) — the cap is checked on the creating path with a friendly 409.
+    try {
+      await assertWishlistCap(db, wishlistId);
+    } catch (error) {
+      if (error instanceof WishlistCapError) {
+        return NextResponse.json({ error: error.message }, { status: 409 });
+      }
+      throw error;
     }
     try {
       await db.wishlistItem.create({ data: { wishlistId, productId } });

@@ -203,3 +203,32 @@ Work Log:
 Stage Summary:
 - Codebase closes the two MEDIUM data-integrity gaps (unclaimed guest carts; live-data-resetting reseeds), binds the last unguarded idempotency path, single-sources the base URL, aligns image validation with the CSP, bounds the address book and prices, escapes JSON-LD, and survives non-secure-origin checkouts — with the test suite now pinning every one of those contracts.
 - 197 unit + 41 e2e green; all docs aligned; deferred items re-documented with justification (404 nonce, __Host- prefix, shared-store limiter, admin coupon UI, radiogroup roving focus, real mailer, wishlist filled-state, saveAddress dedup).
+
+---
+
+Task ID: 9 (session 9)
+Agent: audit + remediation agent (Super Z)
+Task: Re-validate session-7 deliverables, run a fresh deep audit (address-book integrity, transactional aggregates, unbounded surfaces, noindex coverage, docs alignment), remediate the new findings TDD-first, refresh screenshots/docs/worklog, commit and push.
+
+Work Log:
+- Pulled 636faa5 (= 131220a + docs/session_8.md, the session-7 execution narrative); re-ran every session-7 gate on the pulled tree: lint ✓, typecheck ✓, typecheck:tests ✓, 197/197 unit ✓, build ✓, 41/41 e2e ✓; DATABASE_URL="file:../db/custom.db" contract intact (sandbox shadow converged via symlink this run); .env preserved.
+- Re-verified visual parity against the LIVE reference (agent-browser): hero carousel, trust badges, 8 categories, featured products (identical names/prices/review counts) — reference unchanged, clone remains the superset; mobile menu re-verified on the production build (open → expanded=true push-down panel with all 7 links; navigate → closes on /products) — Tailwind v4 conditional-mount intact.
+- Fresh deep audit (read-only subagent on the repo code-review-checklist + own evidence verification): session-7 fixes 12 WIRED / 1 PARTIAL (S7-8 single-default only on the checkout save path) / 0 MISSING; new findings 2 MEDIUM / 7 LOW / 4 NIT; verified clean again: money math, atomic stock/coupon, anti-enumeration shells, admin gates, CSP, cookies, no committed secrets.
+- Wrote the session-8 remediation plan (docs/REMEDIATION_PLAN.md) and executed it TDD-first (red → green for every fix):
+  - S8-1 (MED): /api/addresses POST runs count+create in ONE $transaction with the FIRST address auto-defaulted (converging unset pass); new PATCH /api/addresses (addressDefaultSchema) promotes a default in-tx; per-card "Set as default" control on the account page; new addresses-default e2e (first address prefills checkout; badge moves on promote).
+  - S8-2 (MED): growReviewAggregate(client, productId, rating) in review-aggregate.ts; submitReviewAction runs the aggregate read→merge→write inside ONE db.$transaction (lost-increment race closed); unit-pinned with a fake client.
+  - S8-3: src/lib/prisma-errors.ts — tolerant uniqueTargetField (field arrays, bare strings, constraint-NAME strings like "Order_idempotencyKey_key"); the checkout retry loop routes through it (the S7-2 recovery branch can no longer silently disable); 6 fixture unit cases.
+  - S8-4: wishlist toggle delete → deleteMany (concurrent-toggle P2025 can no longer surface a 500).
+  - S8-5: hero carousel derives activeIndex = min(active, count-1) — a shrinking slides list can no longer blank the hero.
+  - S8-6: MAX_WISHLIST_ITEMS=100 + assertWishlistCap (friendly 409 on POST); wishlist page take; NEW POST /api/cart/bulk — one request, one transaction, shared clamp/upsert, product dedupe, 10/min limiter — replacing the sequential add-all loop that fought the 60/min cart limiter; wishlist e2e (toggle → list → bulk add-all → cart).
+  - S8-9: noindex on cart/track-order/account/checkout/login/register; seo-platform e2e pins the meta on 5 surfaces.
+  - S8-13: upsertCategoryAction distinguishes P2002 (slug duplicate) / P2025 (gone) / unexpected.
+  - S8-11: dead code removed — ui/sheet.tsx (git rm), searchOpen/setSearchSearchOpen context fields, @radix-ui/react-tabs + @radix-ui/react-radio-group deps (lockfile updated).
+  - S8-10: docs model count 17 → 18 (README ×2, PAD ×3); session_8.md gains an editor's note (it narrates the session-7 execution; filenames run one ahead of plan-section numbers by design).
+- Gates after: lint ✓, typecheck ✓, typecheck:tests ✓, 212/212 unit ✓, build ✓, 48/48 e2e ✓ (new: 2 addresses-default + 2 reviews + 2 wishlist + 1 noindex assertion).
+- Manual verification via agent-browser + curl on the fresh standalone build: mobile menu open→navigate→close; noindex live on all 5 checked surfaces (after pkill'ing the stale pre-fix next-server — the documented stale-process trap); bulk endpoint dedupes 2+1 into one line of qty 3; single-default invariant verified at the DB level (exactly 1 default per e2e-created user).
+- Refreshed docs/screenshots/ (23 shots); updated AGENTS.md (5 invariants), CLAUDE.md, README.md (212/48 counts, features), PAD (18 models, test tables, known issues #27–32), DEPLOYMENT.md (bulk 429 + noindex rows), homenest-store-s_SKILL.md v1.5.0, docs/session_9.md, worklog.md.
+
+Stage Summary:
+- Codebase closes the two MEDIUM integrity gaps (account addresses participate in the single-default invariant end-to-end with checkout prefill; review aggregates grow transactionally), hardens the P2002 recovery against engine-shape drift, bounds the wishlist with a one-request bulk add, and extends noindex to every private surface — with the suite now pinning all of those contracts (212 unit / 48 e2e).
+- Deferred items re-documented with justification (drawer focus trap, login-limiter lockout tradeoff, address dedup, 404 nonce, __Host- prefix, shared-store limiter, admin coupon UI, real mailer, wishlist filled-state, radiogroup roving focus).

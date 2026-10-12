@@ -8,6 +8,7 @@ import { applyCouponCode, couponDiscount, couponRedemptionWhere, isCouponRedeema
 import { db } from "@/lib/db";
 import { computeOrderMoney } from "@/lib/order-money";
 import { orderAccessToken, replayAuthorized, resolveReplay, ReplayDeniedError } from "@/lib/order-access";
+import { isUniqueViolation, uniqueTargetField } from "@/lib/prisma-errors";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import { checkoutSchema, firstError } from "@/lib/validation";
@@ -215,7 +216,11 @@ async function placeOrderWithRetry(args: PlaceOrderArgs): Promise<string> {
     try {
       return await placeOrderTx(candidate, args);
     } catch (error) {
-      if (uniqueTarget(error) === "idempotencyKey") {
+      // Session-8 S8-3: tolerant matching — the engine may report the P2002
+      // target as a field array (today's SQLite shape) or as the constraint
+      // NAME string ("Order_idempotencyKey_key"); matching only the field
+      // shape would silently disable this recovery branch.
+      if (uniqueTargetField(error, "idempotencyKey")) {
         const winner = args.idempotencyKey
           ? await db.order.findUnique({ where: { idempotencyKey: args.idempotencyKey } })
           : null;
@@ -241,6 +246,7 @@ async function placeOrderWithRetry(args: PlaceOrderArgs): Promise<string> {
   }
   throw lastError ?? new CheckoutError(500, "Could not allocate an order number.");
 }
+
 
 async function placeOrderTx(orderNumber: string, args: PlaceOrderArgs): Promise<string> {
   // NOTE: cookies() can never be touched inside this transaction — the cart
@@ -396,24 +402,4 @@ async function placeOrderTx(orderNumber: string, args: PlaceOrderArgs): Promise<
   });
 }
 
-/** Prisma P2002 meta target — which unique constraint fired ("number" | "idempotencyKey"). */
-function uniqueTarget(error: unknown): string | null {
-  if (!isUniqueViolation(error)) return null;
-  const meta = (error as { meta?: { target?: unknown } }).meta;
-  const target = meta?.target;
-  if (typeof target === "string") return target;
-  if (Array.isArray(target)) {
-    const first = target.find((t): t is string => typeof t === "string");
-    return first?.split(".").pop() ?? null;
-  }
-  return null;
-}
 
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "P2002"
-  );
-}

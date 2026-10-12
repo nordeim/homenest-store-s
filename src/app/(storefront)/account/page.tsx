@@ -10,7 +10,7 @@ import { db } from "@/lib/db";
 import { formatDate, orderStatusBadgeClass } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 
-import { AddressDialog, DeleteAddressButton } from "./address-dialog";
+import { AddressDialog, DeleteAddressButton, SetDefaultAddressButton } from "./address-dialog";
 import { ProfileForm } from "./profile-form";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +18,8 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "My Account",
   description: "Manage your HomeNest Kitchen profile, orders, and saved addresses.",
+  // Session-8 S8-9: per-visitor private content — noindex like the wishlist.
+  robots: { index: false, follow: false },
 };
 
 // ---------------------------------------------------------------------------
@@ -231,7 +233,10 @@ export default async function AccountPage({
                         </p>
                         <p className="mt-1 text-sm text-muted-foreground">{addr.phone}</p>
                       </div>
-                      <div className="flex justify-end border-t border-border pt-3">
+                      <div className="flex justify-end gap-1 border-t border-border pt-3">
+                        {!addr.isDefault ? (
+                          <SetDefaultAddressButton addressId={addr.id} label={addr.label} />
+                        ) : null}
                         <DeleteAddressButton addressId={addr.id} label={addr.label} />
                       </div>
                     </li>

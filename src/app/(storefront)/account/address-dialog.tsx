@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Star, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,9 +19,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toaster";
 
 /**
- * Account address islands: the "Add Address" dialog (POST /api/addresses)
- * and the per-card delete control (DELETE /api/addresses?id=...). Both
- * refresh the server-rendered list via router.refresh().
+ * Account address islands: the "Add Address" dialog (POST /api/addresses),
+ * the per-card "set default" control (PATCH /api/addresses — session-8
+ * S8-1) and the per-card delete control (DELETE /api/addresses?id=...).
+ * All refresh the server-rendered list via router.refresh().
  */
 
 type AddressFormValues = {
@@ -244,6 +245,61 @@ export function AddressDialog() {
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function SetDefaultAddressButton({ addressId, label }: { addressId: string; label: string }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [pending, setPending] = React.useState(false);
+
+  async function handleSetDefault() {
+    setPending(true);
+    try {
+      const res = await fetch("/api/addresses", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: addressId, isDefault: true }),
+      });
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        toast({
+          title: "Could not set the default address",
+          description: data.error ?? "Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: "Default address updated",
+        description: `“${label}” will prefill checkout.`,
+        variant: "success",
+      });
+      router.refresh();
+    } catch {
+      toast({
+        title: "Network error",
+        description: "Please check your connection and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      onClick={handleSetDefault}
+      disabled={pending}
+      aria-label={`Set ${label} as the default address`}
+      className="h-8 px-2.5"
+    >
+      {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Star aria-hidden />}
+      Set as default
+    </Button>
   );
 }
 

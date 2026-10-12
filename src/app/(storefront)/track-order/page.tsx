@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   title: "Track Your Order",
   description:
     "Enter your HomeNest order number and the email you used at checkout to see live status and shipment history.",
+  // Session-8 S8-9: the deep link carries ?number=…&email=… permutations —
+  // keep them out of the index (the sitemap already excludes this route).
+  robots: { index: false, follow: true },
 };
 
 type OrderWithDetails = Prisma.OrderGetPayload<{

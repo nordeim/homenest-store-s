@@ -16,6 +16,9 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Shopping Cart",
   description: "Review the items in your HomeNest cart before checkout.",
+  // Per-visitor private content — nothing here for a search engine
+  // (session-8 S8-9: matches the wishlist/checkout-success/admin noindex set).
+  robots: { index: false, follow: true },
 };
 
 export default async function CartPage() {

@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
-import { mergeReviewAggregate } from "@/lib/review-aggregate";
+import { growReviewAggregate } from "@/lib/review-aggregate";
 import { firstError, reviewSchema } from "@/lib/validation";
 
 export type ReviewActionResult = { ok: true } | { ok: false; error: string };
@@ -66,20 +66,10 @@ export async function submitReviewAction(
 
     // Grow the denormalized rating fields from their current baseline (see
     // review-aggregate.ts for why a from-scratch recompute is wrong here).
-    const liveProduct = await db.product.findUnique({
-      where: { id: pid },
-      select: { rating: true, reviewCount: true },
-    });
-    if (liveProduct) {
-      const next = mergeReviewAggregate(
-        { rating: liveProduct.rating, reviewCount: liveProduct.reviewCount },
-        safeRating,
-      );
-      await db.product.update({
-        where: { id: pid },
-        data: { rating: next.rating, reviewCount: next.reviewCount },
-      });
-    }
+    // Session-8 S8-2: the read-merge-write runs inside ONE transaction — two
+    // concurrent submissions outside one would both read reviewCount = N and
+    // one increment would be lost.
+    await db.$transaction(async (tx) => growReviewAggregate(tx, pid, safeRating));
 
     revalidatePath(`/product/${pid}`);
     return { ok: true };

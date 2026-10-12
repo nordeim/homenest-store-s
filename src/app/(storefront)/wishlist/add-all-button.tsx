@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
 
 /**
- * AddAllToCartButton — adds every wishlist product to the cart with
- * sequential POSTs to /api/cart, then routes to /cart. Items that fail
- * (e.g. out of stock) are reported in a summary toast instead of blocking.
+ * AddAllToCartButton — adds every wishlist product to the cart with ONE
+ * request to /api/cart/bulk (session-8 S8-6), then routes to /cart. Skipped
+ * lines (gone/inactive products) are reported in a summary toast instead of
+ * blocking.
  */
 export function AddAllToCartButton({ productIds }: { productIds: string[] }) {
   const [pending, setPending] = React.useState(false);
@@ -22,49 +23,48 @@ export function AddAllToCartButton({ productIds }: { productIds: string[] }) {
   async function addAll() {
     if (pending || productIds.length === 0) return;
     setPending(true);
-    let added = 0;
-    let failed = 0;
-    let itemCount: number | null = null;
-
-    for (const productId of productIds) {
-      try {
-        const res = await fetch("/api/cart", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ productId, quantity: 1 }),
-        });
-        if (res.ok) {
-          added += 1;
-          const data = (await res.json()) as { itemCount?: number };
-          if (typeof data.itemCount === "number") itemCount = data.itemCount;
-        } else {
-          failed += 1;
-        }
-      } catch {
-        failed += 1;
-      }
-    }
-
-    if (itemCount !== null) setCartCount(itemCount);
-    setPending(false);
-
-    if (added > 0) {
-      toast({
-        title:
-          added === productIds.length
-            ? "All items added to cart"
-            : `Added ${added} of ${productIds.length} items`,
-        description:
-          failed > 0
-            ? `${failed} item${failed === 1 ? "" : "s"} could not be added — they may be out of stock.`
-            : undefined,
-        variant: "success",
+    try {
+      const res = await fetch("/api/cart/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: productIds.map((productId) => ({ productId, quantity: 1 })) }),
       });
-      router.push("/cart");
-    } else {
+      const data = (await res.json()) as { error?: string; itemCount?: number; added?: number; skipped?: number };
+      if (!res.ok) {
+        setPending(false);
+        toast({
+          title: "Could not add items",
+          description: data.error ?? "Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (typeof data.itemCount === "number") setCartCount(data.itemCount);
+      setPending(false);
+      const added = data.added ?? 0;
+      const skipped = data.skipped ?? 0;
+      if (added > 0) {
+        toast({
+          title: added === productIds.length ? "All items added to cart" : `Added ${added} of ${productIds.length} items`,
+          description:
+            skipped > 0
+              ? `${skipped} item${skipped === 1 ? "" : "s"} could not be added — they may be out of stock.`
+              : undefined,
+          variant: "success",
+        });
+        router.push("/cart");
+      } else {
+        toast({
+          title: "Could not add items",
+          description: "They may be out of stock. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      setPending(false);
       toast({
-        title: "Could not add items",
-        description: "They may be out of stock. Please try again.",
+        title: "Network error",
+        description: "Please check your connection and try again.",
         variant: "destructive",
       });
     }

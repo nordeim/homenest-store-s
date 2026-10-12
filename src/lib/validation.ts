@@ -51,9 +51,37 @@ export const addressSchema = z.object({
   country: z.string().trim().min(2).max(60).default("United States"),
 });
 
+/**
+ * Session-8 S8-1: PATCH /api/addresses only SETS a default (unsetting
+ * happens implicitly by defaulting another address, mirroring the checkout
+ * saveAddress invariant) — so `isDefault` is a literal true.
+ */
+export const addressDefaultSchema = z.object({
+  id: z.string().min(1),
+  isDefault: z.literal(true),
+});
+
 export const cartMutateSchema = z.object({
   productId: z.string().min(1),
   quantity: z.number().int().min(1).max(99),
+});
+
+/**
+ * Session-8 S8-6: one request for "Add All to Cart" — the sequential
+ * per-item POST loop fought the shared 60/min cart limiter on large
+ * wishlists. Bounded at 100 lines (the wishlist cap); per-line quantities
+ * obey the same 1..99 ceiling the single-add path enforces.
+ */
+export const cartBulkSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        productId: z.string().min(1),
+        quantity: z.number().int().min(1).max(99),
+      }),
+    )
+    .min(1, "No items to add.")
+    .max(100),
 });
 
 export const checkoutSchema = z.object({

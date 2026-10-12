@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.4.0
+version: 1.5.0
 last_updated: 2026-10-14
-project_state: "197 unit tests · 41 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-7)"
+project_state: "212 unit tests · 48 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-8)"
 tags:
   - nextjs16
   - react19
@@ -816,6 +816,34 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   wishlist hearts label the product name.
 - 197 unit + 41 e2e green; 23 screenshots refreshed; DEPLOYMENT seed
   paragraph amended; AGENTS/CLAUDE/README/PAD aligned.
+
+### Session 8 — address-book/review-integrity completion (2026-10-13, v1.5.0)
+
+- Re-validated session-7 on the pulled tree (`636faa5`): all gates green
+  (197 unit / 41 e2e), visual parity + mobile menu re-verified against the
+  LIVE reference — reference unchanged, clone remains the superset.
+- Fresh deep audit (read-only subagent + own verification): session-7
+  fixes 12 WIRED / 1 PARTIAL (S7-8 default invariant only on the checkout
+  path) / 0 MISSING; new findings 2 MEDIUM / 7 LOW / 4 NIT.
+- TDD fixes (S8-1..S8-13): the account address POST runs count+create in
+  ONE tx and the FIRST address auto-defaults; new `PATCH /api/addresses`
+  promotes a default in-tx + per-card "Set as default" control (S8-1,
+  e2e: first address prefills checkout; badge moves); transactional review
+  aggregate via `growReviewAggregate` inside `db.$transaction` (S8-2);
+  `src/lib/prisma-errors.ts` — `uniqueTargetField` matches field arrays,
+  bare strings AND constraint-name strings so the S7-2 recovery branch can
+  never silently disable (S8-3, fixture unit tests); wishlist toggle
+  delete via `deleteMany` (S8-4); hero carousel derived index clamp when
+  slides shrink (S8-5); wishlist bounded at 100 (`assertWishlistCap`),
+  page `take`, and `POST /api/cart/bulk` — one request, one tx, shared
+  clamp, 10/min limiter — replacing the limiter-fighting add-all loop
+  (S8-6, e2e); noindex on cart/track-order/account/checkout/login/register
+  (S8-9, e2e-pinned); category P2002 duplicate message (S8-13); dead code
+  removed (`ui/sheet.tsx`, `searchOpen` context, 2 unused Radix deps)
+  (S8-11); docs model count 17→18 (S8-10). Deferred: drawer focus trap
+  (S8-7), login-limiter lockout tradeoff (S8-8), address dedup.
+- 212 unit + 48 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/
+  README/PAD/DEPLOYMENT aligned.
 
 ## Appendix C — Quick Reference Card
 

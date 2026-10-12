@@ -187,8 +187,18 @@ export async function upsertCategoryAction(data: CategoryUpsertInput): Promise<A
     } else {
       await db.category.create({ data: dbData });
     }
-  } catch {
-    return { ok: false, error: "Category not found. Refresh and try again." };
+  } catch (error) {
+    // Session-8 S8-13: distinguish the races the pre-check can't close — two
+    // admins creating the same slug concurrently hit P2002, a concurrent
+    // delete of an edited row hits P2025 — instead of mapping every failure
+    // to the misleading "not found".
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { ok: false, error: "A category with this slug already exists." };
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return { ok: false, error: "Category not found. Refresh and try again." };
+    }
+    throw error;
   }
 
   revalidatePath("/admin/categories");
