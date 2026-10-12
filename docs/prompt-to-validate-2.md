@@ -30,13 +30,7 @@ Do not create any new git branch. All git commits must be to the main branch.
 
 SSH key for `git push`:
 ```
------BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-QyNTUxOQAAACBe4KRXJmhdS23DsJWKdg6wFDHq/FfxI53YmMMzUvm4hAAAAJA5F9UoORfV
-KAAAAAtzc2gtZWQyNTUxOQAAACBe4KRXJmhdS23DsJWKdg6wFDHq/FfxI53YmMMzUvm4hA
-AAAEBYv03k66B06T8j0aZ0yivkoET7OJLVxewlaRHpUm9fnV7gpFcmaF1LbcOwlYp2DrAU
-Mer8V/EjndiYwzNS+biEAAAAC3BldGVAcG9wLW9zAQI=
------END OPENSSH PRIVATE KEY-----
+
 ```
 
 
