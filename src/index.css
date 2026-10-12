@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Fraunces", "Georgia", serif;
+  --font-sans: "Inter", "Helvetica Neue", Arial, sans-serif;
+
+  --color-forest-50: #f2f7f4;
+  --color-forest-100: #e1ede6;
+  --color-forest-200: #c3dbcd;
+  --color-forest-300: #9cc2ad;
+  --color-forest-400: #6fa287;
+  --color-forest-500: #4d8169;
+  --color-forest-600: #396653;
+  --color-forest-700: #2d5243;
+  --color-forest-800: #254236;
+  --color-forest-900: #1f372d;
+  --color-forest-950: #10211a;
+
+  --color-ember-50: #fdf4ef;
+  --color-ember-100: #fbe5d8;
+  --color-ember-200: #f6c7ab;
+  --color-ember-300: #efa074;
+  --color-ember-400: #e67a46;
+  --color-ember-500: #d85f2b;
+  --color-ember-600: #c1481f;
+  --color-ember-700: #a0391b;
+  --color-ember-800: #80301b;
+  --color-ember-900: #682a19;
+
+  --color-cream-50: #fffdfb;
+  --color-cream-100: #faf6ef;
+  --color-cream-200: #f2ead9;
+
+  --color-ink-50: #f7f6f4;
+  --color-ink-100: #ece8e2;
+  --color-ink-200: #d6d0c6;
+  --color-ink-400: #8b8276;
+  --color-ink-600: #564f45;
+  --color-ink-700: #423c34;
+  --color-ink-800: #302b25;
+  --color-ink-900: #231f1b;
+  --color-ink-950: #16130f;
+
+  --shadow-soft: 0 2px 10px -2px rgb(35 31 27 / 0.08), 0 8px 24px -8px rgb(35 31 27 / 0.1);
+  --shadow-lifted: 0 12px 32px -8px rgb(35 31 27 / 0.22);
+
+  --animate-fade-in: fade-in 0.35s ease-out both;
+  --animate-slide-up: slide-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-cream-100 text-ink-900 font-sans antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-forest-600;
+  }
+  ::selection {
+    @apply bg-ember-200 text-ink-900;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-ink-200 rounded-full;
+  }
+}

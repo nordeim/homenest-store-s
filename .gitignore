@@ -1,0 +1,57 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# testing
+coverage/
+backup/
+
+# next.js
+.next/
+out/
+build/
+
+# misc
+.DS_Store
+*.pem
+*.key
+ssh-key.txt
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dev.log
+server.log
+
+# local env files — never commit secrets
+.env
+.env*.local
+
+# database binaries — recreate with db:push + db:seed
+db/*.db
+db/*.db-journal
+
+# prisma generated client
+node_modules/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# editor
+.idea/
+.vscode/
+tests/e2e/.auth/
+
+# playwright
+test-results/
+playwright-report/
+
+# survey scratch (probe screenshots/json — session artifacts, not docs)
+research/
+
+# vitest cache
+.vitest/
