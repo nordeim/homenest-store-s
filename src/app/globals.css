@@ -1,0 +1,101 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Tailwind v4 trap (ecommerce-store trap-log #11): v4's default `hover`
+ * variant wraps every hover-family utility in `@media (hover: hover)`;
+ * the reference applies :hover rules unconditionally (v3 semantics).
+ * Restoring a bare `&:hover` keeps touch/hybrid contexts identical. */
+@custom-variant hover (&:hover);
+
+/* ---------------------------------------------------------------------------
+ * HomeNest Kitchen — Tailwind v4 CSS-first theme, pinned to the reference
+ * app's computed values (recon: nest-culinary-hub.base44.app, sampled from
+ * live screenshots on 2026-10-12).
+ *
+ * Tailwind v4 trap-log pins applied here:
+ *  1. Theme colors are FULL hsl() values — never bare `H S% L%` triplets,
+ *     which silently resolve to transparent under `@theme inline`.
+ *  2. `--shadow-sm` is pinned to the v3 geometry: v4 moved v3's `shadow-sm`
+ *     up to `shadow` and inserted a heavier `shadow-sm`.
+ *  3. Radius scale pinned to the reference's rounded-xl=12px / 2xl=16px /
+ *     3xl=24px geometry (v4 shifted the named scale up one notch).
+ *  4. Display utilities are NEVER JS-toggled at runtime (the v4
+ *     display-utility cascade-order bug, tailwindlabs/tailwindcss#15884):
+ *     the mobile menu mounts/unmounts via React state instead.
+ * ------------------------------------------------------------------------- */
+
+@theme inline {
+  --color-background: hsl(30 20% 98%);
+  --color-foreground: hsl(20 14% 12%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(20 14% 12%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(20 14% 12%);
+  --color-primary: hsl(24 70% 50%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(36 16% 94%);
+  --color-secondary-foreground: hsl(20 14% 20%);
+  --color-muted: hsl(36 16% 94%);
+  --color-muted-foreground: hsl(25 9% 45%);
+  --color-accent: hsl(24 70% 96%);
+  --color-accent-foreground: hsl(24 70% 35%);
+  --color-destructive: hsl(0 72% 51%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-border: hsl(33 15% 90%);
+  --color-input: hsl(33 15% 88%);
+  --color-ring: hsl(24 70% 50%);
+  --color-badge-sale: hsl(0 72% 61%);
+  --color-badge-featured: hsl(24 70% 60%);
+
+  /* Radius scale pinned to the reference's measured geometry. */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+
+  /* v3 shadow-scale pin. */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  ::selection {
+    @apply bg-primary/20;
+  }
+}
+
+@layer utilities {
+  .container-page {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+  /* Serif display headings — the reference's signature typographic voice. */
+  .font-display {
+    font-family: var(--font-playfair), ui-serif, Georgia, serif;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Motion hygiene: honor prefers-reduced-motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

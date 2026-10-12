@@ -1,0 +1,248 @@
+// HomeNest Kitchen — Prisma schema (SQLite)
+// Money is stored as INTEGER CENTS everywhere (see src/lib/money.ts).
+// SQLite has no native enums — status/role fields are Strings validated by
+// Zod schemas at the application boundary (src/lib/validation.ts).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String?
+  name         String
+  phone        String?
+  role         String    @default("customer") // "customer" | "admin" (validated in code)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+  addresses    Address[]
+  orders       Order[]
+  reviews      Review[]
+  cart         Cart?
+  wishlist     Wishlist?
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique // SHA-256 hash of the cookie token (plaintext never stored)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Category {
+  id           String    @id @default(cuid())
+  slug         String    @unique
+  name         String
+  description  String    @default("")
+  icon         String    @default("package") // lucide icon component name
+  iconGradient String    @default("from-orange-400 to-orange-600")
+  sortOrder    Int       @default(0)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  products     Product[]
+}
+
+model Product {
+  id               String         @id @default(cuid())
+  slug             String         @unique
+  name             String
+  shortDescription String         @default("")
+  description      String
+  categoryId       String
+  category         Category       @relation(fields: [categoryId], references: [id])
+  price            Int // cents
+  compareAtPrice   Int? // cents; non-null drives the "-N%" badge
+  cost             Int? // cents, admin-only margin info
+  sku              String         @unique
+  stock            Int            @default(25)
+  rating           Float          @default(0)
+  reviewCount      Int            @default(0)
+  images           String         @default("[]") // JSON-encoded string[]
+  tags             String         @default("[]") // JSON-encoded string[]
+  specs            String         @default("[]") // JSON-encoded {label,value}[]
+  badge            String? // "Featured" | "Best Seller" | ...
+  isFeatured       Boolean        @default(false)
+  isNewArrival     Boolean        @default(false)
+  isActive         Boolean        @default(true) // false = archived/draft, hidden from storefront
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  cartItems        CartItem[]
+  wishlistItems    WishlistItem[]
+  orderItems       OrderItem[]
+  reviews          Review[]
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  author    String
+  rating    Int // 1..5
+  title     String   @default("")
+  comment   String
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  token     String     @unique // guest cart token cookie; claims userId on login
+  userId    String?    @unique
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade) // opposite: User.cart
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  items     CartItem[]
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+
+  @@unique([cartId, productId])
+}
+
+model Wishlist {
+  id        String         @id @default(cuid())
+  token     String         @unique
+  userId    String?        @unique
+  user      User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+  items     WishlistItem[]
+}
+
+model WishlistItem {
+  id         String   @id @default(cuid())
+  wishlistId String
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([wishlistId, productId])
+}
+
+model Address {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label      String   @default("Home")
+  fullName   String
+  phone      String   @default("")
+  line1      String
+  line2      String?
+  city       String
+  state      String
+  postalCode String
+  country    String   @default("United States")
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Order {
+  id              String       @id @default(cuid())
+  number          String       @unique // ORD-YYYY-NNN (zero-padded 3)
+  userId          String?
+  user            User?        @relation(fields: [userId], references: [id])
+  email           String
+  customerName    String
+  status          String       @default("pending") // pending | processing | shipped | delivered | cancelled
+  subtotal        Int // cents
+  shipping        Int          @default(0)
+  tax             Int          @default(0)
+  discount        Int          @default(0)
+  total           Int // cents
+  couponCode      String?
+  shippingMethod  String       @default("standard") // standard | express
+  shippingAddress String // JSON snapshot of the checkout address
+  paymentMethod   String       @default("card") // card | paypal | cod
+  cardLast4       String?
+  carrier         String?
+  trackingNumber  String?
+  placedAt        DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  items           OrderItem[]
+  events          OrderEvent[]
+}
+
+model OrderItem {
+  id            String   @id @default(cuid())
+  orderId       String
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId     String?
+  product       Product? @relation(fields: [productId], references: [id])
+  nameSnapshot  String
+  imageSnapshot String
+  variantLabel  String?
+  unitPrice     Int // cents at purchase time
+  quantity      Int
+}
+
+model OrderEvent {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type      String // "placed" | "status_changed" | "tracking_added"
+  status    String?
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+model Coupon {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  type        String   @default("percent") // percent | fixed
+  value       Int // percent (1..100) or cents for fixed
+  description String   @default("")
+  minSubtotal Int      @default(0) // cents; 0 = no minimum
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model CarouselSlide {
+  id        String  @id @default(cuid())
+  title     String
+  subtitle  String  @default("")
+  image     String
+  ctaText   String  @default("Shop Now")
+  ctaLink   String  @default("/products")
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+}
+
+model StoreSetting {
+  key   String @id
+  value String
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String   @default("")
+  message   String
+  handled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

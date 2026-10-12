@@ -1,0 +1,225 @@
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
+import { ShoppingBag, X } from "lucide-react";
+import Image from "next/image";
+
+import { formatMoney } from "@/lib/money";
+import { Button } from "@/components/ui/button";
+import { useStore } from "./store-provider";
+import { Header } from "./header";
+import { MobileNav } from "./mobile-nav";
+
+/**
+ * StoreChrome — the sticky header wrapper (reference DOM order): sticky
+ * header bar, then the mobile push-down nav panel. The cart drawer rides
+ * at the end so it overlays everything.
+ */
+export function StoreChrome({
+  user,
+  cartCount,
+}: {
+  user: { name: string; role: string } | null;
+  cartCount: number;
+}) {
+  // The store's cartCount starts as null on BOTH the server and the client,
+  // so the SSR markup falls back to the server-computed prop — no hydration
+  // guard (and no set-state-on-mount effect) is needed.
+  const { cartCount: liveCount } = useStore();
+  const count = liveCount ?? cartCount;
+
+  return (
+    <>
+      <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur">
+        <Header user={user} cartCount={count} />
+      </header>
+      <MobileNav
+        isAuthenticated={Boolean(user)}
+        isAdmin={user?.role === "admin"}
+      />
+      <CartDrawer />
+    </>
+  );
+}
+
+type DrawerLine = {
+  id: string;
+  productId: string;
+  name: string;
+  image: string;
+  unitPrice: number;
+  quantity: number;
+  lineTotal: number;
+};
+
+/**
+ * CartDrawer — slide-in cart sheet. Loads its lines on open (single fetch),
+ * supports quantity updates and removal, mirrors the reference's mini-cart.
+ * `lines === null` means "loading" — no sync setState in the open effect.
+ */
+function CartDrawer() {
+  const { cartDrawerOpen, setCartDrawerOpen, setCartCount } = useStore();
+  const [lines, setLines] = React.useState<DrawerLine[] | null>(null);
+  const loading = lines === null;
+
+  React.useEffect(() => {
+    if (!cartDrawerOpen) return;
+    let cancelled = false;
+    // Stale lines stay visible while the fresh summary loads — the fetch
+    // callbacks are the only setState sites (no sync setState here).
+    fetch("/api/cart-summary")
+      .then((r) => r.json())
+      .then((data: { lines?: DrawerLine[]; itemCount?: number }) => {
+        if (cancelled) return;
+        setLines(data.lines ?? []);
+        if (typeof data.itemCount === "number") setCartCount(data.itemCount);
+      })
+      .catch(() => !cancelled && setLines((prev) => prev ?? []));
+    return () => {
+      cancelled = true;
+    };
+  }, [cartDrawerOpen, setCartCount]);
+
+  const resolvedLines = lines ?? [];
+  const subtotal = resolvedLines.reduce((sum, l) => sum + l.lineTotal, 0);
+
+  async function updateQty(lineId: string, quantity: number) {
+    const res = await fetch("/api/cart", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lineId, quantity }),
+    });
+    const data = (await res.json()) as { itemCount?: number };
+    if (typeof data.itemCount === "number") setCartCount(data.itemCount);
+    setLines(
+      (prev) =>
+        (prev ?? []).map((l) =>
+          l.id === lineId
+            ? quantity === 0
+              ? null
+              : { ...l, quantity, lineTotal: l.unitPrice * quantity }
+            : l,
+        ).filter((l): l is DrawerLine => l !== null),
+    );
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className={`fixed inset-0 z-50 bg-black/40 transition-opacity duration-300 ${
+          cartDrawerOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={() => setCartDrawerOpen(false)}
+        aria-hidden
+      />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="Shopping cart"
+        data-testid="cart-drawer"
+        className={`fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-card shadow-xl transition-transform duration-300 ease-out ${
+          cartDrawerOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h2 className="font-display text-lg font-semibold">Your Cart</h2>
+          <button
+            type="button"
+            onClick={() => setCartDrawerOpen(false)}
+            aria-label="Close cart"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {loading ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Loading your cart…</p>
+          ) : resolvedLines.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-12 text-center">
+              <ShoppingBag className="h-10 w-10 text-muted-foreground/40" aria-hidden />
+              <p className="font-medium">Your cart is empty</p>
+              <p className="text-sm text-muted-foreground">Browse the collection and find something you love.</p>
+              <Button onClick={() => setCartDrawerOpen(false)} asChild>
+                <Link href="/products">Continue Shopping</Link>
+              </Button>
+            </div>
+          ) : (
+            <ul className="flex flex-col gap-4">
+              {resolvedLines.map((line) => (
+                <li key={line.id} className="flex gap-3">
+                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-secondary">
+                    <Image src={line.image} alt={line.name} fill sizes="80px" className="object-cover" />
+                  </div>
+                  <div className="flex flex-1 flex-col">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium leading-snug">{line.name}</p>
+                      <button
+                        type="button"
+                        onClick={() => updateQty(line.id, 0)}
+                        aria-label={`Remove ${line.name}`}
+                        className="text-muted-foreground transition-colors hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{formatMoney(line.unitPrice)}</p>
+                    <div className="mt-auto flex items-center justify-between">
+                      <div className="inline-flex items-center rounded-lg border border-input">
+                        <button
+                          type="button"
+                          onClick={() => updateQty(line.id, Math.max(0, line.quantity - 1))}
+                          aria-label="Decrease quantity"
+                          className="h-8 w-8 text-sm"
+                        >
+                          −
+                        </button>
+                        <span className="w-8 text-center text-sm font-semibold tabular-nums">{line.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateQty(line.id, line.quantity + 1)}
+                          aria-label="Increase quantity"
+                          className="h-8 w-8 text-sm"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <p className="text-sm font-bold">{formatMoney(line.lineTotal)}</p>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {resolvedLines.length > 0 && (
+          <div className="border-t border-border px-5 py-4">
+            <div className="mb-3 flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="text-base font-bold">{formatMoney(subtotal)}</span>
+            </div>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Shipping, taxes and discount codes are calculated at checkout.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button asChild className="w-full">
+                <Link href="/checkout" onClick={() => setCartDrawerOpen(false)}>
+                  Checkout
+                </Link>
+              </Button>
+              <Button variant="outline" asChild className="w-full">
+                <Link href="/cart" onClick={() => setCartDrawerOpen(false)}>
+                  View Cart
+                </Link>
+              </Button>
+            </div>
+          </div>
+        )}
+      </aside>
+    </>
+  );
+}

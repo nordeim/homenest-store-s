@@ -1,135 +1,161 @@
-# HomeNest Kitchen — Premium Kitchenware Storefront
+# HomeNest Kitchen
 
-A production-grade clone/superset of the Base44 reference app at
-`https://nest-culinary-hub.base44.app/` (branded on-site as **HomeNest
-Kitchen**, a premium kitchen-essentials e-commerce storefront with a
-full admin back office). Built with React 19, TypeScript, React Router,
-Zustand and Tailwind CSS v4 on Vite 7.
+![Next.js](https://img.shields.io/badge/Next.js-16-black) ![React](https://img.shields.io/badge/React-19-149ECA) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6) ![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4_CSS--first-38BDF8) ![Prisma](https://img.shields.io/badge/Prisma-6_+_SQLite-2D3748) ![Tests](https://img.shields.io/badge/tests-69_unit_·_28_e2e-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue)
 
-## Why this isn't a literal Next.js/Postgres monorepo
+A production-grade e-commerce storefront + admin back office — a visual-and-functional **superset** of the Base44 reference app at [`nest-culinary-hub.base44.app`](https://nest-culinary-hub.base44.app/). Premium kitchenware catalog, guest carts, coupons, order tracking, reviews, legal pages, and a full admin console, on Next.js 16 · React 19 · TypeScript strict · Tailwind CSS v4 · Prisma 6 + SQLite.
 
-This workspace's toolchain (the only build/runtime available here) is a
-single-page **Vite + React + Tailwind v4** app with no shell, no git-clone
-capability, no Postgres server and no Node backend runtime. The original
-task brief referenced a Next.js/Postgres monorepo template and several
-repo-specific skills (rootless-postgresql, e-commerce-nextjs16-monorepo,
-agent-browser, etc.) hosted in external GitHub repos. Those repos/tools
-could not be cloned or executed in this sandbox, and the reference site
-requires authenticated, JavaScript-rendered content that static fetching
-can't retrieve and that no browser-automation tool here can log into.
-
-Given that, this build applies the **spirit** of the requested
-architecture inside the constraints that actually exist:
-
-| Requested | Here, instead |
-|---|---|
-| Next.js + Postgres (Prisma) backend | Client-side Zustand stores (`src/store/*`) with `localStorage` persistence acting as the "database" — the same CRUD/entity-relationship model (products, categories, orders, users, reviews, settings, carousel slides), just persisted in the browser instead of a SQL server. |
-| `DATABASE_URL="file:../db/custom.db"` in `.env` | Not applicable — there is no server process or ORM in this SPA to read a `DATABASE_URL`. Creating one would be a non-functional placeholder, which we avoid. The `localStorage` keys (`hnk-catalog`, `hnk-orders`, `hnk-auth`, `hnk-cart`, `hnk-wishlist`, `hnk-reviews`) are the persistence equivalent. |
-| `agent-browser` visual diff against the live site | Not available as a tool here. Site structure/branding/page list was reverse-engineered from the crawlable sitemap (`About`, `Account`, `Cart`, `Checkout`, `Admin Dashboard/Products/Orders/Analytics/Categories/Carousel/Settings`, policy pages, etc.) returned by the live URL, then rebuilt and exceeded feature-for-feature. |
-| Logging into the reference site with the provided credentials | Not performed. No tool here can execute JS/sessions against a third-party site, and embedding a third party's real login credentials in delivered source would itself be a bad security practice regardless of tooling. |
-
-Everything else — the full storefront, cart/checkout, auth, order
-tracking, and the complete admin back office — is implemented as real,
-working functionality (not stubs), matching and exceeding the reference
-site's page list.
-
-## Feature overview
-
-**Storefront**
-- Home with auto-rotating hero carousel, category grid, bestsellers,
-  new arrivals, testimonials, newsletter capture
-- Product listing with search, category/price/stock filters, sorting,
-  pagination
-- Product detail with gallery, variants, quantity, specs, reviews
-  (read + submit), related products
-- Cart with coupon codes (`WELCOME10`, `SAVE20`, `FREESHIP`), free-shipping
-  threshold, live totals
-- 3-step checkout (shipping → payment → review) with field validation
-- Order success + order tracking (by order number) with status timeline
-- Auth (register/login, demo accounts), account dashboard (profile,
-  orders, addresses, wishlist), standalone wishlist page
-- About, Contact (working form), Privacy/Terms/Refund/Cookie/Disclaimer
-
-**Admin back office** (`/admin`, role-gated)
-- Dashboard with KPIs + 14-day revenue chart + recent orders
-- Products CRUD, Categories CRUD, Carousel slide manager (reorder/show/hide)
-- Orders table with status workflow (pending → processing → shipped → delivered)
-- Analytics (top products by revenue, category mix, conversion snapshot)
-- Store settings (tax rate, shipping rates, free-shipping threshold, contact info)
-
-Demo accounts (seeded on first load):
-- Admin: `admin@homenestkitchen.com` / `Admin123!`
-- Customer: `demo@homenestkitchen.com` / `Demo1234!`
-
-## Tailwind CSS v4 note — mobile navigation
-
-Tailwind v4 changed the generation order of display utilities, which makes
-the common pattern of JS-toggling the `hidden` utility class alongside a
-sibling `flex`/`block` class on the *same element* unreliable (see
-tailwindlabs/tailwindcss#15884 and #18653 — `[hidden]` now also carries
-`!important` in preflight). The mobile drawer in `Header.tsx` and
-`AdminLayout.tsx` avoids this entirely: the drawer is **always mounted**
-and its visibility is controlled purely via `translate-x-*`/`opacity`
-transitions plus `pointer-events-none`, never via toggling `hidden`. This
-keeps the open/close animation reliable and testable (see
-`e2e/mobile-navigation.spec.ts`).
-
-## Project structure
-
-```
-src/
-  components/
-    layout/   Header, Footer, PublicLayout, AdminLayout
-    shop/     ProductCard, CategoryCard, HeroCarousel, WishlistGrid
-    ui/       Design-system primitives (Button, Input, Modal, Rating, ...)
-  data/       Seed catalog, categories, settings, legal copy (source of truth for the initial store state)
-  store/      Zustand stores = the "database" (catalog, cart, wishlist, auth, orders, reviews, toasts)
-  pages/      Route-level views, including pages/admin/*
-  hooks/      useCartTotals, route guards
-  lib/        format, id generation, password hashing
-```
-
-## Scripts
+## Quick Start
 
 ```bash
-npm run dev       # start the Vite dev server
-npm run build     # production build (the only command this environment runs)
-npm run preview   # preview the production build locally
+# 1. Install (Node ≥ 20; npm ≥ 10)
+npm install
+
+# 2. Create .env (or copy from the example)
+cp .env.example .env      # DATABASE_URL="file:../db/custom.db" is the documented default
+
+# 3. Create the schema + seed the catalog (idempotent)
+npm run db:setup
+
+# 4. Run
+npm run dev               # http://localhost:3000
 ```
+
+**Verify setup:** `curl localhost:3000/api/health` → `{"status":"ok","db":"up",...}`, and the home page renders the hero carousel with the seeded catalog.
+
+Demo accounts (seeded):
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@homenestkitchen.com` | `Admin123!` |
+| Customer | `demo@homenestkitchen.com` | `Demo1234!` |
+
+## Features
+
+| Area | Highlights |
+|---|---|
+| **Storefront** | Auto-rotating hero carousel · 8 category tiles · featured & new-arrival grids · search + category/sort filters + pagination · product detail with gallery, specs, reviews (read + submit) and related products · trust badges · newsletter capture |
+| **Commerce** | Guest carts (token-cookie, merged on login) · mini cart drawer + cart page · coupons (`WELCOME10`, `SAVE20`, `FREESHIP`) · free-shipping threshold · 3-step checkout (shipping → payment → review) with inline validation · demo payment (clearly labeled, no real charges) · server-side total re-derivation + stock checks in one transaction |
+| **Orders** | `ORD-YYYY-NNN` order numbers · order-success page · public order tracking with a 4-step status timeline · per-order event history |
+| **Accounts** | Register/login (scrypt hashes, DB-backed sessions, HMAC-signed cookie) · profile editing · address book · order history |
+| **Admin** (`/admin`, role-gated) | Dashboard (KPIs + 14-day revenue chart + recent orders + low stock) · products CRUD · categories CRUD · carousel slide manager with reorder · orders manager (status workflow + carrier tracking) · analytics (top products, category mix) · store settings |
+| **Content** | About, Contact (working form), 5 legal pages, 404 · SEO metadata, `sitemap.xml`, `robots.txt` |
+
+## Architecture
+
+| Layer | Technology | Version | Purpose |
+|---|---|---|---|
+| Framework | Next.js (App Router, standalone) | ^16.1 | RSC rendering, Server Actions, route handlers |
+| UI runtime | React | ^19 | Server Components + client islands |
+| Language | TypeScript (strict) | ^5 | `noUncheckedIndexedAccess`, no `any` |
+| Styling | Tailwind CSS (CSS-first `@theme`) | ^4 | Design tokens pinned to the reference |
+| Data | Prisma + SQLite | ^6.11 | 17 models; integer-cent money |
+| UI primitives | Radix UI + CVA + lucide-react | latest | Accessible dialogs, selects, sheets, toasts |
+| Charts | Recharts | ^3 | Admin revenue/analytics |
+| Validation | Zod | ^3.25 | Every external input boundary |
+| Tests | Vitest · Playwright | ^3.2 · ^1.64 | 69 unit · 28 e2e |
+
+```mermaid
+flowchart TB
+    subgraph Client
+        B[Browser - RSC payload + client islands]
+    end
+    subgraph "Next.js 16 (standalone)"
+        P[proxy.ts - per-request CSP nonce]
+        RSC[Server Components - Prisma reads]
+        SA[Server Actions - auth, admin, reviews]
+        API[Route Handlers - cart, wishlist, checkout, coupon, search...]
+    end
+    subgraph Data
+        DB[("SQLite - db/custom.db")]
+    end
+    B --> P --> RSC --> DB
+    B --> SA --> DB
+    B --> API --> DB
+```
+
+### DATABASE_URL contract
+
+`.env` carries `DATABASE_URL="file:../db/custom.db"` with `db/` at the repo root (git-ignored). Relative `file:` URLs resolve against `prisma/schema.prisma` — for the CLI **and** at runtime via `src/lib/db-path.ts` — so push, seed, dev, build and the standalone server all open the same file regardless of working directory. Pinned by `tests/unit/db-path.test.ts`.
+
+## File Hierarchy
+
+```
+📂 src/
+├── 📂 app/
+│   ├── 📂 (storefront)/        # public site + admin (layout = header/footer chrome)
+│   │   ├── page.tsx            # home: carousel, categories, featured, new arrivals
+│   │   ├── 📂 products/ 📂 product/[id]/   # listing + detail (+ gallery, reviews)
+│   │   ├── 📂 cart/ 📂 checkout/ 📂 track-order/ 📂 wishlist/ 📂 account/
+│   │   ├── 📂 about/ 📂 contact/ 📂 legal/[slug]/
+│   │   └── 📂 admin/           # dashboard, products, orders, categories,
+│   │                           # carousel, analytics, settings (role-gated)
+│   ├── 📂 (auth)/              # login, register (per-request render for CSP nonces)
+│   ├── 📂 api/                 # cart, wishlist, checkout, coupon/apply, cart-summary,
+│   │                           # addresses, contact, newsletter, search, health
+│   ├── layout.tsx              # fonts, StoreProvider + Toaster (wraps children)
+│   ├── globals.css             # Tailwind v4 @theme tokens pinned to the reference
+│   └── not-found.tsx / robots.ts / sitemap.ts
+├── 📂 components/ (store/, ui/) # header, mobile-nav, footer, product-card, drawer...
+├── 📂 lib/                      # db, db-path, auth, cart, wishlist, money, coupons,
+│   │                            # order-money, settings, products, validation, csp
+│   └── 📂 actions/              # server actions: auth, admin, reviews
+└── proxy.ts                     # per-request CSP nonce (Next 16 proxy convention)
+📂 prisma/                       # schema.prisma (17 models) + seed.ts (idempotent)
+📂 tests/                        # unit/ (Vitest) · e2e/ (Playwright)
+📂 db/                           # custom.db (created by db:push, git-ignored)
+📂 docs/                         # SSH push skill + screenshots/
+```
+
+## Environment Variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `DATABASE_URL` | `file:../db/custom.db` | SQLite file; relative URLs resolve against `prisma/schema.prisma` |
+| `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` | Canonical origin for metadata/sitemap/robots |
+| `AUTH_SECRET` | dev-only fallback | **Set in production** — HMAC key for session cookies (`openssl rand -hex 32`) |
 
 ## Testing
 
-Vitest and Playwright are configured as standalone config files
-(`vitest.config.ts`, `playwright.config.ts`) so `vite.config.ts` and
-`package.json` stay untouched, per this environment's conventions. This
-sandbox has no test-runner tool, so these suites are written and ready to
-run but have **not** been executed here — run them locally with:
-
 ```bash
-npx vitest run             # unit/component tests (jsdom)
-npx vitest                 # watch mode
-npx playwright install     # one-time browser download
-npx playwright test        # e2e tests (spins up the dev server automatically)
+npm run test            # 69 unit tests (Vitest, node env)
+npm run build           # required before e2e (suite starts the standalone server)
+npm run test:e2e        # 28 e2e tests (Playwright; server auto-started on :3100)
+npx playwright test tests/e2e/mobile-navigation.spec.ts   # single spec
 ```
 
-Unit/component coverage (`src/**/*.test.ts(x)`): currency/date formatting,
-coupon lookup, cart store line-item math, auth store (registration
-validation, duplicate-email rejection, password hashing — never storing
-plaintext, login success/failure), `useCartTotals` (subtotal/tax/shipping/
-coupon math), `Button` interaction states, `ProductCard` add-to-cart and
-wishlist interactions.
+- **Unit** covers the money math, the `DATABASE_URL` resolution contract, coupon rules, scrypt hashing, Zod schemas, order-total derivation, and the CSP builder.
+- **E2E** covers the reference anatomy (home/products/detail/footer), the full guest checkout → `ORD-YYYY-NNN` → tracking loop, auth success/failure, admin gating, and — most importantly — `mobile-navigation.spec.ts`, the **Tailwind v4 regression guard** for the mobile menu (open/navigate/close/active-pill/scroll-lock on an iPhone-13 viewport).
+- E2E specs wait for hydration (`gotoHydrated`) before interacting; clicking before hydration falls back to native form GET, which is exactly the class of bug the guard exists for.
 
-E2E coverage (`e2e/*.spec.ts`): mobile navigation drawer open/close/backdrop
-(the Tailwind v4 regression guard described above) on an iPhone 13 viewport,
-desktop browse → add to cart → checkout flow, header search, and demo-account
-login (success + incorrect-password cases).
+## Design System
 
-## Known limitations
+| Token | Value | Usage |
+|---|---|---|
+| `background` | `hsl(30 20% 98%)` | Warm cream page background |
+| `primary` | `hsl(24 70% 50%)` | Terracotta orange — buttons, active nav pill, badges |
+| `foreground` | `hsl(20 14% 12%)` | Body text |
+| `badge-sale` | `hsl(0 72% 61%)` | Red "−N%" discount pill |
+| `badge-featured` | `hsl(24 70% 60%)` | Orange Featured/Best Seller pill |
+| `border` | `hsl(33 15% 90%)` | Card borders |
 
-- No real backend/payment processor: checkout is a fully functional
-  client-side simulation (explicitly labeled as such on the payment step).
-- Data resets if browser storage is cleared; there is no multi-device sync.
-- Product photography is a mix of AI-generated studio shots and stock
-  photography chosen for visual consistency, not photos of the real
-  reference site's inventory (which wasn't accessible without a login
-  session this environment cannot establish).
+Typography: **Playfair Display** for display headings (`.font-display`), **Inter** for body — both via `next/font`. Radius: `xl` cards (12px), `3xl` heroes (24px). Tailwind v4 CSS-first config in `src/app/globals.css` (`@theme inline`; no `tailwind.config.js`).
+
+## Screenshots
+
+Captured from the running production build — see `docs/screenshots/`:
+
+`01-home` · `02-products` · `03-product-detail` · `04-cart` · `05-login` · `06-track-order` · `07-about` · `08-contact` · `09-legal` · `10-register` · `11-checkout` · `12-admin-dashboard` … `18-admin-settings` · `19-account` · `20-mobile-home` · `21-mobile-menu-open`
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `db/custom.db` appears elsewhere / stale rows survive reseed | `DATABASE_URL` shadowed by the process env | Check `node -e "console.log(process.env.DATABASE_URL)"`; converge or unset |
+| Page paints but never hydrates (no console errors) | Static prerender + per-request CSP nonce mismatch | Make the route render per-request (`await connection()` — see `(auth)/layout.tsx`) |
+| Mobile menu broken after a refactor | Tailwind v4 display-utility toggling | Restore the mount/transform pattern; run the mobile-navigation e2e spec |
+| `EADDRINUSE :3100` during e2e | A previous standalone server is alive (process renames to `next-server`) | `pkill -f next-server` |
+| npm blocks install scripts | npm's script-approval gate | `npm install-scripts approve @prisma/engines esbuild unrs-resolver` |
+
+## License
+
+MIT — see the repository settings. Reference app © its respective owners; this implementation shares no code with it.

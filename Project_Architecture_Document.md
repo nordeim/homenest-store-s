@@ -1,0 +1,419 @@
+# HomeNest Kitchen — Master Project Architecture Document (PAD) v1.0
+
+**Classification:** Internal Engineering Reference
+**Status:** DEFINITIVE, PRODUCTION-LOCKED BLUEPRINT
+**Companion Document:** `README.md` (quick start), `AGENTS.md` (agent traps), `CLAUDE.md` (conventions)
+**Last Updated:** 2026-10-12
+**Audience:** Senior Engineers, Tech Leads, DevOps, and Onboarding Engineers
+**Rule:** Every architectural decision in this document traces to a specific rationale. Nothing is here "because it's popular."
+
+#### Revision Block — v1.0 (Initial Blueprint)
+
+- `[SR]` Initial PAD generated from the completed remediation: the repository was migrated from a client-only Vite SPA (localStorage "database") to a Next.js 16 + Prisma 6/SQLite full-stack application per the `nordeim/ecommerce-store` reference architecture.
+- `[CA]` All ADRs below trace to verified failure modes observed during the migration (each is pinned by a test or a trap-log comment in code).
+
+---
+
+## Table of Contents
+
+1. [System Overview & Decisions](#1-system-overview--decisions)
+2. [High-Level System Topology](#2-high-level-system-topology)
+3. [Application Architecture](#3-application-architecture)
+4. [Data Architecture](#4-data-architecture)
+5. [Design System Reference](#5-design-system-reference)
+6. [Security Architecture](#6-security-architecture)
+7. [Worker / Background Service Architecture](#7-worker--background-service-architecture)
+8. [Testing Strategy](#8-testing-strategy)
+9. [Build & Deployment](#9-build--deployment)
+10. [Developer Handbook](#10-developer-handbook)
+11. [Known Issues & Outstanding Tasks](#11-known-issues--outstanding-tasks)
+12. [Key Files Reference](#12-key-files-reference)
+13. [Glossary](#13-glossary)
+
+---
+
+## 1. System Overview & Decisions
+
+### 1.1 Document Metadata & Purpose
+
+HomeNest Kitchen is a premium kitchenware e-commerce storefront with a full admin back office, built as a visual-and-functional superset of the Base44 reference app (`https://nest-culinary-hub.base44.app/`). This PAD is the definitive statement of how the system is wired and why each decision was made. Use it: (a) when onboarding — sections 2–4 explain the whole system in one read; (b) when debugging — section 11 lists known failure modes and section 6 explains the CSP/hydration interaction that produces the most confusing symptoms; (c) when reviewing change proposals — every ADR names its rejected alternatives.
+
+The starting point of this remediation was a client-only Vite SPA that kept the entire catalog, all users, orders, and auth in `localStorage` with unsalted client-side SHA-256 "password hashing." The remediation replaced that substrate with a real server, a real database, and real sessions while preserving (and exceeding) the SPA's feature surface and matching the reference site's visual design pixel-for-pixel where it matters.
+
+### 1.2 Technology Stack Summary
+
+| Layer | Technology | Version | Key Rationale |
+|---|---|---|---|
+| Web framework | Next.js (App Router, standalone output) | ^16.1 | RSC-first rendering, Server Actions, route handlers, the `proxy` convention for edge middleware; matches the `nordeim/ecommerce-store` reference architecture |
+| UI runtime | React | ^19 | `useActionState`-native forms, Server Components |
+| Language | TypeScript (strict) | ^5.9 | `strict` + `noUncheckedIndexedAccess`; `any` is lint-banned |
+| Styling | Tailwind CSS (CSS-first) | ^4.1 | `@theme inline` tokens pinned to the reference's computed values; no config file |
+| ORM / DB | Prisma + SQLite | ^6.11 | Zero-ops local story; relative `file:` URL contract (ADR-002) |
+| UI primitives | Radix UI (dialog, select, sheet, label, tabs, radio) + CVA + lucide-react | latest | Accessible primitives; the shadcn pattern without the CLI |
+| Charts | Recharts | ^3 | Admin revenue + analytics surfaces |
+| Validation | Zod | ^3.25 | Single validation boundary (ADR-005) |
+| Unit tests | Vitest | ^3.2 | Node-env pure-function suite (69 tests) |
+| E2E tests | Playwright | ^1.64 | 28 tests incl. the Tailwind v4 mobile-nav regression guard |
+| Fonts | next/font (Playfair Display + Inter) | — | Self-hosted at build, no runtime font requests |
+
+### 1.3 Architecture Decision Records
+
+**ADR-001: Next.js 16 App Router instead of a Vite SPA (or a separate API server).**
+
+- **Context:** The prior codebase was a client-only SPA; the reference architecture (`ecommerce-store`) is a Next.js 16 + Prisma/SQLite monolith. A real storefront needs server-rendered catalog pages, server-authoritative checkout, and session auth — none of which a pure SPA can provide honestly.
+- **Decision:** Next.js 16 App Router with `output: "standalone"`, RSC by default, Server Actions for form mutations, REST route handlers for client-island fetches.
+- **Rationale:** One process, one deploy artifact, one language; the ecommerce-store reference proves the exact pattern in production for the same domain; Server Actions eliminate an entire REST layer for form flows while route handlers remain for `fetch`-based islands (cart badge updates, coupon application, search typeahead).
+- **Consequences:** (+) No CORS, no duplicated validation, no client state library. (−) Requires the CSP/nonce discipline of ADR-006; server boundaries must be respected (`server-only` semantics for `src/lib/db.ts`).
+- **Alternatives rejected:** Keeping the Vite SPA + bolting on an Express API (two runtimes, duplicated validation, no RSC); a tRPC layer (unnecessary for this surface size); a Postgres deployment (no managed instance in the target environment — see ADR-002).
+
+**ADR-002: SQLite via a relative `file:../db/custom.db` resolved against `prisma/schema.prisma`.**
+
+- **Context:** The brief mandates `.env` → `DATABASE_URL="file:../db/custom.db"` with `db/` at the repo root. Relative SQLite URLs are resolved *relative to the schema file* by the Prisma CLI — but the runtime (Next server, standalone build) resolves them against the process CWD, which differs between `next dev`, `next build`, and `.next/standalone/server.js` (which `chdir`s into its own folder).
+- **Decision:** `src/lib/db-path.ts` implements the same rule as the CLI: a relative `file:` URL resolves against the first anchor directory that owns `prisma/schema.prisma` (standalone-detected first, then the module's repo root, then CWD). `src/lib/db.ts` applies it before instantiating `PrismaClient`. Absolute `file:` URLs and non-SQLite URLs pass through untouched.
+- **Rationale:** One database file for CLI and runtime, regardless of CWD; the contract is pinned by `tests/unit/db-path.test.ts` and documented in `.env.example`.
+- **Consequences:** (+) `db:push`, `db:seed`, dev, build, and production all agree on the file. (−) A production deploy should still pin an absolute `file:` URL. **Alternatives rejected:** Postgres (no instance available in the sandbox); absolute-only URLs (violates the documented fresh-checkout default).
+
+**ADR-003: DB-backed sessions with an HMAC-signed cookie; scrypt password hashing.**
+
+- **Context:** The SPA "auth" stored user rows and unsalted SHA-256 hashes in localStorage —任何人 can mint an admin. The reference implementation uses DB-backed sessions with a signed cookie.
+- **Decision:** `Session` rows (SHA-256 token hashes) + cookie `homenest_session = <token>.<hmac(token)>`; `AUTH_SECRET` signs; 30-day TTL; scrypt (N=16384, r=8, p=1, 64-byte key) password format `scrypt$N$r$p$salt$hash` (`src/lib/password.ts`).
+- **Rationale:** A crafted cookie fails the HMAC before touching the DB; stolen DB rows reveal only token *hashes*; scrypt is memory-hard with zero native deps; pure `node:crypto` so the seed script shares the module.
+- **Consequences:** (+) Real auth, revocable sessions (row delete), no external auth service. (−) No OAuth (the reference's "Continue with Google" button is intentionally not replicated as a fake).
+- **Alternatives rejected:** Auth.js (heavy for the surface); localStorage auth (the vulnerability being removed); JWT-only stateless sessions (no revocation).
+
+**ADR-004: Guest carts/wishlists via token cookies, claimed and merged on login.**
+
+- **Context:** The reference supports guest checkout; the SPA kept carts in localStorage (lost across devices).
+- **Decision:** `Cart`/`Wishlist` rows keyed by a random `token` stored in an httpOnly cookie (`homenest_cart`, `homenest_wishlist`); on login, the guest cart's lines merge into the user's own cart (quantity-add), the guest row is deleted, and the cookie re-binds.
+- **Rationale:** Same code path for guests and users; carts survive browsers and devices once claimed; checkout reads the cart server-side so money math (ADR-005) is authoritative.
+- **Consequences:** (+) Guest checkout with zero signup friction. (−) Requires the merge logic (`src/lib/cart.ts`) and careful cookie lifetime (60/120 days).
+- **Alternatives rejected:** LocalStorage carts (device-bound, spoofable); login-required carts (worse conversion than the reference).
+
+**ADR-005: Integer-cent money; server-side total re-derivation via `computeOrderMoney`.**
+
+- **Context:** Money bugs come from floats and from trusting the client.
+- **Decision:** Every monetary column is INTEGER cents. `src/lib/order-money.ts#computeOrderMoney` is the single source of truth: `taxable = max(0, subtotal − discount)`, free shipping when `taxable ≥ freeShippingThresholdCents` (both methods — the threshold is a spend gate), `tax = round(taxable × rate / 100)`, `total = taxable + shipping + tax`. `/api/checkout` re-derives everything from the live cart + settings and validates stock inside a single `db.$transaction` that also writes order + items + `placed` event, decrements stock, clears cart items, and optionally saves the address.
+- **Rationale:** The checkout route can never be talked into a wrong total; `tests/unit/order-money.test.ts` pins the arithmetic including threshold edge cases.
+- **Consequences:** (+) Order numbers are `ORD-YYYY-NNN` with P2002 retry inside the transaction. (−) The client renders mirror totals only — UI must not pretend to be authoritative.
+- **Alternatives rejected:** Stripe-backed pricing (no processor in scope; the demo payment is clearly labeled); trusting client totals (the vulnerability).
+
+**ADR-006: Per-request CSP nonces via `src/proxy.ts`, and the prerender trap it creates.**
+
+- **Context:** The Next 16 `proxy` convention (middleware successor) stamps `Content-Security-Policy` with a per-request nonce onto request + response; Next applies the request-header nonce to the scripts it renders. A **prerendered** page has no request at build time → its script tags carry no (or a stale) nonce → the browser silently blocks its scripts → the page paints but never hydrates, with zero console errors. This bit for real: `/login` and `/register` prerendered even under `export const dynamic = "force-dynamic"` on Next 16.4.
+- **Decision:** `src/app/(auth)/layout.tsx` performs `await connection()` to force per-request rendering for the auth subtree (documented in place). Dev mode adds `'unsafe-eval'` to `script-src` (React dev builds require it); production never does. Directive set: `script-src 'self' 'nonce-…' 'strict-dynamic'`, `style-src 'self' 'unsafe-inline'`, `img-src 'self' data:`, `font-src 'self'`, `connect-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`; plus `X-Frame-Options: DENY`, `nosniff`, HSTS, and a strict referrer policy from `next.config.ts` headers.
+- **Rationale:** Nonce-based strict-dynamic CSP is the strongest practical XSS posture for an RSC app; the pure builder (`src/lib/csp.ts`) is unit-tested (`tests/unit/csp.test.ts`).
+- **Consequences:** (+) Superset hardening over the reference (which ships no CSP). (−) Every future static/prerendered route that must hydrate needs the same treatment; the `/_not-found` prerender intentionally stays script-less-safe (links + CSS only).
+- **Alternatives rejected:** No CSP (parity with the reference but weaker); hash-based CSP (impossible with Turbopack chunk hashes changing); `unsafe-inline` scripts (defeats the point).
+
+**ADR-007: Tailwind v4 CSS-first theme with reference-pinned tokens and a documented trap log.**
+
+- **Context:** The reference's computed values were sampled from live screenshots (2026-10-12). Tailwind v4 changed several default geometries and the display-utility cascade order; JS-toggling `hidden` next to `flex`/`block` is unreliable (tailwindlabs/tailwindcss#15884, #18653).
+- **Decision:** All tokens live in `src/app/globals.css` under `@theme inline` as FULL `hsl()` values; `--shadow-sm`, blur, and radius scale are pinned to the reference's measured geometry; `@custom-variant hover (&:hover)` restores v3 hover semantics for touch contexts; the mobile menu (push-down panel, reference-matched) is **conditionally mounted** — never display-toggled — and is pinned by `tests/e2e/mobile-navigation.spec.ts`.
+- **Rationale:** Visual parity is a requirement, not a preference; the trap log encodes the failure modes so they aren't rediscovered.
+- **Consequences:** (+) Byte-comparable rendering vs the reference; deterministic menus. (−) Contributors must read the trap log before restyling overlays.
+- **Alternatives rejected:** Keeping the SPA's forest-green palette (visual drift); a `tailwind.config.js` (v4 anti-pattern).
+
+### 1.4 Reference-Parity Ledger
+
+| Reference surface | Clone status |
+|---|---|
+| Header (logo tile, nav pills, search, icon cluster) | Parity (+ wishlist icon) |
+| Hero carousel (serif overlay, dots, arrows, auto-rotate) | Parity (3 seeded slides match reference copy) |
+| Trust badges row | Parity |
+| 8 category tiles (gradient icons) | Parity |
+| Featured / New Arrivals grids | Parity + 8 extra products (superset) |
+| Product cards (−N% red pill, Featured pill, stars, struck price) | Parity |
+| Product detail (gallery, specs, reviews, related) | Parity + submit-able reviews (superset) |
+| Mobile menu (push-down, orange active pill, green close) | Parity + account/wishlist/admin entries |
+| Cart / checkout / success / tracking | Parity + coupons + server-authoritative totals |
+| Admin back office | Superset (reference requires admin role not held by the provided account; clone ships the complete console) |
+
+---
+
+## 2. High-Level System Topology
+
+```mermaid
+flowchart TB
+    subgraph Browser["Browser (desktop + mobile)"]
+        UI["RSC payload + hydrated client islands<br/>(header, drawers, steppers, forms)"]
+    end
+
+    subgraph Server["Next.js 16 standalone (single process)"]
+        Proxy["src/proxy.ts<br/>per-request CSP nonce"]
+        subgraph Render["Rendering"]
+            RSC["Server Components<br/>(storefront, admin, auth)"]
+        end
+        subgraph Mutations["Mutation surface"]
+            SA["Server Actions<br/>auth · admin · reviews"]
+            RH["Route Handlers<br/>/api/cart · wishlist · checkout ·<br/>coupon/apply · cart-summary · addresses ·<br/>contact · newsletter · search · health"]
+        end
+        Lib["lib: auth · cart · wishlist · coupons ·<br/>order-money · settings · products · db-path"]
+    end
+
+    DB[("SQLite<br/>db/custom.db<br/>17 models")]
+    FS["public/images<br/>self-hosted art"]
+
+    UI -->|documents + RSC fetches| Proxy
+    UI -->|action POSTs / fetch()| Proxy
+    Proxy --> RSC
+    Proxy --> SA
+    Proxy --> RH
+    RSC --> Lib --> DB
+    SA --> Lib
+    RH --> Lib
+    RSC -.->|next/image| FS
+```
+
+Trust flow: the browser receives rendered HTML + flight data; every mutation is a same-origin POST carrying the session/cart cookies; the server re-derives all money and re-validates all input before touching SQLite. There are no third-party runtime calls (fonts and images are self-hosted) — `connect-src 'self'` in the CSP is complete, not aspirational.
+
+---
+
+## 3. Application Architecture
+
+### 3.1 Route Map
+
+| Route group | Routes | Rendering | Auth |
+|---|---|---|---|
+| `(storefront)` | `/`, `/products`, `/product/[id]`, `/cart`, `/checkout`, `/checkout/success`, `/track-order`, `/wishlist`, `/account`, `/about`, `/contact`, `/legal/[slug]` | Dynamic RSC (`force-dynamic` in layout) | Public; `/account` redirects to `/login` |
+| `(storefront)/admin` | `/admin`, `/admin/products|orders|categories|carousel|analytics|settings` | Dynamic RSC | `role === "admin"` else access-denied card |
+| `(auth)` | `/login`, `/register` | Per-request RSC (`await connection()`) | Public |
+| `api` | see ADR-004/005 tables in README | Node route handlers | Cart/wishlist/checkout: cookie-identified; addresses: session |
+| metadata | `robots.txt`, `sitemap.xml`, `/_not-found` | Static | — |
+
+### 3.2 Rendering & Data Flow
+
+1. **Read path (RSC):** layouts/pages call `src/lib/*` functions that query Prisma directly (`getSettings`, `queryProducts`, `getCartSummary`, `getCurrentUser`). No client-side fetching for initial renders; pages revalidate via `router.refresh()` after mutations.
+2. **Mutation path A — Server Actions:** forms that are naturally server-bound (login/register via `useActionState`, admin CRUD, profile updates, review submission) call `src/lib/actions/*`. Actions validate with Zod, mutate, `revalidatePath`, and return typed results; auth actions `redirect()` inside.
+3. **Mutation path B — Route Handlers:** interactive islands that need a response payload (cart badge count, coupon discount preview, checkout placement, address delete) `fetch("/api/...")`, update local UI state, then `router.refresh()`.
+4. **Cross-cutting providers:** root layout mounts `StoreProvider` (mobile nav, cart drawer, cart badge, hydration sentinel) and `Toaster` — which **wraps children** so every island can call `useToast()`.
+
+### 3.3 Admin Architecture
+
+The admin is a role-gated RSC surface, not a separate app: `admin/layout.tsx` resolves the session server-side and renders an access-denied card for non-admins (no information leak about the routes). Eleven server actions (`src/lib/actions/admin.ts`) cover products/categories/slides CRUD (with delete guards — products with order history must be archived instead), order status transitions with event records, carrier tracking, and settings updates. Every action re-checks `getCurrentUser().role === "admin"` — client-side UI state is never the gate. Charts (recharts) render in client islands fed by serializable props computed in the server pages.
+
+---
+
+## 4. Data Architecture
+
+### 4.1 Entity Relationship (SQLite, 17 models)
+
+```mermaid
+erDiagram
+    User ||--o{ Session : "has"
+    User ||--o| Cart : "claims"
+    User ||--o| Wishlist : "claims"
+    User ||--o{ Address : "saves"
+    User ||--o{ Order : "places"
+    User ||--o{ Review : "writes"
+    Cart ||--o{ CartItem : contains
+    Wishlist ||--o{ WishlistItem : contains
+    Product ||--o{ CartItem : "in carts"
+    Product ||--o{ WishlistItem : "in wishlists"
+    Product ||--o{ OrderItem : "sold as"
+    Product ||--o{ Review : "reviewed by"
+    Category ||--o{ Product : "groups"
+    Order ||--o{ OrderItem : contains
+    Order ||--o{ OrderEvent : "audit trail"
+```
+
+Non-relational stores: `Coupon`, `CarouselSlide`, `StoreSetting` (key/value), `NewsletterSubscriber`, `ContactMessage`.
+
+### 4.2 Conventions & Invariants
+
+- **Money:** `Int` cents everywhere (`price`, `compareAtPrice`, `subtotal`, `shipping`, `tax`, `discount`, `total`, `unitPrice`, coupon `value`).
+- **Enums-as-strings:** `role`, `status`, `shippingMethod`, `paymentMethod`, coupon `type`, event `type` — vocabularies validated by `src/lib/validation.ts` (`ORDER_STATUSES`, `PAYMENT_METHODS`, …).
+- **JSON-encoded columns:** `Product.images` / `tags` / `specs` (parsed by `src/lib/products.ts`); `Order.shippingAddress` (checkout snapshot — orders never break because a product or address later changes).
+- **Order integrity:** `OrderItem` snapshots `nameSnapshot`/`imageSnapshot`/`unitPrice`; `OrderEvent` is the append-only audit trail for `placed` / `status_changed` / `tracking_added`; `Order.carrier`/`trackingNumber` are operator-set resting state, never derived.
+- **Natural keys:** `User.email`, `Product.slug` + `sku`, `Category.slug`, `Coupon.code` unique — the seed upserts by these so reseeding is idempotent.
+- **Stock:** decremented inside the checkout transaction; `CartItem.quantity` is clamped to live stock on read paths; `stock < 10` surfaces on the admin dashboard.
+
+### 4.3 Seed Data (idempotent, `prisma/seed.ts`)
+
+2 demo users (admin + customer with a default address) · 8 categories matching the reference · 16 products (the reference's 8, exact names/prices/ratings/review-counts, plus 8 superset extras) · 3 hero slides (reference copy) · 13 settings · 3 coupons · 1 starter review per product.
+
+---
+
+## 5. Design System Reference
+
+Tokens live in `src/app/globals.css` (`@theme inline`) — sampled from the live reference on 2026-10-12:
+
+| Token | Value | Usage |
+|---|---|---|
+| `background` | `hsl(30 20% 98%)` | Warm cream page background |
+| `foreground` | `hsl(20 14% 12%)` | Body text |
+| `primary` / `ring` | `hsl(24 70% 50%)` | Terracotta orange — buttons, active nav pill, logo tile, links |
+| `secondary` / `muted` | `hsl(36 16% 94%)` | Search inputs, icon tiles, subtle fills |
+| `muted-foreground` | `hsl(25 9% 45%)` | Secondary text |
+| `badge-sale` | `hsl(0 72% 61%)` | Red "−N%" pill |
+| `badge-featured` | `hsl(24 70% 60%)` | Orange Featured pill |
+| `border` / `input` | `hsl(33 15% 90/88%)` | Card borders, inputs |
+
+Typography: **Playfair Display** (`--font-playfair`, exposed as `.font-display`) for display headings — the reference's signature serif; **Inter** (`--font-inter`) for UI/body. Both self-hosted via `next/font` (zero layout shift, no runtime requests).
+
+Geometry pins: radius `xl=12px` / `2xl=16px` / `3xl=24px` (v4 default scale shifted one notch — pinned to the reference's measured values); `--shadow-sm` pinned to v3 geometry; hover variants un-gated via `@custom-variant hover (&:hover)` so touch contexts match the reference's always-on hover styling.
+
+Component vocabulary: white cards with `border-border` + `rounded-xl` + `shadow-sm`; buttons `h-10` (`lg` = `h-11`), `rounded-lg`; nav pills `rounded-full`; hero `rounded-3xl`; category icon tiles `rounded-2xl` gradient squares.
+
+---
+
+## 6. Security Architecture
+
+| Control | Implementation |
+|---|---|
+| Password storage | scrypt (N=16384, r=8, p=1, 64-byte) — `scrypt$N$r$p$salt$hash`; timing-safe verify |
+| Sessions | DB rows (SHA-256 token hashes) + `homenest_session` cookie = `token.hmac(token)`; httpOnly, SameSite=Lax, Secure in production, 30-day TTL |
+| Authorization | Role gate server-side on every admin action + layout; ownership checks on address/cart/wishlist mutations |
+| Input validation | Zod schemas at every boundary (`src/lib/validation.ts`); `FormData` and JSON bodies never touch Prisma raw |
+| Money integrity | Server-side re-derivation (`computeOrderMoney`); stock re-checked in the placement transaction; P2002 retry for order-number collisions |
+| SQL injection | Prisma parameterized queries only; no raw string interpolation (the sole `$queryRaw` is a constant health probe) |
+| XSS | Strict CSP with per-request nonce + `strict-dynamic` (ADR-006); zero inline styles/scripts authored in the codebase; React-escaped output |
+| Clickjacking / sniffing | `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, HSTS |
+| CSRF | Server Actions and route handlers are same-origin by construction; cookies are SameSite=Lax; state-changing handlers validate content types |
+| Secrets | `.env` git-ignored; `AUTH_SECRET` required in production (insecure dev fallback documented); no keys in the repo (`*.key`, `ssh-key.txt` rejected by `.gitignore`) |
+| PII | Stored: name, email, phone, address (checkout requirement only); logs carry no credentials or PII |
+
+Known posture limits (explicit, not hidden): the payment step is a labeled demo (no processor); single-process SQLite (no multi-writer scale-out); email sending is out of scope (newsletter/contact persist to DB).
+
+---
+
+## 7. Worker / Background Service Architecture
+
+None. There are no queues, cron jobs, or background workers. Long-running concerns are handled synchronously at request time (checkout transaction ≈ single-digit ms on SQLite). The two "eventual" behaviors that would otherwise need workers are intentionally simple: order events are written inline with the placement, and the newsletter/contact flows persist rows for later human handling. If scale ever demands it, the `OrderEvent` audit trail and `StripeEvent`-style idempotency pattern in the reference repo are the designed extension points.
+
+---
+
+## 8. Testing Strategy
+
+**Two suites, one gate:** `npm run lint && npm run typecheck && npm run test && npm run build && npm run test:e2e` — all five must be green; there is no hosted CI, so this local gate is the only gate.
+
+### 8.1 Unit (Vitest, node env — 69 tests, `tests/unit/`)
+
+| File | Pins |
+|---|---|
+| `money.test.ts` | `formatMoney` / `parseDollarsToCents` / `discountPercent` |
+| `db-path.test.ts` | The `DATABASE_URL` resolution contract: relative-vs-anchor resolution, standalone detection, absolute + non-SQLite passthrough |
+| `order-money.test.ts` | Checkout math: threshold, express/standard, tax rounding, negative-guard, a worked reference order |
+| `coupons.test.ts` | Percent/fixed discounts, min-subtotal, cap-at-subtotal, invalid configs |
+| `password.test.ts` | scrypt format, verify/reject, unique salts, malformed-hash safety |
+| `validation.test.ts` | Zod schemas incl. enum vocabularies and bounds |
+| `products.test.ts` | JSON column parsing + card projection |
+| `csp.test.ts` | CSP builder: production vs dev directive sets |
+| `format.test.ts` | Status pills, timeline indices, slugify, dates |
+
+### 8.2 E2E (Playwright — 28 tests, `tests/e2e/`)
+
+Two projects: `mobile-navigation` (iPhone-13 device emulation on Chromium — WebKit is not installable in the target sandbox) and `desktop-chromium` (1440×900). The config boots the standalone production build on :3100 with `/api/health` as the readiness probe (reusing an existing healthy server).
+
+| Spec | Coverage |
+|---|---|
+| `mobile-navigation.spec.ts` | **The Tailwind v4 regression guard** — hamburger opens the push-down panel with search + 5 links; navigation closes it; the green close button works; reopen proves state-driven mounting; `aria-current` + `bg-primary` on the active pill; body scroll locks/unlocks |
+| `storefront.spec.ts` | Reference anatomy on home (carousel, badges, 8 categories, grids), products listing (count, pagination to the reference items on page 2, category filter), search, product detail (price/compare/−%/stock/reviews/related), footer policies |
+| `shopping-flow.spec.ts` | Add-to-cart badge + mini drawer (off-viewport + inert assertions), **full guest checkout placing a real order** (`ORD-YYYY-NNN`, cart emptied), coupon application, placed-order tracking via `/track-order` |
+| `auth.spec.ts` | Login card anatomy, demo-customer sign-in → `/account`, wrong-password + unknown-email inline errors (no redirect), short-password server rejection, `/account` gate |
+| `admin.spec.ts` | Customer blocked from `/admin` (access-denied card, no route leak), admin sign-in → dashboard KPIs, products manager (search + add affordance), orders manager, carousel slides, settings values |
+
+**E2E conventions:** `gotoHydrated(page, url)` before any interaction (the `data-hydrated` sentinel from `StoreProvider` — clicking before hydration falls back to native GET, a real bug class this suite caught); async cart effects asserted via the `data-testid="cart-count"` badge before navigating; off-canvas drawers assert `not.toBeInViewport()` + `pointer-events-none` (the always-mounted translate pattern is invisible to `toBeHidden`); DB-mutating specs tolerate re-runs (seed is idempotent, order numbers increment).
+
+---
+
+## 9. Build & Deployment
+
+### 9.1 Artifacts
+
+`npm run build` → `next build` (Turbopack) + copies `.next/static` and `public/` into `.next/standalone/` → `npm run start` runs `node .next/standalone/server.js` (PORT-aware). The file tracer copies `prisma/schema.prisma` into the standalone folder, which is what `db-path.ts`'s standalone anchor detects. `.env` is carried into the standalone output; production should set an absolute `DATABASE_URL` and a real `AUTH_SECRET`.
+
+### 9.2 Operations Runbook
+
+```bash
+npm install                       # approve @prisma/engines, esbuild, unrs-resolver postinstalls
+npm run db:setup                  # schema push + idempotent seed
+npm run build && npm run start    # production server (logs tee'd to server.log)
+curl localhost:3000/api/health    # {"status":"ok","db":"up"} — liveness + DB roundtrip
+```
+
+Deployment notes: any Node 20+ host; no external services; SQLite journal mode is the default (single-writer); for multi-instance deployments migrate to Postgres (schema is portable; `datasource` swap + `db:push`) — every query is Prisma-idiomatic with no SQLite-specific SQL outside the health probe.
+
+---
+
+## 10. Developer Handbook
+
+### 10.1 Daily Commands
+
+See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typecheck → test → build → test:e2e`.
+
+### 10.2 The Trap Log (read before touching these areas)
+
+1. **DATABASE_URL shadowing** — an inherited process env wins over `.env`; diagnose with `node -e "console.log(process.env.DATABASE_URL)"`; converge or unset.
+2. **Tailwind v4 display utilities** — never JS-toggle `hidden`; overlays mount conditionally or animate transform/opacity; pinned by the mobile-nav spec.
+3. **CSP nonce vs prerender** — a prerendered page under the per-request CSP never hydrates, silently; such routes need `await connection()` (see `(auth)/layout.tsx`).
+4. **`use server` files export only async functions** — a const export fails the build with a confusing page-data error.
+5. **Toast context wraps children** — the root layout nests `<Toaster>{children}</Toaster>`; a sibling Toaster 500s every island.
+6. **Playwright + hydration** — always `gotoHydrated`; Playwright's actionability checks do not cover React hydration.
+7. **Server renames to `next-server`** — `pkill -f server.js` misses it; stale servers serve stale builds and masquerade as code bugs.
+8. **Off-canvas visibility** — assert `not.toBeInViewport()` + `pointer-events-none`, not `toBeHidden()`.
+9. **`react-hooks/set-state-in-effect`** — no sync `setState` in effect bodies; use the documented adjust-state-during-render pattern, null-state loading, or deferred fetches.
+10. **npm script approval** — postinstall scripts for `@prisma/engines`, `esbuild`, `unrs-resolver` need `npm install-scripts approve` in managed environments.
+
+### 10.3 Where to Add Things
+
+- New page → `src/app/(storefront)/<route>/page.tsx` (RSC; metadata export; empty states).
+- New mutation → decide Server Action (forms) vs route handler (islands with response payloads); Zod-validate; `revalidatePath`.
+- New model → `prisma/schema.prisma` + `db:push`; extend `seed.ts` idempotently if it has natural-key rows.
+- New pure logic → `src/lib/*` + a unit test in `tests/unit/`; new user-visible flow → an e2e spec in `tests/e2e/` using `gotoHydrated`.
+
+---
+
+## 11. Known Issues & Outstanding Tasks
+
+| # | Status | Item | Note |
+|---|---|---|---|
+| 1 | Accepted | Demo payment only | Checkout is a labeled simulation; no processor wired. Extension point: `/api/checkout` + `computeOrderMoney` (the reference repo's Stripe pattern is the template). |
+| 2 | Accepted | `/​_not-found` prerender is script-blocked under CSP | Renders fully (links + CSS); no interactive UI exists there. Fix = `connection()` in a custom not-found layout if ever needed. |
+| 3 | Accepted | SQLite single-writer | Fine for the target scale; Postgres migration path documented (§9.2). |
+| 4 | Accepted | No email sending | Newsletter/contact persist to DB; order emails are stubbed as copy on the success page. |
+| 5 | Open | OAuth ("Continue with Google") not replicated | The reference shows the button; shipping a fake OAuth flow would be worse than none. Real wiring needs provider credentials. |
+| 6 | Open | Product variants | The old SPA's type had a `variants` field; the migrated model intentionally dropped it (no reference evidence of usage). Re-add as `ProductVariant` model if required. |
+| 7 | Debt | Admin orders pagination + filtering combined state | Works (status pills + search + page); the combined-param links are verbose — refactor candidate. |
+| 8 | Debt | `recharts` client bundle size | Admin-only; acceptable. If it matters, lazy-load under `next/dynamic`. |
+
+---
+
+## 12. Key Files Reference
+
+| File | Role |
+|---|---|
+| `src/lib/db-path.ts` | The `DATABASE_URL` resolution contract (unit-pinned) |
+| `src/lib/db.ts` | PrismaClient singleton + resolution entry |
+| `src/lib/auth.ts` | Sessions, HMAC cookie, `getCurrentUser`, `isAdmin` |
+| `src/lib/password.ts` | scrypt hash/verify |
+| `src/lib/cart.ts` / `wishlist.ts` | Token-cookie guest carts, login merge, summaries |
+| `src/lib/order-money.ts` | The single checkout-money truth (unit-pinned) |
+| `src/lib/coupons.ts` | Coupon lookup + pure discount math |
+| `src/lib/settings.ts` | StoreSetting key/value → typed settings |
+| `src/lib/products.ts` | JSON column parsers, card projection, storefront query |
+| `src/lib/validation.ts` | Every Zod schema + enum vocabularies |
+| `src/lib/csp.ts` + `src/proxy.ts` | CSP builder + per-request nonce proxy |
+| `src/lib/actions/auth.ts` | `useActionState` login/register/logout/profile |
+| `src/lib/actions/admin.ts` | 11 guarded admin mutations |
+| `src/app/globals.css` | Tailwind v4 theme tokens + trap pins |
+| `src/components/store/store-provider.tsx` | Shared UI state + hydration sentinel |
+| `src/components/store/mobile-nav.tsx` | The Tailwind-v4-safe mobile menu |
+| `src/components/store/store-chrome.tsx` | Sticky header + mobile panel + cart drawer |
+| `prisma/schema.prisma` / `seed.ts` | 17 models / idempotent seed |
+| `tests/unit/*` · `tests/e2e/*` | 69 unit · 28 e2e (incl. the v4 guard) |
+| `playwright.config.ts` / `vitest.config.ts` | Suite wiring (standalone webServer; iPhone-13-on-Chromium project) |
+
+---
+
+## 13. Glossary
+
+| Term | Meaning |
+|---|---|
+| **RSC** | React Server Component — renders on the server, ships no JS unless interactive |
+| **Server Action** | `'use server'` async function invoked from forms/client; runs on the server |
+| **Guest cart token** | Random cookie value (`homenest_cart`) keying a DB cart before login; claimed + merged on sign-in |
+| **Cents** | Every monetary integer; never floats |
+| **`ORD-YYYY-NNN`** | Order number format, zero-padded 3, allocated in the placement transaction with P2002 retry |
+| **Trap log** | Codified failure modes (this document §10.2 + inline comments) — each traced to a real incident during the build |
+| **Hydration sentinel** | `<html data-hydrated="true">` set by `StoreProvider`; the E2E suite's readiness signal |
+| **Reference** | `https://nest-culinary-hub.base44.app/` — the visual/functional target this build supersets |
