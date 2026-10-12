@@ -31,6 +31,15 @@ export const metadata: Metadata = {
     title: "HomeNest Kitchen",
     description: "Premium home & kitchen products for the modern lifestyle",
     url: siteUrl,
+    // Self-hosted branded card (session-6 S6-3); metadataBase resolves the
+    // root-relative path to an absolute URL for crawlers.
+    images: [{ url: "/images/og-default.png", width: 1200, height: 630, alt: "HomeNest Kitchen" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "HomeNest Kitchen",
+    description: "Premium home & kitchen products for the modern lifestyle",
+    images: ["/images/og-default.png"],
   },
 };
 

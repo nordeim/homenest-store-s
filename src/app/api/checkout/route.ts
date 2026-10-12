@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth";
-import { findCartId, getCartSummary, type CartLine } from "@/lib/cart";
+import { findCartId, getCartSummary, readCartToken, type CartLine } from "@/lib/cart";
 import { applyCouponCode, couponDiscount, couponRedemptionWhere, isCouponRedeemable } from "@/lib/coupons";
 import { db } from "@/lib/db";
 import { computeOrderMoney } from "@/lib/order-money";
-import { orderAccessToken } from "@/lib/order-access";
-import { rateLimit } from "@/lib/rate-limit";
+import { orderAccessToken, replayAuthorized } from "@/lib/order-access";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import { checkoutSchema, firstError } from "@/lib/validation";
 
@@ -56,6 +56,8 @@ type PlaceOrderArgs = {
   saveAddress: boolean;
   address: CheckoutBody["address"];
   idempotencyKey: string | null;
+  /** Cart token that placed the order — binds replays to this client (S6-8). */
+  cartToken: string | null;
   settings: {
     freeShippingThresholdCents: number;
     standardShippingCents: number;
@@ -102,8 +104,8 @@ export async function POST(request: NextRequest) {
 
     // Per-client budget (x-forwarded-for when behind a proxy, shared bucket
     // for direct connections). Generous: blocks scripted spam, not shoppers.
-    const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "direct";
-    const limit = rateLimit(`checkout:${clientIp}`, 20, 60_000);
+    
+    const limit = rateLimit(`checkout:${clientIp(request.headers)}`, 20, 60_000);
     if (!limit.ok) {
       return NextResponse.json(
         { error: "Too many checkout attempts. Please try again shortly." },
@@ -111,14 +113,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const user = await getCurrentUser();
+    const requestCartToken = await readCartToken();
+
     // Idempotent replay: the order already committed on an earlier attempt —
-    // hand back its receipt without touching stock or the cart again.
+    // hand back its receipt without touching stock or the cart again. The
+    // replay is OWNERSHIP-BOUND (session-6 S6-8): user orders replay only for
+    // the same session, guest orders only with the same cart-token cookie.
+    // A leaked key alone reveals nothing.
     if (data.idempotencyKey) {
       const existing = await db.order.findUnique({ where: { idempotencyKey: data.idempotencyKey } });
-      if (existing) return respond(existing.number);
+      if (existing && replayAuthorized(existing.userId, existing.cartToken, user?.id ?? null, requestCartToken)) {
+        return respond(existing.number);
+      }
     }
 
-    const user = await getCurrentUser();
     const cartId = await findCartId(user?.id ?? null);
     const summary = await getCartSummary(cartId);
     if (!cartId || summary.lines.length === 0) {
@@ -170,6 +179,7 @@ export async function POST(request: NextRequest) {
       saveAddress: Boolean(user) && data.saveAddress === true,
       address: data.address,
       idempotencyKey: data.idempotencyKey ?? null,
+      cartToken: requestCartToken,
       settings: {
         freeShippingThresholdCents: settings.freeShippingThresholdCents,
         standardShippingCents: settings.standardShippingCents,
@@ -208,7 +218,7 @@ async function placeOrderWithRetry(args: PlaceOrderArgs): Promise<string> {
         const winner = args.idempotencyKey
           ? await db.order.findUnique({ where: { idempotencyKey: args.idempotencyKey } })
           : null;
-        if (winner) return winner.number;
+        if (winner) return winner.number; // racing FIRST placement: same client by construction
       }
       if (isUniqueViolation(error)) {
         lastError = error;
@@ -313,6 +323,7 @@ async function placeOrderTx(orderNumber: string, args: PlaceOrderArgs): Promise<
         paymentMethod: args.paymentMethod,
         cardLast4: args.cardLast4,
         idempotencyKey: args.idempotencyKey,
+        cartToken: args.cartToken,
         items: { create: orderItems },
         events: {
           create: { type: "placed", status: "pending", note: "Order placed" },

@@ -21,9 +21,9 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toaster";
-
-/** sessionStorage handoff key written by the cart page's CouponBox. */
-const COUPON_STORAGE_KEY = "homenest_coupon";
+// sessionStorage handoff key written by the cart page's CouponBox — single-
+// sourced there so the two ends of the handoff can never drift (S6-12).
+import { COUPON_STORAGE_KEY } from "../cart/coupon-box";
 
 const STEPS = ["Shipping", "Payment", "Review"] as const;
 

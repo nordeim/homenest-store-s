@@ -3,10 +3,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Award, Hammer, Leaf, Sparkles } from "lucide-react";
 
+import { siteBaseUrl } from "@/lib/seo";
+
 export const metadata: Metadata = {
   title: "About Us",
   description:
     "The story behind HomeNest Kitchen — how a small apartment kitchen grew into a trusted source of premium cookware, tools, and storage for the modern home.",
+  alternates: { canonical: `${siteBaseUrl()}/about` },
 };
 
 // ---------------------------------------------------------------------------

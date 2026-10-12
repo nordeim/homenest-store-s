@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ArrowRightLeft, Package, ReceiptText, Wallet } from "lucide-react";
 
+import { foldItemAggregates, topProducts } from "@/lib/analytics";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 
@@ -26,7 +27,7 @@ export default async function AdminAnalyticsPage() {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [revenueAgg, nonCancelledCount, customers, monthAgg, orderItems, statusGroups] = await Promise.all([
+  const [revenueAgg, nonCancelledCount, customers, monthAgg, itemGroups, statusGroups] = await Promise.all([
     db.order.aggregate({ _sum: { total: true }, where: { status: { not: "cancelled" } } }),
     db.order.count({ where: { status: { not: "cancelled" } } }),
     db.user.count({ where: { role: "customer" } }),
@@ -34,36 +35,52 @@ export default async function AdminAnalyticsPage() {
       _sum: { total: true },
       where: { status: { not: "cancelled" }, placedAt: { gte: monthStart } },
     }),
-    db.orderItem.findMany({
+    // Bounded in SQL (session-6 S6-7): one groupBy row per (product, price)
+    // instead of every order item ever. The fold + product/category lookup
+    // operate on that bounded set.
+    db.orderItem.groupBy({
+      by: ["productId", "nameSnapshot", "unitPrice"],
+      _sum: { quantity: true },
       where: { order: { status: { not: "cancelled" } } },
-      include: { product: { include: { category: { select: { name: true } } } } },
     }),
     db.order.groupBy({ by: ["status"], _sum: { total: true }, _count: { _all: true } }),
   ]);
 
   const totalRevenue = revenueAgg._sum.total ?? 0;
   const monthRevenue = monthAgg._sum.total ?? 0;
-  const unitsSold = orderItems.reduce((sum, item) => sum + item.quantity, 0);
+  const rollups = foldItemAggregates(
+    itemGroups.map((g) => ({
+      productId: g.productId,
+      nameSnapshot: g.nameSnapshot,
+      unitPrice: g.unitPrice,
+      units: g._sum.quantity ?? 0,
+    })),
+  );
+  const unitsSold = rollups.reduce((sum, r) => sum + r.units, 0);
   const conversionProxy =
     customers === 0 ? null : nonCancelledCount / customers; // orders per registered customer
 
-  // Top products by revenue (aggregate order items in JS).
-  const byProduct = new Map<string, { name: string; revenue: number }>();
+  // Live product names + categories for the referenced ids (bounded by the
+  // distinct-product count of the rollup set, not the order-item count).
+  const referencedIds = rollups.map((r) => r.productId).filter((id): id is string => id !== null);
+  const productRows = referencedIds.length
+    ? await db.product.findMany({
+        where: { id: { in: referencedIds } },
+        select: { id: true, name: true, category: { select: { name: true } } },
+      })
+    : [];
+  const productById = new Map(productRows.map((p) => [p.id, p]));
+
+  const top = topProducts(rollups, 8).map((r) => ({
+    name: truncateLabel(productById.get(r.productId ?? "")?.name ?? r.name),
+    revenue: r.revenue,
+  }));
+
   const byCategory = new Map<string, number>();
-  for (const item of orderItems) {
-    const key = item.productId ?? item.nameSnapshot;
-    const entry = byProduct.get(key) ?? { name: item.product?.name ?? item.nameSnapshot, revenue: 0 };
-    entry.revenue += item.unitPrice * item.quantity;
-    byProduct.set(key, entry);
-
-    const categoryName = item.product?.category?.name ?? "Uncategorized";
-    byCategory.set(categoryName, (byCategory.get(categoryName) ?? 0) + item.unitPrice * item.quantity);
+  for (const r of rollups) {
+    const categoryName = (r.productId ? productById.get(r.productId)?.category.name : undefined) ?? "Uncategorized";
+    byCategory.set(categoryName, (byCategory.get(categoryName) ?? 0) + r.revenue);
   }
-  const topProducts = [...byProduct.values()]
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 8)
-    .map((entry) => ({ name: truncateLabel(entry.name), revenue: entry.revenue }));
-
   const categoryMix = [...byCategory.entries()]
     .map(([name, value]) => ({ name: truncateLabel(name, 18), value }))
     .sort((a, b) => b.value - a.value);
@@ -139,7 +156,7 @@ export default async function AdminAnalyticsPage() {
         </h2>
         <p className="mt-0.5 text-xs text-muted-foreground">Best sellers, ranked by gross revenue.</p>
         <div className="mt-4">
-          <TopProductsChart data={topProducts} />
+          <TopProductsChart data={top} />
         </div>
       </section>
 

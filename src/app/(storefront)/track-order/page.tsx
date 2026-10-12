@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { formatDateTime, orderStatusBadgeClass, statusStepIndex } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { emailsMatch } from "@/lib/order-tracking";
-import { rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { trackOrderSchema } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 
@@ -93,8 +93,8 @@ export default async function TrackOrderPage({
     // match is the access control. Lookups are rate-limited (per client) so
     // iterating number/email pairs is impractical.
     const h = await headers();
-    const clientIp = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "direct";
-    const limit = rateLimit(`track-order:${clientIp}`, 30, 60_000);
+    
+    const limit = rateLimit(`track-order:${clientIp(h)}`, 30, 60_000);
     if (limit.ok) {
       const found = await db.order.findUnique({
         where: { number: submitted.number },

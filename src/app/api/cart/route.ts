@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     // Guest-reachable row creation — metered like the other unauthenticated
     // writes, or a scripted client that ignores cookies mints a Cart row per
     // request (DB-growth spam).
-    const ipLimit = rateLimit(`cart:${clientIp(request.headers.get("x-forwarded-for"))}`, 60, 60_000);
+    const ipLimit = rateLimit(`cart:${clientIp(request.headers)}`, 60, 60_000);
     if (!ipLimit.ok) {
       return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
     }
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     // Same metering as POST — the mutation surface is symmetric (session-5 S5-8).
-    const ipLimit = rateLimit(`cart:${clientIp(request.headers.get("x-forwarded-for"))}`, 60, 60_000);
+    const ipLimit = rateLimit(`cart:${clientIp(request.headers)}`, 60, 60_000);
     if (!ipLimit.ok) {
       return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
     }
@@ -134,7 +134,7 @@ export async function PATCH(request: NextRequest) {
 /** DELETE /api/cart?line=<id> — remove a line. ?all=1 empties the cart. */
 export async function DELETE(request: NextRequest) {
   try {
-    const ipLimit = rateLimit(`cart:${clientIp(request.headers.get("x-forwarded-for"))}`, 60, 60_000);
+    const ipLimit = rateLimit(`cart:${clientIp(request.headers)}`, 60, 60_000);
     if (!ipLimit.ok) {
       return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
     }

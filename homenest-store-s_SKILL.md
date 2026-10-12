@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.2.0
-last_updated: 2026-10-12
-project_state: "149 unit tests · 38 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-5)"
+version: 1.3.0
+last_updated: 2026-10-13
+project_state: "174 unit tests · 39 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-6)"
 tags:
   - nextjs16
   - react19
@@ -746,7 +746,7 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   a11y/nit bundle (drawer Escape + focus, carousel pause-on-hover/
   reduced-motion, header `aria-expanded`, cart-lines clamp mirror).
   131 unit + 32 e2e green.
-- **Session 5 (this pass):** re-validation (all session-4 gates green on the
+- **Session 5:** re-validation (all session-4 gates green on the
   pulled tree; visual parity + mobile nav re-verified against the LIVE
   reference) + fresh deep audit (0 HIGH / 3 MEDIUM / 6 LOW / 4 NIT; CSRF
   posture ADEQUATE). Executed TDD-first: **schema.org JSON-LD** (pure
@@ -762,14 +762,35 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   `computeMergedQuantities` planner + one `$transaction` with idempotent
   final-quantity upserts), footer social links wired from settings, and
   `bun.lock` untracked. 149 unit + 38 e2e green.
-- Known accepted risks (documented, deferred): analytics aggregation
-  unbounded (fine at seeded volume); 404 shell prerendered without nonce
-  (inert islands); cookie `secure` tied to NODE_ENV (behind-proxy
-  deployments should revisit); shared-store rate limiter (mechanical swap,
-  8 sites); admin coupon UI (enforcement complete, management stays
-  DB-level with create-only seeding); account/review pagination; real
-  email delivery (copy is honest; a mailer needs provider credentials +
-  bounce handling — an epic).
+- **Session 6 (this pass):** re-validation (all session-5 gates green on
+  the pulled tree; visual parity + mobile nav re-verified against the LIVE
+  reference, logged in) + fresh deep audit (1 HIGH / 6 MEDIUM / 8 LOW /
+  5 NIT). Executed TDD-first: **spoof-resistant `clientIp(Headers)`**
+  (CF-Connecting-IP → rightmost XFF → direct; the five inline
+  `split(",")[0]` copies eliminated — the HIGH), transactional wishlist
+  merge + P2002-race-safe cart/wishlist creates, **site-wide OpenGraph +
+  Twitter share cards** (branded `public/images/og-default.png`; product
+  pages share the first product image), canonical URLs on every public
+  page (`siteBaseUrl()`; `/products` facets canonicalize to the base
+  listing), `imageUrlSchema` on carousel slide images, **stock-aware cart
+  merge** (third clamp dimension), bounded analytics aggregation
+  (`orderItem.groupBy` + pure `foldItemAggregates`/`topProducts` in
+  `src/lib/analytics.ts`), **ownership-bound idempotent replay**
+  (`Order.cartToken` + `replayAuthorized`), honest pagination (reviews
+  `?reviews=N`, account orders `?page=N`, real totals + snap-back),
+  addresses POST/DELETE limiters, settings-driven legal contact email,
+  `priceValidUntil` + validation `.max()` bounds, hamburger toggle +
+  carousel-dot a11y, `COUPON_STORAGE_KEY` single-sourced, stray Vite
+  `index.html` removed, `docs/DEPLOYMENT.md` rewritten for this codebase.
+  174 unit + 39 e2e green.
+- Known accepted risks (documented, deferred): 404 shell prerendered
+  without nonce (inert islands); cookie `secure` tied to NODE_ENV
+  (behind-proxy deployments should revisit); shared-store rate limiter
+  (mechanical swap); admin coupon UI (enforcement complete, management
+  stays DB-level with create-only seeding); review radiogroup arrow-key
+  roving focus (buttons remain individually operable); real email
+  delivery (copy is honest; a mailer needs provider credentials + bounce
+  handling — an epic).
 
 ## Appendix C — Quick Reference Card
 

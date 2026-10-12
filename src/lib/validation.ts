@@ -137,8 +137,11 @@ export const productInputSchema = z.object({
   images: z
     .array(imageUrlSchema)
     .min(1, "At least one image is required"),
-  tags: z.array(z.string().trim().min(1)).max(12).default([]),
-  specs: z.array(z.object({ label: z.string().min(1), value: z.string().min(1) })).max(24).default([]),
+  tags: z.array(z.string().trim().min(1).max(40)).max(12).default([]),
+  specs: z
+    .array(z.object({ label: z.string().trim().min(1).max(80), value: z.string().trim().min(1).max(80) }))
+    .max(24)
+    .default([]),
   badge: z.string().trim().max(40).nullable().optional(),
   isFeatured: z.boolean().default(false),
   isNewArrival: z.boolean().default(false),
@@ -175,7 +178,7 @@ export const safeLinkSchema = z
 export const carouselSlideInputSchema = z.object({
   title: z.string().trim().min(2).max(80),
   subtitle: z.string().trim().max(200).default(""),
-  image: z.string().trim().min(1),
+  image: imageUrlSchema,
   ctaText: z.string().trim().min(2).max(40).default("Shop Now"),
   ctaLink: safeLinkSchema.default("/products"),
   sortOrder: z.number().int().min(0).max(99).default(0),

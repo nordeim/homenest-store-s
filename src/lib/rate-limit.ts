@@ -58,15 +58,22 @@ export function resetRateLimiter(): void {
 }
 
 /**
- * Derive the limiter key from an `x-forwarded-for` header. Behind a proxy the
- * header carries a comma-separated chain — the FIRST hop is the original
- * client. Missing/empty headers (direct connections) share the "direct"
- * bucket, mirroring the checkout route's established convention. Pure, so
- * every call site keys budgets the same way.
+ * Derive the limiter key's IP from the request headers. Spoof-resistant
+ * ordering (session-6): `cf-connecting-ip` wins — the edge sets it from the
+ * socket, so a client cannot feed it through the proxy chain — otherwise the
+ * RIGHTMOST `x-forwarded-for` entry, i.e. the hop the nearest trusted proxy
+ * appended. (The leftmost entry is whatever the client typed; behind an
+ * appending proxy it survives untouched at the front of the chain.) Direct
+ * connections (no proxy headers — local dev, e2e) share the "direct" bucket.
+ * Every call site keys budgets through this helper so they can never
+ * disagree.
  */
-export function clientIp(headerValue: string | null | undefined): string {
-  const value = headerValue?.trim();
-  if (!value) return "direct";
-  const first = value.split(",")[0]?.trim();
-  return first || "direct";
+export function clientIp(headers: Headers): string {
+  const cf = headers.get("cf-connecting-ip")?.trim();
+  if (cf) return cf;
+
+  const xff = headers.get("x-forwarded-for")?.trim();
+  if (!xff) return "direct";
+  const last = xff.split(",").map((hop) => hop.trim()).filter(Boolean).pop();
+  return last || "direct";
 }

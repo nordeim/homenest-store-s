@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
 import { firstError, newsletterSchema } from "@/lib/validation";
-import { rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 /** POST /api/newsletter — subscribe an email (idempotent). */
 export async function POST(request: NextRequest) {
@@ -17,8 +17,8 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: firstError(parsed.error) }, { status: 400 });
     }
-    const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "direct";
-    const limit = rateLimit(`newsletter:${clientIp}`, 5, 60_000);
+    
+    const limit = rateLimit(`newsletter:${clientIp(request.headers)}`, 5, 60_000);
     if (!limit.ok) {
       return NextResponse.json({ error: "Too many attempts. Please try again shortly." }, { status: 429 });
     }

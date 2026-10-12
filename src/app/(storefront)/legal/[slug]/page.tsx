@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { siteBaseUrl } from "@/lib/seo";
+import { getSettings } from "@/lib/settings";
+
 import { LEGAL_SLUGS, legalContent, type LegalSlug } from "./content";
 
 // ---------------------------------------------------------------------------
@@ -30,6 +33,7 @@ export async function generateMetadata({
   return {
     title: doc.title,
     description: doc.intro.slice(0, 155),
+    alternates: { canonical: `${siteBaseUrl()}/legal/${slug}` },
   };
 }
 
@@ -38,6 +42,11 @@ export default async function LegalPage({ params }: { params: Promise<{ slug: st
   if (!isLegalSlug(slug)) notFound();
 
   const doc = legalContent[slug];
+  // Settings-driven like every other contact surface (session-6 S6-11) — the
+  // admin-editable contactEmail used to be shadowed by a hardcoded address.
+  const contactEmail = await getSettings()
+    .then((s) => s.contactEmail)
+    .catch(() => "hello@homenest.com");
 
   return (
     <div className="container-page py-10 sm:py-14">
@@ -75,10 +84,10 @@ export default async function LegalPage({ params }: { params: Promise<{ slug: st
         <footer className="border-t border-border pt-6 text-sm text-muted-foreground">
           Questions about this policy? Email{" "}
           <a
-            href="mailto:hello@homenest.com"
+            href={`mailto:${contactEmail}`}
             className="font-medium text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline"
           >
-            hello@homenest.com
+            {contactEmail}
           </a>{" "}
           — we reply within 24 hours on business days.
         </footer>

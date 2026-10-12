@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import { addressSchema, firstError } from "@/lib/validation";
 
@@ -13,6 +14,15 @@ export async function POST(request: NextRequest) {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "You must be signed in to save addresses." }, { status: 401 });
+    }
+
+    // Metered like every other mutation (session-6 S6-10): 60/min per client.
+    const limit = rateLimit(`addresses:${clientIp(request.headers)}`, 60, 60_000);
+    if (!limit.ok) {
+      return NextResponse.json(
+        { error: "Too many requests. Please slow down." },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSec ?? 60) } },
+      );
     }
 
     // Malformed payloads are a client error (400), not a 500 — same pattern as
@@ -59,6 +69,14 @@ export async function DELETE(request: NextRequest) {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+    }
+
+    const limit = rateLimit(`addresses:${clientIp(request.headers)}`, 60, 60_000);
+    if (!limit.ok) {
+      return NextResponse.json(
+        { error: "Too many requests. Please slow down." },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSec ?? 60) } },
+      );
     }
 
     const id = request.nextUrl.searchParams.get("id");

@@ -1,42 +1,60 @@
-# Deployment Guide (this is just a reference template meant to be customized to align to the actual codebase as appropriate)
+# Deployment Guide — HomeNest Kitchen
 
-ORBITAL ships as a single Next.js **standalone** build with a SQLite file
-database — one process, zero external services. This guide covers the
-supported production paths and the environment contract.
+HomeNest Kitchen ships as a single Next.js **standalone** build with a SQLite
+file database — one Node process, zero external services. This guide covers
+the supported production paths and the environment contract. (Rewritten in
+session 6 to match the actual codebase — the previous revision was a template
+from another project.)
 
-## 1. Build
+## 1. Prerequisites
 
-```bash
-bun install
-bun run build          # next build + standalone assembly (.next/standalone)
-```
+- Node ≥ 20, npm ≥ 10 (npm is the package manager — there is no committed
+  `bun.lock`; `bun.lock` is git-ignored by policy).
+- No database server: SQLite ships as a file.
 
-The build compiles the page shell and the 16 API route handlers, then copies
-`.next/static` and `public/` into `.next/standalone/` (see the `build`
-script in `package.json`). `next.config.ts` pins `outputFileTracingRoot` to
-the repo root — keep it; the standalone trace depends on it.
-
-## 2. Run
+## 2. Build
 
 ```bash
-bun run start          # NODE_ENV=production bun .next/standalone/server.js
+npm install            # approve @prisma/engines, esbuild, unrs-resolver postinstall scripts if npm asks
+npm run db:setup       # prisma db push + idempotent seed (safe to re-run)
+npm run build          # next build + standalone assembly (.next/standalone)
 ```
 
-The server listens on port 3000 by default (`PORT` overrides). Always start
-it from the repo root via the npm/bun script — the scripts guarantee the
-working directory that the SQLite path resolution and the standalone trace
-rely on. Behind a reverse proxy, forward `X-Forwarded-Proto` so cookie
-attributes derive the right scheme.
+The build compiles the storefront, admin console, and the REST route handlers
+(`src/app/api/*`), then copies `.next/static` and `public/` into
+`.next/standalone/` (see the `build` script in `package.json`).
+`next.config.ts` pins `outputFileTracingRoot` to the repo root — keep it; the
+standalone trace depends on it. The build also copies `.env` into
+`standalone/`, so environment changes need a rebuild.
 
-## 3. Environment variables
+## 3. Run
+
+```bash
+npm run start          # NODE_ENV=production node .next/standalone/server.js
+```
+
+The server listens on port 3000 by default (`PORT` overrides) and logs are
+tee'd to `server.log`. Always start it from the repo root via the npm script —
+the script guarantees the working directory that the SQLite path resolution
+and the standalone trace rely on. Behind a reverse proxy, forward
+`X-Forwarded-For` (appending — do not pass the client's value through
+untouched) and `X-Forwarded-Proto` so rate-limit keys and cookie attributes
+derive correctly. Behind Cloudflare, `CF-Connecting-IP` is picked up
+automatically by the limiter (`src/lib/rate-limit.ts`).
+
+## 4. Environment variables
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `DATABASE_URL` | Yes | SQLite connection string. See §4. |
-| `AUTH_SECRET` | **Yes in production** | HMAC secret for session cookies. Generate with `openssl rand -hex 32`. An insecure dev constant is used when unset — never ship that. |
-| `NEXT_PUBLIC_SITE_URL` | Recommended | Canonical public origin, used for metadata URLs and `sitemap.xml` (e.g. `https://orbital.example.com`). |
+| `DATABASE_URL` | Yes | SQLite connection string. See §5. |
+| `AUTH_SECRET` | **Yes in production** | HMAC secret for session cookies and receipt/order-access tokens. Generate with `openssl rand -base64 32`. The server **refuses to start** in production without a strong value (`src/lib/auth-secret.ts` throws at module load). |
+| `NEXT_PUBLIC_SITE_URL` | Recommended | Canonical public origin, used for metadata URLs, `sitemap.xml`, `robots.txt`, and JSON-LD (e.g. `https://shop.example.com`). |
+| `NEXT_PUBLIC_DEMO_MODE` | Optional | Set to `false` to hide the login page's demo-credentials quick-fill box in a real store. |
 
-## 4. Database location (§4 — the `.env.example` reference)
+Start from `.env.example` (`cp .env.example .env`) — it documents every
+variable above.
+
+## 5. Database location
 
 `DATABASE_URL` accepts three forms:
 
@@ -49,11 +67,12 @@ attributes derive the right scheme.
    at `<repo>/db/custom.db` for `prisma db push`, `prisma/seed.ts`,
    `next build` and the running server alike, regardless of the process
    working directory. The resolution rule lives in
-   `src/lib/db-path.ts` and is pinned by `tests/db-path.test.ts`.
+   `src/lib/db-path.ts` and is pinned by `tests/unit/db-path.test.ts`.
+   `db/` sits at the repo root and is git-ignored.
 
 2. **Absolute `file:` URL (recommended for production).**
    ```
-   DATABASE_URL="file:/var/lib/orbital/custom.db"
+   DATABASE_URL="file:/var/lib/homenest/custom.db"
    ```
    Absolute paths pass through untouched — immune to any working-directory
    ambiguity across service managers, containers, or cron wrappers. Point
@@ -61,42 +80,58 @@ attributes derive the right scheme.
 
 3. **PostgreSQL.** Switch `provider = "postgresql"` in
    `prisma/schema.prisma`, set a `postgresql://` URL, then
-   `bun run db:push && bun run db:seed`.
+   `npm run db:push && npm run db:seed`.
 
 Initialize (or reset) the database with:
 
 ```bash
-bun run db:push        # apply schema (db push — no migrations folder)
-bun run db:seed        # idempotent demo workspace (wipes domain tables)
+npm run db:push        # apply schema (db push — no migrations folder)
+npm run db:seed        # idempotent seed: catalog, settings, coupons, demo users
 ```
 
-`db/*.db` is gitignored; every fresh clone recreates it from the two
-commands above.
+The seed is **create-or-merge by design**: products/categories upsert by
+natural key, coupon seeding is create-only (`update: {}`) so redemption
+bookkeeping survives reseeds, and review aggregates grow organically rather
+than collapsing to the seeded baseline.
 
-## 5. Updating
+> **Demo credentials:** the seed creates `admin@homenestkitchen.com` /
+> `Admin123!` and `demo@homenestkitchen.com` / `Demo1234!`. For a real store,
+> change the admin password (or reseed with your own credentials) before
+> going live, and set `NEXT_PUBLIC_DEMO_MODE=false`.
+
+## 6. Updating
 
 ```bash
 git pull
-bun install
-bunx prisma generate   # after schema changes
-bun run db:push
-bun run build
+npm install
+npm run db:generate    # after schema changes
+npm run db:push
+npm run build
 # restart the server process
 ```
 
-## 6. Verification checklist
+## 7. Verification checklist
 
 ```bash
-curl -s https://your-host/api/health          # {"status":"ok",...}
-bun run lint && bun run typecheck && bun run test
-./scripts/smoke-test.sh                       # 30 E2E checks (local)
-bun run test:e2e                              # Playwright suite (local)
+curl -s localhost:3000/api/health            # {"status":"ok","db":"up",...}
+npm run lint
+npm run typecheck && npm run typecheck:tests
+npm run test                                 # Vitest unit suite
+npm run build
+npm run test:e2e                             # Playwright suite (starts the standalone server on :3100 itself)
 ```
 
-## 7. Common production issues
+The clean-check order in `AGENTS.md` is the deploy gate: every step must exit
+0. Regenerate the documentation screenshots with
+`node scripts/capture-screenshots.mjs` (server on :3000).
+
+## 8. Common production issues
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `Error code 14: Unable to open the database file` | Server started from a directory that has no `prisma/schema.prisma` and no absolute `DATABASE_URL` | Start via `bun run start`, or set an absolute `file:` URL (§4) |
+| `Error code 14: Unable to open the database file` | Server started from a directory that has no `prisma/schema.prisma` and no absolute `DATABASE_URL` | Start via `npm run start`, or set an absolute `file:` URL (§5) |
+| `db/custom.db` appears elsewhere / rows survive a "fresh" reseed | `DATABASE_URL` shadowed by the process env (Prisma never overrides existing env) | `node -e "console.log(process.env.DATABASE_URL)"` — converge or unset |
+| Page paints but never hydrates, zero console errors | Static prerender baked without the per-request CSP nonce | Make the route render per-request (`await connection()` — see `(auth)/layout.tsx`) |
 | Logins loop back to `/login` | `AUTH_SECRET` changed between restarts | Keep the secret stable across restarts |
-| Rate-limited logins (429) | 10 attempts/IP/15 min fixed window | Wait for `Retry-After`, or restart to clear the in-memory buckets (single-node) |
+| 429s on login/checkout | Per-email (10/min) + per-IP (30/min) fixed-window limiter | Wait for `Retry-After`; in-memory buckets reset on restart (single-node) |
+| `EADDRINUSE :3100` during e2e | A previous standalone server is alive (process renames to `next-server`) | `pkill -f next-server` |

@@ -71,26 +71,40 @@ function initials(name: string): string {
   return letters || "H";
 }
 
-function tabHref(tab: TabId): string {
-  return tab === "profile" ? "/account" : `/account?tab=${tab}`;
+function tabHref(tab: TabId, page = 1): string {
+  if (tab === "profile") return "/account";
+  return page > 1 ? `/account?tab=${tab}&page=${page}` : `/account?tab=${tab}`;
 }
 
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; page?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const { tab: tabParam } = await searchParams;
+  const { tab: tabParam, page: pageParam } = await searchParams;
   const tab: TabId = isTabId(tabParam) ? tabParam : "profile";
+  // Honest pagination for order history (session-6 S6-9) — server-rendered
+  // prev/next, real totals, no silent caps.
+  const ORDER_PAGE_SIZE = 5;
+  const parsedPage = Number.parseInt(pageParam ?? "1", 10);
+  const ordersPage = Number.isFinite(parsedPage) && parsedPage > 0 ? Math.min(parsedPage, 1000) : 1;
+
+  // Count first so an out-of-range ?page= snaps back to page 1 (the /products
+  // snap-back contract) instead of rendering an empty list.
+  const orderTotal = await db.order.count({ where: { userId: user.id } });
+  const ordersPages = Math.max(1, Math.ceil(orderTotal / ORDER_PAGE_SIZE));
+  const ordersPageSafe = Math.min(ordersPage, ordersPages);
 
   const [orders, addresses] = await Promise.all([
     db.order.findMany({
       where: { userId: user.id },
       orderBy: { placedAt: "desc" },
       include: { items: true, _count: { select: { items: true } } },
+      skip: (ordersPageSafe - 1) * ORDER_PAGE_SIZE,
+      take: ORDER_PAGE_SIZE,
     }),
     db.address.findMany({
       where: { userId: user.id },
@@ -160,7 +174,12 @@ export default async function AccountPage({
             </section>
           ) : null}
 
-          {tab === "orders" ? <OrdersSection orders={orders} /> : null}
+          {tab === "orders" ? (
+            <OrdersSection
+              orders={orders}
+              pagination={{ page: ordersPageSafe, totalPages: ordersPages, hrefFor: (p) => tabHref("orders", p) }}
+            />
+          ) : null}
 
           {tab === "addresses" ? (
             <section aria-labelledby="account-addresses-heading" className="flex flex-col gap-5">
@@ -237,8 +256,10 @@ type OrderWithItems = Prisma.OrderGetPayload<{
 
 function OrdersSection({
   orders,
+  pagination,
 }: {
   orders: OrderWithItems[];
+  pagination: { page: number; totalPages: number; hrefFor: (page: number) => string };
 }) {
   if (orders.length === 0) {
     return (
@@ -377,6 +398,37 @@ function OrdersSection({
           </article>
         );
       })}
+      {pagination.totalPages > 1 && (
+        <nav aria-label="Order pages" className="flex items-center gap-3 text-sm">
+          {pagination.page > 1 ? (
+            <Link
+              href={pagination.hrefFor(pagination.page - 1)}
+              className="rounded-lg border border-border px-3 py-1.5 transition-colors hover:bg-secondary"
+            >
+              Previous
+            </Link>
+          ) : (
+            <span aria-disabled className="rounded-lg border border-border px-3 py-1.5 text-muted-foreground/50">
+              Previous
+            </span>
+          )}
+          <span className="text-muted-foreground">
+            Page {pagination.page} of {pagination.totalPages}
+          </span>
+          {pagination.page < pagination.totalPages ? (
+            <Link
+              href={pagination.hrefFor(pagination.page + 1)}
+              className="rounded-lg border border-border px-3 py-1.5 transition-colors hover:bg-secondary"
+            >
+              Next
+            </Link>
+          ) : (
+            <span aria-disabled className="rounded-lg border border-border px-3 py-1.5 text-muted-foreground/50">
+              Next
+            </span>
+          )}
+        </nav>
+      )}
     </section>
   );
 }

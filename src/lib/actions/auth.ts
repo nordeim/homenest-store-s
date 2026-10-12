@@ -54,7 +54,7 @@ async function purgeExpiredSessions(): Promise<void> {
  */
 async function ipBudget(kind: "login-ip" | "register-ip", limit: number): Promise<{ ok: boolean; retryAfterSec?: number }> {
   const h = await headers();
-  return rateLimit(`${kind}:${clientIp(h.get("x-forwarded-for"))}`, limit, 60_000);
+  return rateLimit(`${kind}:${clientIp(h)}`, limit, 60_000);
 }
 
 /**

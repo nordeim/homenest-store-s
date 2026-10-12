@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { discountPercent, formatMoney } from "@/lib/money";
 import { parseImages, parseSpecs, parseTags, toCardData } from "@/lib/products";
-import { buildProductJsonLd } from "@/lib/seo";
+import { buildProductJsonLd, siteBaseUrl } from "@/lib/seo";
 import { getSettings } from "@/lib/settings";
 import { getCurrentUser } from "@/lib/auth";
 import { ProductCard } from "@/components/store/product-card";
@@ -19,7 +19,7 @@ import { ReviewForm } from "./review-form";
 
 export const dynamic = "force-dynamic";
 
-type PageProps = { params: Promise<{ id: string }> };
+type PageProps = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 const TRUST_POINTS = [
   { icon: Truck, text: "Free shipping over $50" },
@@ -27,26 +27,43 @@ const TRUST_POINTS = [
   { icon: RefreshCcw, text: "30-day returns" },
 ];
 
-function siteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/+$/, "");
-}
-
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   const product = await db.product.findUnique({
     where: { id },
-    select: { name: true, shortDescription: true },
+    select: { name: true, shortDescription: true, images: true },
   });
   if (!product) return { title: "Product not found" };
+  // First product image as the share card (root-relative or http(s) — both
+  // pass imageUrlSchema; metadataBase resolves root-relative to absolute).
+  // Unknown hosts would need a CSP img-src widening decision first.
+  const firstImage = parseImages(product.images)[0];
+  const ogImages = firstImage ? [firstImage] : ["/images/og-default.png"];
   return {
     title: product.name,
     description: product.shortDescription,
-    alternates: { canonical: `${siteUrl()}/product/${id}` },
+    alternates: { canonical: `${siteBaseUrl()}/product/${id}` },
+    openGraph: {
+      type: "website",
+      title: product.name,
+      description: product.shortDescription,
+      url: `${siteBaseUrl()}/product/${id}`,
+      images: ogImages,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: product.name,
+      description: product.shortDescription,
+      images: ogImages,
+    },
   };
 }
 
-export default async function ProductDetailPage({ params }: PageProps) {
+export default async function ProductDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
+  const sp = await searchParams;
+  const reviewsParam = Number.parseInt(Array.isArray(sp.reviews) ? (sp.reviews[0] ?? "1") : (sp.reviews ?? "1"), 10);
+  const reviewsPage = Number.isFinite(reviewsParam) && reviewsParam > 0 ? Math.min(reviewsParam, 1000) : 1;
   const [product, user, settings] = await Promise.all([
     db.product.findUnique({
       where: { id, isActive: true },
@@ -57,8 +74,8 @@ export default async function ProductDetailPage({ params }: PageProps) {
   ]);
   if (!product) notFound();
 
-  const [reviews, related] = await Promise.all([
-    db.review.findMany({ where: { productId: product.id }, orderBy: { createdAt: "desc" } }),
+  const [reviewCount, related] = await Promise.all([
+    db.review.count({ where: { productId: product.id } }),
     db.product.findMany({
       where: { categoryId: product.categoryId, isActive: true, id: { not: product.id } },
       orderBy: [{ rating: "desc" }, { createdAt: "desc" }],
@@ -66,6 +83,20 @@ export default async function ProductDetailPage({ params }: PageProps) {
       include: { category: { select: { name: true, slug: true } } },
     }),
   ]);
+  // Honest pagination (session-6 S6-9): one page of reviews plus the real
+  // total — never a silent cap that hides data. Out-of-range pages snap back
+  // to 1 (same UX contract as /products?page=).
+  const REVIEW_PAGE_SIZE = 5;
+  const reviewsPages = Math.max(1, Math.ceil(reviewCount / REVIEW_PAGE_SIZE));
+  const reviewsPageSafe = Math.min(reviewsPage, reviewsPages);
+  const reviews = reviewCount
+    ? await db.review.findMany({
+        where: { productId: product.id },
+        orderBy: { createdAt: "desc" },
+        skip: (reviewsPageSafe - 1) * REVIEW_PAGE_SIZE,
+        take: REVIEW_PAGE_SIZE,
+      })
+    : [];
 
   const images = parseImages(product.images);
   const specs = parseSpecs(product.specs);
@@ -87,7 +118,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
     rating: product.rating,
     reviewCount: product.reviewCount,
     categoryName: product.category.name,
-    url: `${siteUrl()}/product/${product.id}`,
+    url: `${siteBaseUrl()}/product/${product.id}`,
     brandName: settings?.storeName ?? "HomeNest Kitchen",
   });
 
@@ -262,6 +293,37 @@ export default async function ProductDetailPage({ params }: PageProps) {
                   </li>
                 ))}
               </ul>
+            )}
+            {reviewsPages > 1 && (
+              <nav aria-label="Review pages" className="mt-6 flex items-center gap-3 text-sm">
+                {reviewsPageSafe > 1 ? (
+                  <Link
+                    href={`/product/${product.id}?reviews=${reviewsPageSafe - 1}#reviews`}
+                    className="rounded-lg border border-border px-3 py-1.5 transition-colors hover:bg-secondary"
+                  >
+                    Previous
+                  </Link>
+                ) : (
+                  <span aria-disabled className="rounded-lg border border-border px-3 py-1.5 text-muted-foreground/50">
+                    Previous
+                  </span>
+                )}
+                <span className="text-muted-foreground">
+                  Page {reviewsPageSafe} of {reviewsPages}
+                </span>
+                {reviewsPageSafe < reviewsPages ? (
+                  <Link
+                    href={`/product/${product.id}?reviews=${reviewsPageSafe + 1}#reviews`}
+                    className="rounded-lg border border-border px-3 py-1.5 transition-colors hover:bg-secondary"
+                  >
+                    Next
+                  </Link>
+                ) : (
+                  <span aria-disabled className="rounded-lg border border-border px-3 py-1.5 text-muted-foreground/50">
+                    Next
+                  </span>
+                )}
+              </nav>
             )}
           </div>
 

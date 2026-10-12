@@ -89,7 +89,7 @@ test.describe("shopping flow", () => {
     await expect(page.getByText(/cart is empty/i)).toBeVisible();
   });
 
-  test("checkout replay with the same idempotency key returns the same order (S3-5)", async ({ request }) => {
+  test("checkout replay with the same idempotency key returns the same order (S3-5)", async ({ request, browser }) => {
     // Pick an in-stock product via the public typeahead API.
     const search = await request.get("/api/search?q=knife");
     expect(search.ok()).toBeTruthy();
@@ -131,6 +131,22 @@ test.describe("shopping flow", () => {
     const replayBody = (await replay.json()) as { orderNumber?: string; token?: string };
     expect(replayBody.orderNumber).toBe(firstBody.orderNumber);
     expect(replayBody.token).toBe(firstBody.token);
+
+    // S6-8: the replay is OWNERSHIP-bound. A fresh context that presents the
+    // leaked key alone (no placing cart cookie) gets nothing — the request
+    // falls through to the normal flow and 409s on its (empty) cart without
+    // revealing the order number or minting a receipt token.
+    const thief = await browser.newContext();
+    try {
+      const stolen = await thief.request.post("/api/checkout", { data: checkoutBody });
+      expect(stolen.status()).toBe(409);
+      const stolenBody = (await stolen.json()) as { orderNumber?: string; token?: string; error?: string };
+      expect(stolenBody.orderNumber).toBeUndefined();
+      expect(stolenBody.token).toBeUndefined();
+      expect(stolenBody.error).toBeTruthy();
+    } finally {
+      await thief.close();
+    }
   });
 
   test("malformed JSON bodies are 400 client errors, not 200/500 (S4-2)", async ({ request }) => {

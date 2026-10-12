@@ -165,6 +165,10 @@ model Order {
   // Client-generated checkout key: a retry with the same key returns the
   // already-placed order instead of double-ordering (nullable: legacy rows).
   idempotencyKey  String?      @unique
+  // Cart token that placed the order (session-6 S6-8) — binds an idempotent
+  // replay to the placing client. Guest replays must present the same cart
+  // cookie; user replays must hold the same session. Nullable: legacy rows.
+  cartToken       String?
   userId          String?
   user            User?        @relation(fields: [userId], references: [id])
   email           String

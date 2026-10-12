@@ -138,3 +138,36 @@ Work Log:
 Stage Summary:
 - Codebase closes the last SEO gap (JSON-LD rich results + canonicals + manifest/favicon), stops promising an email that never ships, ships branded error boundaries, and hardens the remaining metering/merge surfaces — with the e2e suite now also pinning the SEO/platform contracts.
 - 149 unit + 38 e2e green; all docs aligned; deferred items re-documented with justification (analytics groupBy, 404 nonce, __Host- prefix, shared-store limiter, admin coupon UI, pagination, real mailer).
+
+---
+
+Task ID: 6 (session 6)
+Agent: audit + remediation agent (Super Z)
+Task: Re-validate session-5 deliverables, run a fresh deep audit (client-IP trust, SEO share surfaces, unbounded queries, docs alignment), remediate the new findings TDD-first, rewrite docs/DEPLOYMENT.md, refresh screenshots/docs/worklog, commit and push.
+
+Work Log:
+- Cloned the repo fresh (workspace had been reset); repo at 5f3776a = bf8b521 + docs/session_5.md; re-ran every session-5 gate on the pulled tree: lint ✓, typecheck ✓, typecheck:tests ✓, 149/149 unit ✓, build ✓, 38/38 e2e ✓; DATABASE_URL="file:../db/custom.db" contract intact (sandbox DATABASE_URL shadow neutralized by explicit per-command override; db/custom.db at the repo root).
+- Re-verified visual parity against the LIVE reference (logged in via agent-browser): desktop home, hero carousel, trust badges, 8 categories, featured products (identical names/counts/prices) — reference unchanged; mobile menu re-verified (open → expanded=true, push-down panel; navigate → closes, lands on /products).
+- Fresh deep audit (Task 6-a read-only subagent + own verification): 1 HIGH / 6 MEDIUM / 8 LOW / 5 NIT; session-5 fix verification 11/11 wired; verified clean: Tailwind v4 display toggling, money/cart math, cookies, CSP, anti-enumeration shells, no committed secrets.
+- Wrote the session-6 remediation plan (docs/REMEDIATION_PLAN.md) and executed it TDD-first (red → green for every fix):
+  - S6-1 (HIGH): spoof-resistant clientIp(Headers) — cf-connecting-ip first, rightmost XFF hop, "direct" fallback; the 5 inline split(",")[0] copies (coupon/checkout/newsletter/contact/track-order) route through the helper; 5 new unit cases.
+  - S6-2: wishlist merge in ONE $transaction with token rotation (mirrors cart.ts); P2002-race-safe cart/wishlist creates (catch + re-read winner).
+  - S6-3: branded public/images/og-default.png (1200×630, generated from the design tokens via scripts/gen_og_image.py); site-wide openGraph.images + twitter summary_large_image; product pages share the first product image; e2e-pinned.
+  - S6-4: alternates.canonical on /, /products (facet params stripped), /about, /contact, /legal/[slug] via shared siteBaseUrl(); e2e-pinned.
+  - S6-5: carouselSlideInputSchema.image → imageUrlSchema (+ 5 unit cases).
+  - S6-6: computeMergedQuantities(own, guest, stockById?) third clamp dimension (stock; zero-stock lines dropped); cart.ts fetches stock in the merge tx (+6 unit cases).
+  - S6-7: bounded analytics — orderItem.groupBy on (productId, nameSnapshot, unitPrice) + pure foldItemAggregates/topProducts in src/lib/analytics.ts (+6 unit cases); unbounded findMany removed.
+  - S6-8: Order.cartToken column (db:push) + replayAuthorized() ownership gate (user: session match; guest: cart-cookie match; legacy rows deny) + shopping-flow e2e thief-context case (+4 unit cases).
+  - S6-9: honest server-rendered pagination — product reviews ?reviews=N (5/page), account orders ?page=N (5/page); real totals, prev/next, out-of-range snap-back.
+  - S6-10: addresses POST/DELETE per-IP limiters (60/min). S6-11: legal footer email from settings.contactEmail.
+  - S6-12: README counts fixed (131/32 → actual), stray Vite index.html removed (git rm), COUPON_STORAGE_KEY single-sourced from cart/coupon-box.tsx.
+  - S6-13: header hamburger toggles (setMobileNavOpen(!open)); carousel dots → plain buttons with aria-current (tab/tablist misuse removed).
+  - S6-14: priceValidUntil in the Product offer (pure builder, unit-pinned); spec label/value ≤80 + tags ≤40 validation bounds.
+  - S6-15: docs/DEPLOYMENT.md fully rewritten for this codebase (npm scripts, real limiter numbers, env table incl. NEXT_PUBLIC_DEMO_MODE, DB contract, standalone runbook, seed-credential note, updated troubleshooting).
+- Gates after: lint ✓, typecheck ✓, typecheck:tests ✓, 174/174 unit ✓, build ✓, 39/39 e2e ✓ (new: site-wide OG/canonical spec; replay thief-context denial).
+- Manual verification via agent-browser + curl on the fresh standalone build: OG image/twitter card/canonical in served HTML; product og:image + priceValidUntil 2027-10-12; admin analytics renders charts from the bounded groupBy with zero console errors; hamburger now toggles open AND close; legal pages render settings email; screenshots refreshed (23 shots).
+- Updated AGENTS.md (7 new/extended invariants), CLAUDE.md, README.md (174/39 counts + share-card features), PAD (known-issues 12/13/18/19 updated + 21/22/23 added), homenest-store-s_SKILL.md v1.3.0 (session-6 history + state line), worklog.md.
+
+Stage Summary:
+- Codebase closes the last HIGH-severity finding (limiter-bypass via spoofed XFF), makes the wishlist merge atomic (cart-merge parity), ships site-wide share cards + canonicals (SEO superset completion), bounds the analytics query, binds idempotent replays to their owner, paginates the two unbounded list surfaces honestly, and rewrites the stale DEPLOYMENT.md.
+- 174 unit + 39 e2e green; all docs aligned; deferred items re-documented with justification (404 nonce, __Host- prefix, shared-store limiter, admin coupon UI, review radiogroup roving focus, real mailer).

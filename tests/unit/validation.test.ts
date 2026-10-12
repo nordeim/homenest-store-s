@@ -199,3 +199,49 @@ describe("productInputSchema.images", () => {
     expect(productInputSchema.safeParse({ ...base, images: [] }).success).toBe(false);
   });
 });
+
+// --- session-6 S6-5: carousel slide images carry the same scheme gate -------
+describe("carouselSlideInputSchema.image (session-6)", () => {
+  const base = { title: "Summer Sale" };
+
+  it("accepts root-relative store paths and absolute http(s) URLs", () => {
+    expect(carouselSlideInputSchema.safeParse({ ...base, image: "/images/hero-sale.png" }).success).toBe(true);
+    expect(carouselSlideInputSchema.safeParse({ ...base, image: "https://cdn.example.com/hero.jpg" }).success).toBe(true);
+  });
+
+  it("rejects data:, javascript: and protocol-relative URLs (CSP img-src 'self' alignment)", () => {
+    expect(carouselSlideInputSchema.safeParse({ ...base, image: "data:image/png;base64,AAAA" }).success).toBe(false);
+    expect(carouselSlideInputSchema.safeParse({ ...base, image: "javascript:alert(1)" }).success).toBe(false);
+    expect(carouselSlideInputSchema.safeParse({ ...base, image: "//evil.example.com/x.png" }).success).toBe(false);
+  });
+});
+
+// --- session-6 S6-14: bounded spec/tag inputs -------------------------------
+function productBase(overrides: Record<string, unknown>): Record<string, unknown> {
+  return {
+    name: "Test Knife",
+    slug: "test-knife",
+    description: "A very good test knife for chopping test vegetables.",
+    categoryId: "cat_kitchen-tools",
+    price: 1999,
+    sku: "KN-TEST-01",
+    stock: 10,
+    images: ["/images/knife-1.jpg"],
+    ...overrides,
+  };
+}
+
+describe("productInputSchema.specs/tags bounds (session-6)", () => {
+  it("rejects spec labels/values above 80 characters", () => {
+    const long = "x".repeat(81);
+    expect(productInputSchema.safeParse(productBase({ specs: [{ label: "Material", value: "Steel" }] })).success).toBe(true);
+    expect(productInputSchema.safeParse(productBase({ specs: [{ label: long, value: "Steel" }] })).success).toBe(false);
+    expect(productInputSchema.safeParse(productBase({ specs: [{ label: "Material", value: long }] })).success).toBe(false);
+  });
+
+  it("rejects individual tags above 40 characters", () => {
+    const long = "x".repeat(41);
+    expect(productInputSchema.safeParse(productBase({ tags: ["knife", long] })).success).toBe(false);
+    expect(productInputSchema.safeParse(productBase({ tags: ["knife"] })).success).toBe(true);
+  });
+});

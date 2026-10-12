@@ -71,6 +71,37 @@ test.describe("seo + platform", () => {
     const canonical = page.locator('link[rel="canonical"]');
     await expect(canonical).toHaveCount(1);
     expect(await canonical.getAttribute("href")).toContain("/product/");
+
+    // S6-3: product shares carry the product image + a large Twitter card.
+    const ogImage = page.locator('meta[property="og:image"]');
+    await expect(ogImage).toHaveCount(1);
+    expect(await ogImage.getAttribute("content")).toMatch(/^https?:\/\//);
+    expect(await page.locator('meta[name="twitter:card"]').getAttribute("content")).toBe("summary_large_image");
+  });
+
+  test("site-wide share tags + canonicals ship on the public pages (session-6 S6-3/S6-4)", async ({ page, request }) => {
+    // Home: branded OG card + Twitter card + self canonical.
+    await gotoHydrated(page, "/");
+    expect(await page.locator('meta[property="og:image"]').getAttribute("content")).toMatch(/og-default\.png$/);
+    expect(await page.locator('meta[name="twitter:card"]').getAttribute("content")).toBe("summary_large_image");
+    const homeCanonical = await page.locator('link[rel="canonical"]').getAttribute("href");
+    expect(homeCanonical).toMatch(/\/$|:\d+\/?(\?.*)?$/);
+
+    // /products with faceted params canonicalizes to the un-parameterized URL.
+    await gotoHydrated(page, "/products?category=cookware&sort=price-asc&page=2");
+    const productsCanonical = await page.locator('link[rel="canonical"]').getAttribute("href");
+    expect(productsCanonical).toBeTruthy();
+    expect(productsCanonical!).not.toContain("category=");
+    expect(productsCanonical!).not.toContain("page=");
+
+    // About + contact are canonical too (request-level head check).
+    for (const path of ["/about", "/contact"]) {
+      const res = await request.get(path);
+      expect(res.status()).toBe(200);
+      const html = await res.text();
+      expect(html).toContain('rel="canonical"');
+      expect(html).toContain(`href="http`);
+    }
   });
 
   test("robots.txt allows the catalog, disallows private surfaces, points at the sitemap", async ({ request }) => {

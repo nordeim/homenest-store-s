@@ -59,6 +59,27 @@ export function centsToDollars(cents: number): number {
   return Math.round(cents) / 100;
 }
 
+/**
+ * Canonical site origin (session-6 S6-4) — every public page's
+ * `alternates.canonical` composes from this so the base can never disagree
+ * between pages. Trailing slashes are stripped; unset falls back to
+ * localhost:3000 (the documented .env.example default).
+ */
+export function siteBaseUrl(envValue?: string): string {
+  const base = envValue ?? process.env.NEXT_PUBLIC_SITE_URL;
+  return (base || "http://localhost:3000").replace(/\/+$/, "");
+}
+
+/**
+ * offers.priceValidUntil (session-6 S6-14) — Google's rich-result docs
+ * recommend a price-validity date. Pure: a date ~1 year out from `now`,
+ * rendered as the YYYY-MM-DD the schema expects.
+ */
+export function priceValidUntil(now: Date = new Date()): string {
+  const later = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+  return later.toISOString().slice(0, 10);
+}
+
 function availabilityFor(stock: number): string {
   return stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
 }
@@ -83,6 +104,7 @@ export function buildProductJsonLd(product: ProductJsonLdInput): JsonLdObject {
       price: centsToDollars(product.price),
       availability: availabilityFor(product.stock),
       itemCondition: "https://schema.org/NewCondition",
+      priceValidUntil: priceValidUntil(),
     },
   };
 

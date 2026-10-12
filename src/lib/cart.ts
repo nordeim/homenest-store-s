@@ -7,6 +7,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
+import { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { computeMergedQuantities } from "./cart-merge";
 
@@ -73,9 +74,18 @@ export async function getOrCreateCart(userId: string | null): Promise<string> {
             where: { cartId: own.id },
             select: { productId: true, quantity: true },
           });
+          // Current stock pins the plan's third clamp dimension (session-6
+          // S6-6): a merged line can never exceed what checkout would accept.
+          const planIds = [...new Set([...ownItems, ...guest.items].map((i) => i.productId))];
+          const stockRows = await db.product.findMany({
+            where: { id: { in: planIds } },
+            select: { id: true, stock: true },
+          });
+          const stockById = new Map(stockRows.map((p) => [p.id, p.stock]));
           const plan = computeMergedQuantities(
             ownItems.map((i) => ({ productId: i.productId, quantity: i.quantity })),
             guest.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+            stockById,
           );
 
           const newToken = randomBytes(24).toString("base64url");
@@ -100,9 +110,7 @@ export async function getOrCreateCart(userId: string | null): Promise<string> {
       }
       return own.id;
     }
-    const created = await db.cart.create({
-      data: { userId, token: token ?? randomBytes(24).toString("base64url") },
-    });
+    const created = await safeCreateCart(userId, token, store);
     store.set(CART_COOKIE, created.token, { ...cookieOptions(), maxAge: CART_TTL_S });
     return created.id;
   }
@@ -116,6 +124,33 @@ export async function getOrCreateCart(userId: string | null): Promise<string> {
   const created = await db.cart.create({ data: { token: newToken } });
   store.set(CART_COOKIE, newToken, { ...cookieOptions(), maxAge: CART_TTL_S });
   return created.id;
+}
+
+/**
+ * Create the user's cart, surviving the token @unique race (session-6 S6-2):
+ * two concurrent first requests can both observe "no cart" and both create —
+ * the loser hits P2002 and re-reads the winner instead of 500ing.
+ */
+async function safeCreateCart(
+  userId: string,
+  token: string | undefined,
+  store: Awaited<ReturnType<typeof cookies>>,
+): Promise<{ id: string; token: string }> {
+  try {
+    return await db.cart.create({
+      data: { userId, token: token ?? randomBytes(24).toString("base64url") },
+    });
+  } catch (error) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
+      throw error;
+    }
+    const winner = await db.cart.findFirst({
+      where: token ? { token } : { userId },
+      orderBy: { id: "asc" },
+    });
+    if (winner) return winner;
+    throw error;
+  }
 }
 
 /** Best-effort read of the current cart's id (never creates). */

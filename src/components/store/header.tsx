@@ -47,7 +47,7 @@ export function Header({
           aria-expanded={mobileNavOpen}
           aria-haspopup="dialog"
           data-testid="mobile-menu-button"
-          onClick={() => setMobileNavOpen(true)}
+          onClick={() => setMobileNavOpen(!mobileNavOpen)}
         >
           <Menu className="h-5.5 w-5.5" />
         </button>

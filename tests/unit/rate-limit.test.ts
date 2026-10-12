@@ -51,19 +51,33 @@ describe("rateLimit", () => {
   });
 });
 
-describe("clientIp", () => {
-  it("returns 'direct' for a missing header", () => {
-    expect(clientIp(null)).toBe("direct");
-    expect(clientIp(undefined)).toBe("direct");
-    expect(clientIp("")).toBe("direct");
+describe("clientIp (session-6 contract: Headers-based, spoof-resistant)", () => {
+  // Helper — build a Headers object the way route handlers see one.
+  const h = (init: Record<string, string>): Headers => new Headers(init);
+
+  it("returns 'direct' when no IP headers are present (direct connections share one bucket)", () => {
+    expect(clientIp(h({}))).toBe("direct");
+    expect(clientIp(h({ "x-forwarded-for": "" }))).toBe("direct");
   });
 
-  it("returns the first hop of an x-forwarded-for chain, trimmed", () => {
-    expect(clientIp("203.0.113.7, 70.41.3.18, 150.2.2.2")).toBe("203.0.113.7");
-    expect(clientIp("  203.0.113.9 , 70.41.3.18")).toBe("203.0.113.9");
+  it("prefers CF-Connecting-IP — the edge header an appending proxy cannot be fed by the client", () => {
+    expect(
+      clientIp(h({ "cf-connecting-ip": "198.51.100.7", "x-forwarded-for": "1.2.3.4, 198.51.100.7" })),
+    ).toBe("198.51.100.7");
   });
 
-  it("returns the whole value when there is no comma", () => {
-    expect(clientIp("198.51.100.23")).toBe("198.51.100.23");
+  it("takes the RIGHTMOST x-forwarded-for entry — the hop the nearest trusted proxy appended", () => {
+    // A spoofing client sends `X-Forwarded-For: 1.2.3.4`; the appending proxy
+    // turns it into `1.2.3.4, <real>`. The leftmost entry is attacker-chosen.
+    expect(clientIp(h({ "x-forwarded-for": "1.2.3.4, 203.0.113.7" }))).toBe("203.0.113.7");
+    expect(clientIp(h({ "x-forwarded-for": "1.2.3.4, 10.0.0.1, 203.0.113.9" }))).toBe("203.0.113.9");
+  });
+
+  it("returns the single XFF value trimmed when there is only one hop", () => {
+    expect(clientIp(h({ "x-forwarded-for": "  198.51.100.23  " }))).toBe("198.51.100.23");
+  });
+
+  it("falls back to 'direct' when the XFF chain is only commas/whitespace", () => {
+    expect(clientIp(h({ "x-forwarded-for": " , , " }))).toBe("direct");
   });
 });

@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Headset, RefreshCcw, ShieldCheck, Truck } from "lucide-react";
+
+import { siteBaseUrl } from "@/lib/seo";
 
 import { db } from "@/lib/db";
 import { toCardData } from "@/lib/products";
@@ -10,6 +13,10 @@ import { NewsletterForm } from "@/components/store/newsletter-form";
 import { ProductCard } from "@/components/store/product-card";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  alternates: { canonical: `${siteBaseUrl()}/` },
+};
 
 const TRUST_BADGES = [
   { icon: Truck, title: "Free Shipping", text: "On orders over $50" },

@@ -35,7 +35,7 @@ export async function submitReviewAction(
   // network origin: without it an attacker could rotate the author string to
   // mint unlimited fresh budgets.
   const h = await headers();
-  const limit = rateLimit(`review:${clientIp(h.get("x-forwarded-for"))}:${pid}:${safeAuthor.toLowerCase()}`, 5, 60_000);
+  const limit = rateLimit(`review:${clientIp(h)}:${pid}:${safeAuthor.toLowerCase()}`, 5, 60_000);
   if (!limit.ok) {
     return { ok: false, error: "Too many reviews submitted. Please try again shortly." };
   }

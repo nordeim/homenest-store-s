@@ -37,3 +37,21 @@ export function verifyOrderAccessToken(orderNumber: string, token: string): bool
   const provided = Buffer.from(typeof token === "string" ? token : "");
   return expected.length === provided.length && timingSafeEqual(expected, provided);
 }
+
+/**
+ * Ownership gate for idempotent-checkout replays (session-6 S6-8). A user
+ * order replays only for the same signed-in user; a guest order only with
+ * the same cart-token cookie. Legacy rows (no binding recorded) deny — the
+ * checkout route falls through to the normal flow, which 409s on an empty
+ * cart without leaking the order's existence. Pure, unit-pinned in
+ * tests/unit/order-access.test.ts.
+ */
+export function replayAuthorized(
+  orderUserId: string | null,
+  orderCartToken: string | null,
+  requestUserId: string | null,
+  requestCartToken: string | null,
+): boolean {
+  if (orderUserId) return orderUserId === requestUserId;
+  return orderCartToken !== null && orderCartToken === requestCartToken;
+}

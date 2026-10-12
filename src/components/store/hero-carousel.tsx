@@ -105,13 +105,14 @@ export function HeroCarousel({ slides, autoRotateMs = 6000 }: { slides: Slide[];
           </Link>
         </div>
 
-        {/* Dots */}
-        <div className="absolute bottom-5 left-6 flex items-center gap-2 sm:left-10" role="tablist" aria-label="Choose slide">
+        {/* Dots — plain buttons with aria-current (session-6 S6-13): the
+            tab/tablist roles implied tabpanels that don't exist here. */}
+        <div className="absolute bottom-5 left-6 flex items-center gap-2 sm:left-10">
           {slides.map((slide, i) => (
             <button
               key={slide.id}
-              role="tab"
-              aria-selected={i === active}
+              type="button"
+              aria-current={i === active}
               aria-label={`Slide ${i + 1}: ${slide.title}`}
               onClick={() => setActive(i)}
               className={cn(

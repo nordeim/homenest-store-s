@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, PackageSearch, Search } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/db";
+import { siteBaseUrl } from "@/lib/seo";
 import { SORT_OPTIONS, queryProducts } from "@/lib/products";
 import { ProductCard } from "@/components/store/product-card";
 
@@ -15,6 +16,9 @@ export const metadata: Metadata = {
   title: "Shop Premium Kitchenware & Home Essentials",
   description:
     "Browse the full HomeNest Kitchen catalog — cookware, bakeware, appliances, dining and more, with search, category and sort filters.",
+  // Faceted URLs (?q=&category=&sort=&page=) canonicalize to the un-parameterized
+  // listing — the standard duplicate-content dedup for filter permutations.
+  alternates: { canonical: `${siteBaseUrl()}/products` },
 };
 
 const PER_PAGE = 12;

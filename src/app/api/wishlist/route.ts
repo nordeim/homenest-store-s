@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     // Guest-reachable row creation — metered like the cart POST (a scripted
     // client that ignores cookies would mint a Wishlist row per request).
-    const ipLimit = rateLimit(`wishlist:${clientIp(request.headers.get("x-forwarded-for"))}`, 60, 60_000);
+    const ipLimit = rateLimit(`wishlist:${clientIp(request.headers)}`, 60, 60_000);
     if (!ipLimit.ok) {
       return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
     }

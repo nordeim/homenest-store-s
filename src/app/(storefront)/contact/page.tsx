@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Clock, Mail, MapPin, Phone } from "lucide-react";
 
+import { siteBaseUrl } from "@/lib/seo";
 import { getSettings } from "@/lib/settings";
 
 import { ContactForm } from "./contact-form";
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
   title: "Contact Us",
   description:
     "Questions about an order, product advice, or a partnership? Reach the HomeNest Kitchen team by email, phone, or the contact form — we reply within 24 hours.",
+  alternates: { canonical: `${siteBaseUrl()}/contact` },
 };
 
 // ---------------------------------------------------------------------------

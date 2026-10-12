@@ -4,6 +4,7 @@ import {
   buildOrganizationJsonLd,
   buildProductJsonLd,
   buildWebsiteJsonLd,
+  siteBaseUrl,
 } from "@/lib/seo";
 import type { JsonLdObject } from "@/lib/seo";
 
@@ -119,3 +120,30 @@ describe("buildWebsiteJsonLd", () => {
 });
 
 
+
+// --- session-6 S6-14: priceValidUntil (Google rich-result recommendation) ---
+describe("buildProductJsonLd — priceValidUntil (session-6)", () => {
+  it("emits offers.priceValidUntil as a YYYY-MM-DD date about a year out", () => {
+    const ld = buildProductJsonLd(PRODUCT) as JsonLdObject & { offers: Record<string, unknown> };
+    const value = ld.offers.priceValidUntil;
+    expect(typeof value).toBe("string");
+    expect(value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const parsed = new Date(`${value as string}T00:00:00Z`).getTime();
+    expect(Number.isNaN(parsed)).toBe(false);
+    const yearAhead = Date.now() + 360 * 24 * 60 * 60 * 1000;
+    expect(parsed).toBeGreaterThanOrEqual(yearAhead);
+  });
+});
+
+// --- session-6 S6-4: shared canonical base-URL helper -----------------------
+describe("siteBaseUrl (session-6)", () => {
+  it("returns NEXT_PUBLIC_SITE_URL when set, trailing slashes stripped", () => {
+    expect(siteBaseUrl("https://shop.example.com/")).toBe("https://shop.example.com");
+    expect(siteBaseUrl("https://shop.example.com")).toBe("https://shop.example.com");
+  });
+
+  it("falls back to localhost:3000 when unset or empty", () => {
+    expect(siteBaseUrl(undefined)).toBe("http://localhost:3000");
+    expect(siteBaseUrl("")).toBe("http://localhost:3000");
+  });
+});

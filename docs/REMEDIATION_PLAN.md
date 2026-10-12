@@ -402,3 +402,89 @@ Visual parity re-verified against the LIVE reference (logged in via agent-browse
 - [x] Screenshots refreshed (`docs/screenshots/`); docs (`AGENTS.md`, `CLAUDE.md`, `README.md`, PAD, `homenest-store-s_SKILL.md`, `worklog.md`) updated
 
 **Post-remediation totals (session 5):** 153/153 unit tests, 40/40 e2e tests, lint/typecheck/typecheck:tests/build clean.
+
+---
+
+# Session 6 — Post-push audit & production-hardening completion (2026-10-13)
+
+> **Status:** EXECUTED (see the Session-6 Execution Log at the end)
+> **Scope:** Re-validation of the session-5 deliverables on the pulled tree (`5f3776a` = `bf8b521` + `docs/session_5.md`), a fresh read-only deep audit (repo `code-review-checklist` 12-category scan + focused surfaces: client-IP trust, OG/Twitter cards, canonicals, analytics bounds, idempotency replay binding, pagination honesty, docs alignment), and TDD remediation of the newly identified findings (1 HIGH + 6 MEDIUM + 8 LOW + 5 NIT + a stale `docs/DEPLOYMENT.md`).
+> **Method:** unchanged — failing tests first, then the fix, then the full gate chain (`lint && typecheck && typecheck:tests && test && build && test:e2e`).
+
+## 1. Re-validation (all session-5 gates green on the pulled tree)
+
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · 149/149 unit ✓ · build ✓ · 38/38 e2e ✓.
+`DATABASE_URL="file:../db/custom.db"` contract intact (`db/custom.db` at the repo root; sandbox `DATABASE_URL` shadow neutralized by explicit per-command override).
+Visual parity re-verified against the LIVE reference (logged in via agent-browser): desktop home, hero carousel ("Elevate Your Kitchen" / "New Arrivals" / "Sale Up to 40% Off"), trust badges, 8 category tiles, featured products (Damascus Steel Chef Knife Set $199.99/412, Artisan Copper Frying Pan $89.99/234) — reference unchanged; the clone remains the superset. **Mobile menu re-verified on the fresh build** (open → `expanded=true`, push-down panel with all 7 links; navigate → closes, `expanded=false`, lands on `/products`) — the Tailwind v4 conditional-mount pattern is intact; zero `classList`/display-utility toggling in `src/`.
+
+## 2. Session-6 audit findings (evidence-based)
+
+**1 HIGH / 6 MEDIUM / 8 LOW / 5 NIT.** Session-5 fix verification: 11/11 wired (subagent table + spot-checks). Verified clean: Tailwind v4 display toggling (zero hits), money/cart math (integer cents end-to-end, in-tx derivation, atomic stock + coupon cap), cookies (httpOnly/SameSite/secure-in-prod), CSP (per-request nonce + strict-dynamic, unit-pinned), anti-enumeration shells, no committed secrets.
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| S6-1 | HIGH | **Per-IP rate limiters bypassable via a spoofed first XFF hop** — `clientIp()` takes the LEFTMOST `x-forwarded-for` entry; behind an appending proxy (the documented Cloudflare-tunnel topology) a client-supplied `X-Forwarded-For: 1.2.3.4` stays first, minting attacker-chosen buckets per request. Five call sites (coupon, checkout, newsletter, contact, track-order) also inline-duplicate the same broken split instead of using the helper. | `rate-limit.ts:67-72`; `api/checkout/route.ts:105`; `api/coupon/apply/route.ts:40`; `api/newsletter/route.ts:20`; `api/contact/route.ts:24`; `track-order/page.tsx:96` |
+| S6-2 | MED | **Guest→user wishlist merge is non-transactional** — bare upsert loop + delete with no `$transaction` and no token rotation; the exact class S5-7 fixed in the cart. Plus cart/wishlist `create` can 500 on a token `@unique` P2002 race (no catch-and-re-read). | `wishlist.ts:20-39`; `cart.ts:103-107` |
+| S6-3 | MED | **No OpenGraph image, no Twitter card anywhere** — zero `og:image`/`twitter:*` tags; product shares (the money pages) render text-only previews. | `src/app/layout.tsx:28-34` (grep: no `twitter` in src/) |
+| S6-4 | MED | **Canonical URLs missing on `/`, `/products`, `/about`, `/contact`, `/legal/[slug]`** — only product pages set `alternates.canonical`; `/products?q=&category=&sort=&page=` is the highest duplicate-content risk. | grep `alternates` → product page only |
+| S6-5 | MED | **Carousel slide `image` bypasses `imageUrlSchema`** — plain `z.string().min(1)` while products/ctaLink are schema-gated; a `data:`/foreign URL is storable and silently fails under `img-src 'self' data:`. | `validation.ts:178` |
+| S6-6 | MED | **Merge planner clamps to 99 but not to stock** — a guest+user sum past stock persists, only to 409 at checkout; the POST/PATCH clamp contract has a third (merge) path that doesn't agree. | `cart-merge.ts:22-47`; `cart.ts:76-98` |
+| S6-7 | MED | **Admin analytics loads every order item ever** (with product+category joins) into JS per view — unbounded, grows linearly with order history. | `admin/analytics/page.tsx:37-43` |
+| S6-8 | LOW | **Idempotent-checkout replay is not ownership-bound** — presenting a valid `idempotencyKey` returns `{orderNumber, token}` (full receipt) to anyone; keys can leak via request logging. | `api/checkout/route.ts:116-118` |
+| S6-9 | LOW | **Unbounded list queries**: product-page reviews (`findMany` no `take`) and account orders+items — page weight grows forever; per the session-4/5 deferral, a silent cap is dishonest — proper pagination is the fix. | `product/[id]/page.tsx:61`; `account/page.tsx:89-94` |
+| S6-10 | LOW | **`/api/addresses` POST/DELETE unmetered** — the only mutation endpoints without a limiter. | `api/addresses/route.ts` |
+| S6-11 | LOW | **Legal pages hardcode `hello@homenest.com`** — ignores `settings.contactEmail` every other surface uses. | `legal/[slug]/page.tsx:78` |
+| S6-12 | LOW | **README contradicts itself** (`:55` "131 unit · 32 e2e" vs actual 149/38); stray Vite-scaffold `index.html` at the repo root references a non-existent `/src/main.tsx`; `COUPON_STORAGE_KEY` declared twice. | `README.md:55`; `index.html`; `cart/coupon-box.tsx:15` vs `checkout-client.tsx:26` |
+| S6-13 | NIT | Header hamburger reads "Close menu" when open but `onClick` only ever opens; carousel dots misuse `role="tab"` with no tabpanel/arrow-keys. | `header.tsx:46-50`; `hero-carousel.tsx:109-122` |
+| S6-14 | NIT | Product JSON-LD lacks `priceValidUntil` (Google recommendation); `label`/`value`/tag inputs unbounded in length. | `seo.ts:67`; `validation.ts:140-141` |
+| S6-15 | DOCS | **`docs/DEPLOYMENT.md` is a stale template** — "ORBITAL" name, `bun` commands (repo is npm-only), nonexistent `scripts/smoke-test.sh`, wrong limiter numbers (10/15min vs actual 10/min email + 30/min IP), missing `typecheck:tests`, missing `NEXT_PUBLIC_DEMO_MODE`, `tests/db-path.test.ts` path drift, seed-admin credential risk undocumented. | 12 stale refs enumerated by the audit |
+
+## 3. Remediation plan (TDD)
+
+1. **S6-1** — `clientIp(headers)` hardening: `cf-connecting-ip` (authoritative edge header) → rightmost XFF entry (the value the nearest trusted proxy appended) → `"direct"`; unit tests pin CF precedence, rightmost-vs-leftmost spoofing, multi-hop chains, and the direct fallback; the five inline duplicates route through the helper.
+2. **S6-2** — wishlist merge wrapped in one `$transaction` with token rotation (mirrors `cart.ts`); P2002 on cart/wishlist create caught → re-read (race-safe).
+3. **S6-3** — branded static OG image (`public/images/og-default.png`, 1200×630, generated from the design tokens) + `openGraph.images` + `twitter.summary_large_image` site-wide; product pages emit the first product image as og:image; `seo-platform.spec.ts` pins the tags.
+4. **S6-4** — `alternates.canonical` on `/`, `/products` (params stripped), `/about`, `/contact`, `/legal/[slug]`; e2e pins.
+5. **S6-5** — `imageUrlSchema` on `carouselSlideInputSchema.image` (+ unit cases).
+6. **S6-6** — `computeMergedQuantities(own, guest, stockById?)` optional stock clamp (min(99, stock)); cart.ts fetches stock inside the tx; unit tests extended.
+7. **S6-7** — analytics aggregation bounded in SQL: `orderItem.groupBy({ by: [productId, unitPrice], _sum: { quantity } })` + pure `foldItemAggregates()` (unit-pinned) + one bounded product fetch for names/categories.
+8. **S6-8** — `Order.cartToken` (nullable) records the placing cart's token; replay honored only for the same session user (user orders) or the same cart cookie (guest orders); `db:push`; the shopping-flow replay e2e must stay green (same browser context).
+9. **S6-9** — honest server-rendered pagination: product reviews `?reviews=N` (5/page, prev/next), account orders `?page=N` (5/page, prev/next); no silent caps.
+10. **S6-10** — addresses POST/DELETE per-IP limiter (60/min).
+11. **S6-11** — legal footer email from `settings.contactEmail`.
+12. **S6-12** — README counts fixed; stray `index.html` removed; `COUPON_STORAGE_KEY` single-sourced.
+13. **S6-13** — header hamburger toggles (`setMobileNavOpen(!mobileNavOpen)`); carousel dots → honest buttons (`aria-label="Go to slide N"` + `aria-current`), review rating radiogroup keeps its pattern.
+14. **S6-14** — `priceValidUntil` (+1y, builder-pure, unit-pinned); `.max()` on label/value/tag strings.
+15. **S6-15** — `docs/DEPLOYMENT.md` rewritten for this codebase (npm scripts, real limiter numbers, env table incl. `NEXT_PUBLIC_DEMO_MODE`, DB contract, standalone runbook, admin-credential note); AGENTS/CLAUDE/README/PAD/SKILL/worklog updated; screenshots refreshed.
+
+### Deferred (with justification — carried from session 5, unchanged)
+
+| # | Item | Why |
+|---|---|---|
+| 1 | 404-shell CSP nonce | Inert islands only. |
+| 2 | `__Host-` cookie prefix | Needs TLS-guaranteed topology; breaks plain-HTTP standalone deploy. |
+| 3 | Shared-store rate limiter | Mechanical; correct for single-process standalone. |
+| 4 | Admin coupon-management UI | Enforcement ships; management is seed/DB-level and reseeds are non-destructive. |
+| 5 | Real email delivery | Copy is honest; a mailer needs provider credentials + bounce handling — an epic, not a fix. |
+| 6 | Review-form radiogroup arrow-key roving focus | Buttons remain individually focusable/operable (WCAG-conformant pattern); roving tabindex is an enhancement. |
+
+## 4. Execution log (session 6)
+
+- [x] S6-1 — `clientIp(headers)` CF-Connecting-IP → rightmost-XFF → "direct"; 5 inline duplicates routed through the helper; 5 new clientIp unit cases
+- [x] S6-2 — wishlist merge in one `$transaction` + token rotation; P2002 race-safe cart/wishlist create
+- [x] S6-3 — `public/images/og-default.png` + site-wide OG/Twitter cards + product og:image; e2e-pinned
+- [x] S6-4 — canonicals on /, /products, /about, /contact, /legal/[slug]; e2e-pinned
+- [x] S6-5 — `imageUrlSchema` on carousel slide images (+ unit)
+- [x] S6-6 — stock-aware merge planner (+ 6 unit cases); stock fetched inside the merge tx
+- [x] S6-7 — analytics groupBy + pure `foldItemAggregates` (7 unit cases); unbounded findMany removed
+- [x] S6-8 — `Order.cartToken` + ownership-bound replay (user: session match; guest: cart-cookie match)
+- [x] S6-9 — server-rendered pagination for product reviews + account orders
+- [x] S6-10 — addresses POST/DELETE limiter (60/min per-IP)
+- [x] S6-11 — legal footer email from settings
+- [x] S6-12 — README counts; `index.html` removed; `COUPON_STORAGE_KEY` single-sourced
+- [x] S6-13 — header hamburger toggles; carousel dots honest-buttons a11y
+- [x] S6-14 — `priceValidUntil` + validation `.max()` bounds
+- [x] S6-15 — DEPLOYMENT.md rewritten; all docs aligned; screenshots refreshed
+- [x] Full gate chain re-run green; manual agent-browser verification (mobile menu incl. toggle-close, OG tags in DOM, canonicals, pagination controls)
+
+**Post-remediation totals (session 6):** 174/174 unit tests, 39/39 e2e tests, lint/typecheck/typecheck:tests/build clean.
