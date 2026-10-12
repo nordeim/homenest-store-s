@@ -55,3 +55,37 @@ export function replayAuthorized(
   if (orderUserId) return orderUserId === requestUserId;
   return orderCartToken !== null && orderCartToken === requestCartToken;
 }
+
+/** Thrown when an idempotency-key replay fails the ownership gate. */
+export class ReplayDeniedError extends Error {
+  constructor() {
+    super("Replay is not owned by this client");
+    this.name = "ReplayDeniedError";
+  }
+}
+
+/**
+ * Resolve an idempotency-key P2002 race to the winning order number
+ * (session-7 S7-2). The checkout route's retry loop used to return the
+ * winner's number unconditionally ("same client by construction") — but the
+ * construction only holds for a GENUINE double-submit, where both requests
+ * share the same cookies/session. A caller who merely KNOWS another client's
+ * key (log/XSS exposure) must not receive the winner's receipt: the pre-tx
+ * gate (replayAuthorized) blocks that; this recovery path has to agree.
+ *
+ * Pure, unit-pinned in tests/unit/session7-hardening.test.ts:
+ *   - null winner → null (caller retries normally)
+ *   - ownership match (same user, or same guest cart cookie) → number
+ *   - ownership mismatch or legacy unbound row → throws ReplayDeniedError
+ */
+export function resolveReplay(
+  winner: { number: string; userId: string | null; cartToken: string | null } | null,
+  requestUserId: string | null,
+  requestCartToken: string | null,
+): string | null {
+  if (!winner) return null;
+  if (!replayAuthorized(winner.userId, winner.cartToken, requestUserId, requestCartToken)) {
+    throw new ReplayDeniedError();
+  }
+  return winner.number;
+}

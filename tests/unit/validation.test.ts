@@ -184,9 +184,14 @@ describe("productInputSchema.images", () => {
     stock: 10,
   };
 
-  it("accepts root-relative store paths and absolute http(s) urls", () => {
+  it("accepts root-relative store paths only (session-7 S7-6: CSP img-src alignment)", () => {
     expect(productInputSchema.safeParse({ ...base, images: ["/images/knife-1.jpg"] }).success).toBe(true);
-    expect(productInputSchema.safeParse({ ...base, images: ["https://cdn.example.com/k.jpg?w=200"] }).success).toBe(true);
+    expect(productInputSchema.safeParse({ ...base, images: ["/images/products/deep/nested/knife.webp"] }).success).toBe(true);
+  });
+
+  it("rejects absolute http(s) urls the production CSP would block (session-7 S7-6)", () => {
+    expect(productInputSchema.safeParse({ ...base, images: ["https://cdn.example.com/k.jpg?w=200"] }).success).toBe(false);
+    expect(productInputSchema.safeParse({ ...base, images: ["http://cdn.example.com/k.jpg"] }).success).toBe(false);
   });
 
   it("rejects protocol-relative, script and data urls", () => {
@@ -204,9 +209,9 @@ describe("productInputSchema.images", () => {
 describe("carouselSlideInputSchema.image (session-6)", () => {
   const base = { title: "Summer Sale" };
 
-  it("accepts root-relative store paths and absolute http(s) URLs", () => {
+  it("accepts root-relative store paths only (session-7 S7-6)", () => {
     expect(carouselSlideInputSchema.safeParse({ ...base, image: "/images/hero-sale.png" }).success).toBe(true);
-    expect(carouselSlideInputSchema.safeParse({ ...base, image: "https://cdn.example.com/hero.jpg" }).success).toBe(true);
+    expect(carouselSlideInputSchema.safeParse({ ...base, image: "https://cdn.example.com/hero.jpg" }).success).toBe(false);
   });
 
   it("rejects data:, javascript: and protocol-relative URLs (CSP img-src 'self' alignment)", () => {
@@ -230,6 +235,19 @@ function productBase(overrides: Record<string, unknown>): Record<string, unknown
     ...overrides,
   };
 }
+
+describe("productInputSchema.price bounds (session-7 S7-7)", () => {
+  it("rejects prices at or above the $1M ceiling (Int32-safe)", () => {
+    expect(productInputSchema.safeParse(productBase({ price: 100_000_000 })).success).toBe(true);
+    expect(productInputSchema.safeParse(productBase({ price: 100_000_001 })).success).toBe(false);
+    expect(productInputSchema.safeParse(productBase({ price: 2_147_483_647 })).success).toBe(false);
+  });
+
+  it("bounds compareAtPrice identically", () => {
+    expect(productInputSchema.safeParse(productBase({ compareAtPrice: 100_000_000 })).success).toBe(true);
+    expect(productInputSchema.safeParse(productBase({ compareAtPrice: 100_000_001 })).success).toBe(false);
+  });
+});
 
 describe("productInputSchema.specs/tags bounds (session-6)", () => {
   it("rejects spec labels/values above 80 characters", () => {

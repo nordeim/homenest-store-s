@@ -43,7 +43,7 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
         </div>
       </Link>
       <div className="absolute right-3 top-3 z-10">
-        <AddToWishlistButton productId={product.id} />
+        <AddToWishlistButton productId={product.id} productName={product.name} />
       </div>
 
       <div className="flex flex-1 flex-col gap-1.5 p-4">

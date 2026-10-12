@@ -130,6 +130,13 @@ export async function getOrCreateCart(userId: string | null): Promise<string> {
  * Create the user's cart, surviving the token @unique race (session-6 S6-2):
  * two concurrent first requests can both observe "no cart" and both create —
  * the loser hits P2002 and re-reads the winner instead of 500ing.
+ *
+ * Session-7 S7-1: the P2002 winner is frequently the GUEST cart that holds
+ * the cookie token (the common first-login path — user has no own cart yet).
+ * The row is claimed here with a GUARDED update (`userId: null` in the where —
+ * it can never steal a row another user already owns); a claim that loses a
+ * concurrent-create race self-heals on the next request, when getOrCreateCart
+ * finds the own cart and the cookie token still triggers the merge branch.
  */
 async function safeCreateCart(
   userId: string,
@@ -148,7 +155,16 @@ async function safeCreateCart(
       where: token ? { token } : { userId },
       orderBy: { id: "asc" },
     });
-    if (winner) return winner;
+    if (winner) {
+      // Claim an unclaimed (guest) winner. Guarded on userId: null so a
+      // colliding row owned by someone else is never touched. A P2002 here
+      // means a concurrent request created the user's own cart mid-claim —
+      // best-effort: the regular merge path reconciles on the next call.
+      await db.cart
+        .updateMany({ where: { id: winner.id, userId: null }, data: { userId } })
+        .catch(() => undefined);
+      return winner;
+    }
     throw error;
   }
 }

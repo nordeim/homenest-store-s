@@ -17,6 +17,7 @@ import {
 
 import type { CartLine } from "@/lib/cart";
 import { formatMoney } from "@/lib/money";
+import { newRequestId } from "@/lib/random-id";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -150,7 +151,10 @@ export function CheckoutClient({
   // One idempotency key per checkout visit: a retry after a lost response
   // (or a double click) reuses it, so the server returns the already-placed
   // order instead of charging twice. A fresh visit generates a new key.
-  const idempotencyKeyRef = React.useRef<string>(crypto.randomUUID());
+  // newRequestId (session-7 S7-10): crypto.randomUUID is secure-context-only;
+  // the hex fallback keeps plain-HTTP LAN/staging deploys out of the error
+  // boundary — the server treats the key as optional either way.
+  const idempotencyKeyRef = React.useRef<string>(newRequestId());
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [formError, setFormError] = React.useState<string | null>(null);

@@ -61,6 +61,11 @@ export async function getOrCreateWishlist(userId: string | null): Promise<string
  * Create the user's wishlist, surviving the token @unique race (session-6
  * S6-2): two concurrent first requests can both observe "no wishlist" and
  * both create — the loser hits P2002 and re-reads the winner instead of 500ing.
+ *
+ * Session-7 S7-1 (mirrors cart.ts): the P2002 winner is frequently the GUEST
+ * wishlist holding the cookie token — the first-login path. The row is
+ * claimed with a GUARDED update (`userId: null`), never stealing a row
+ * another user owns; a lost claim race self-heals via the merge branch.
  */
 async function safeCreateWishlist(userId: string, token: string | undefined): Promise<{ id: string; token: string }> {
   try {
@@ -75,7 +80,12 @@ async function safeCreateWishlist(userId: string, token: string | undefined): Pr
       where: token ? { token } : { userId },
       orderBy: { id: "asc" },
     });
-    if (winner) return winner;
+    if (winner) {
+      await db.wishlist
+        .updateMany({ where: { id: winner.id, userId: null }, data: { userId } })
+        .catch(() => undefined);
+      return winner;
+    }
     throw error;
   }
 }

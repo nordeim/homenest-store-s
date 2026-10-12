@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { assertAddressCap, AddressCapError } from "@/lib/addresses";
 import { getCurrentUser } from "@/lib/auth";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
@@ -36,6 +37,17 @@ export async function POST(request: NextRequest) {
     const parsed = addressSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: firstError(parsed.error) }, { status: 400 });
+    }
+
+    // Session-7 S7-8: the address book is a bounded surface — the cap is
+    // enforced on the direct write path with a friendly, actionable 409.
+    try {
+      await assertAddressCap(db, user.id);
+    } catch (error) {
+      if (error instanceof AddressCapError) {
+        return NextResponse.json({ error: error.message }, { status: 409 });
+      }
+      throw error;
     }
 
     const address = await db.address.create({

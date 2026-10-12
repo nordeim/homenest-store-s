@@ -105,19 +105,23 @@ export const contactSchema = z.object({
   message: z.string().trim().min(10, "Message must be at least 10 characters").max(4000),
 });
 
-// Product image source: root-relative store path (no protocol-relative "//")
-// or absolute http(s) URL. The production CSP is `img-src 'self' data:` —
-// any other scheme (`javascript:`, `data:`, `//host`) either never renders or
-// is an injection vector, so the boundary rejects it up-front (session-5 S5-9).
+// Product image source: root-relative store path ONLY (no protocol-relative
+// "//", no absolute http(s)). The production CSP is `img-src 'self' data:` —
+// session-7 S7-6: an absolute http(s) URL passed validation but silently
+// never rendered (blocked by the CSP at runtime), a confusing admin trap.
+// Self-hosted root-relative paths are the only source the CSP serves, so the
+// boundary now agrees exactly with the CSP (session-5 S5-9 introduced the
+// scheme gate; S7-6 removed the never-renderable http(s) branch). Serving
+// external hosts is a deliberate CSP-widening decision, not a schema edit.
 export const imageUrlSchema = z
   .string()
   .trim()
   .min(1)
   .max(500)
-  .regex(
-    /^(\/(?!\/)[^\s]*|https?:\/\/[^\s]+)$/i,
-    "Image must be an internal path (starting with /) or an http(s) URL",
-  );
+  .regex(/^(\/(?!\/)[^\s]*)$/, "Image must be an internal path starting with / (self-hosted under public/)");
+
+/** Upper money bound shared by price/compareAtPrice (session-7 S7-7): $1M keeps every value inside Prisma's Int32 far below 2^31 cents. */
+const MAX_PRICE_CENTS = 100_000_000;
 
 export const productInputSchema = z.object({
   name: z.string().trim().min(2, "Name is required").max(120),
@@ -130,8 +134,18 @@ export const productInputSchema = z.object({
   shortDescription: z.string().trim().max(300).default(""),
   description: z.string().trim().min(10, "Description is required").max(8000),
   categoryId: z.string().min(1, "Category is required"),
-  price: z.number().int().min(1, "Price must be positive"),
-  compareAtPrice: z.number().int().min(1).nullable().optional(),
+  price: z
+    .number()
+    .int()
+    .min(1, "Price must be positive")
+    .max(MAX_PRICE_CENTS, "Price must be under $1,000,000"),
+  compareAtPrice: z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_PRICE_CENTS, "Compare-at price must be under $1,000,000")
+    .nullable()
+    .optional(),
   sku: z.string().trim().min(2).max(60),
   stock: z.number().int().min(0).max(100000),
   images: z

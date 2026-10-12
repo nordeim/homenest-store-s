@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { StoreProvider } from "@/components/store/store-provider";
+import { siteBaseUrl } from "@/lib/seo";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
@@ -16,7 +17,9 @@ const playfair = Playfair_Display({
   display: "swap",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+// Session-7 S7-4: the base URL is single-sourced from seo.ts so metadataBase
+// can never drift from the canonicals/sitemap/robots (one env, one fallback).
+const siteUrl = siteBaseUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

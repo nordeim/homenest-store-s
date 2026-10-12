@@ -10,6 +10,7 @@
  */
 import { PrismaClient } from "@prisma/client";
 import { scryptHash } from "../src/lib/password";
+import { productSeedUpdate } from "../src/lib/seed-policy";
 
 const prisma = new PrismaClient();
 
@@ -634,7 +635,10 @@ async function main() {
     };
     const product = await prisma.product.upsert({
       where: { slug: p.slug },
-      update: data,
+      // Session-7 S7-3: the update branch refreshes CATALOG CONTENT only
+      // (seed-policy.ts). price/stock/rating/reviewCount/badge/featured are
+      // admin- or traffic-owned — a reseed must never reset them.
+      update: productSeedUpdate(data),
       create: data,
     });
     createdProducts += 1;
@@ -661,19 +665,21 @@ async function main() {
   console.log(`Products: ${createdProducts}`);
 
   // ---- Carousel ----
+  // Session-7 S7-3: slides are admin-managed (CRUD + reorder) — create-only
+  // on reseed, exactly like coupons (S4-8) and settings below.
   for (const slide of SLIDES) {
     const existing = await prisma.carouselSlide.findFirst({ where: { title: slide.title } });
-    if (existing) {
-      await prisma.carouselSlide.update({ where: { id: existing.id }, data: slide });
-    } else {
+    if (!existing) {
       await prisma.carouselSlide.create({ data: slide });
     }
   }
   console.log(`Carousel slides: ${SLIDES.length}`);
 
   // ---- Settings ----
+  // Session-7 S7-3: settings are admin-edited through the settings UI —
+  // create-only on reseed (missing keys are created; existing values survive).
   for (const [key, value] of Object.entries(SETTINGS)) {
-    await prisma.storeSetting.upsert({ where: { key }, update: { value }, create: { key, value } });
+    await prisma.storeSetting.upsert({ where: { key }, update: {}, create: { key, value } });
   }
   console.log(`Settings: ${Object.keys(SETTINGS).length}`);
 

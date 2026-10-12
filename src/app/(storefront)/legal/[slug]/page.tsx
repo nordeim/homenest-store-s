@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { siteBaseUrl } from "@/lib/seo";
 import { getSettings } from "@/lib/settings";
 
-import { LEGAL_SLUGS, legalContent, type LegalSlug } from "./content";
+import { interpolateContactEmail, LEGAL_SLUGS, legalContent, type LegalSlug } from "./content";
 
 // ---------------------------------------------------------------------------
 // Legal pages — statically generated for the five known slugs, typed content
@@ -66,7 +66,7 @@ export default async function LegalPage({ params }: { params: Promise<{ slug: st
           <p className="mt-2 text-sm text-muted-foreground">Last updated: {doc.updated}</p>
         </header>
 
-        <p className="leading-7 text-muted-foreground">{doc.intro}</p>
+        <p className="leading-7 text-muted-foreground">{interpolateContactEmail(doc.intro, contactEmail)}</p>
 
         <div className="space-y-6 border-t border-border pt-6">
           {doc.sections.map((section) => (
@@ -74,7 +74,7 @@ export default async function LegalPage({ params }: { params: Promise<{ slug: st
               <h2 className="font-display text-xl font-semibold">{section.heading}</h2>
               {section.body.map((paragraph, i) => (
                 <p key={i} className="mt-2 leading-7 text-muted-foreground">
-                  {paragraph}
+                  {interpolateContactEmail(paragraph, contactEmail)}
                 </p>
               ))}
             </section>

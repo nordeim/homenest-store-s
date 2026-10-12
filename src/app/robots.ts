@@ -1,8 +1,6 @@
 import type { MetadataRoute } from "next";
 
-function siteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/+$/, "");
-}
+import { siteBaseUrl } from "@/lib/seo";
 
 /** robots.txt — allow the catalog, keep private/transactional surfaces out. */
 export default function robots(): MetadataRoute.Robots {
@@ -17,6 +15,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/admin", "/account", "/checkout", "/api"],
       },
     ],
-    sitemap: `${siteUrl()}/sitemap.xml`,
+    sitemap: `${siteBaseUrl()}/sitemap.xml`,
   };
 }

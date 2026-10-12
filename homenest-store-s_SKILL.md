@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.3.0
-last_updated: 2026-10-13
-project_state: "174 unit tests · 39 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-6)"
+version: 1.4.0
+last_updated: 2026-10-14
+project_state: "197 unit tests · 41 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-7)"
 tags:
   - nextjs16
   - react19
@@ -790,7 +790,32 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   stays DB-level with create-only seeding); review radiogroup arrow-key
   roving focus (buttons remain individually operable); real email
   delivery (copy is honest; a mailer needs provider credentials + bounce
-  handling — an epic).
+  handling — an epic); wishlist heart filled-state (feature work: needs
+  wishlist ids threaded through product grids; labels name the product).
+
+### Session 7 — data-integrity completion (2026-10-14, v1.4.0)
+
+- Re-validated session-6 on a fresh clone: all gates green (174 unit /
+  39 e2e), visual parity + mobile menu re-verified against the LIVE
+  reference (logged in) — reference unchanged, clone remains the superset.
+- Fresh deep audit (repo code-review-checklist 12-category scan, all lib
+  modules + routes + pages read): 2 MEDIUM / 8 LOW / 3 NIT new findings.
+- TDD fixes (S7-1..S7-13): guarded guest-cart/wishlist CLAIM at first
+  login (cross-device e2e); `resolveReplay` ownership gate on the
+  checkout P2002 recovery path; seed policy `src/lib/seed-policy.ts`
+  (products refresh CONTENT only — price/stock/rating/reviewCount/badge/
+  flags are admin- or traffic-owned; settings + slides create-only) with
+  a live reseed verification; `siteBaseUrl()` single-sourcing (4 sites);
+  legal body copy `{{contactEmail}}` tokenization (live-verified);
+  `imageUrlSchema` root-relative ONLY (CSP-aligned, http(s) branch
+  removed); price/compareAtPrice `.max()` bounds; address-book cap
+  (20/user, friendly 409) + transactional single-default invariant;
+  `jsonLdScript()` escaper on all three ld+json blocks; `newRequestId()`
+  secure-context fallback for checkout keys; search/cart-summary `{error}`
+  500 shape; hourly opportunistic session sweep (`sessionSweepDue`);
+  wishlist hearts label the product name.
+- 197 unit + 41 e2e green; 23 screenshots refreshed; DEPLOYMENT seed
+  paragraph amended; AGENTS/CLAUDE/README/PAD aligned.
 
 ## Appendix C — Quick Reference Card
 

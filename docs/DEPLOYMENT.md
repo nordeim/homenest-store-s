@@ -89,10 +89,15 @@ npm run db:push        # apply schema (db push — no migrations folder)
 npm run db:seed        # idempotent seed: catalog, settings, coupons, demo users
 ```
 
-The seed is **create-or-merge by design**: products/categories upsert by
-natural key, coupon seeding is create-only (`update: {}`) so redemption
-bookkeeping survives reseeds, and review aggregates grow organically rather
-than collapsing to the seeded baseline.
+The seed is **create-or-refresh by design** (scoped in session 7, `src/lib/seed-policy.ts`):
+product upserts refresh CATALOG CONTENT only (name, copy, category, images, tags,
+specs) — price, compare-at price, stock, rating, reviewCount, sku, badge,
+featured/new-arrival flags and active state are admin- or traffic-owned and a
+reseed never resets them; settings and carousel slides are create-only (missing
+keys/slides are created, existing values survive), exactly like the coupon
+bookkeeping. Re-running the seed after real traffic is therefore safe — it
+cannot corrupt the stock ledger, collapse customer-grown review aggregates, or
+revert admin edits.
 
 > **Demo credentials:** the seed creates `admin@homenestkitchen.com` /
 > `Admin123!` and `demo@homenestkitchen.com` / `Demo1234!`. For a real store,

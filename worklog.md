@@ -171,3 +171,35 @@ Work Log:
 Stage Summary:
 - Codebase closes the last HIGH-severity finding (limiter-bypass via spoofed XFF), makes the wishlist merge atomic (cart-merge parity), ships site-wide share cards + canonicals (SEO superset completion), bounds the analytics query, binds idempotent replays to their owner, paginates the two unbounded list surfaces honestly, and rewrites the stale DEPLOYMENT.md.
 - 174 unit + 39 e2e green; all docs aligned; deferred items re-documented with justification (404 nonce, __Host- prefix, shared-store limiter, admin coupon UI, review radiogroup roving focus, real mailer).
+
+---
+
+Task ID: 7 (session 7)
+Agent: audit + remediation agent (Super Z)
+Task: Re-validate session-6 deliverables, run a fresh deep audit (data-integrity, ownership gates, seed policy, docs alignment), remediate the new findings TDD-first, refresh screenshots/docs/worklog, commit and push.
+
+Work Log:
+- Cloned the repo fresh (workspace had been reset); repo at 1c0b480 = b7010e0 + docs/session_6.md; re-ran every session-6 gate on the pulled tree: lint ✓, typecheck ✓, typecheck:tests ✓, 174/174 unit ✓, build ✓, 39/39 e2e ✓; .env recreated from .env.example (DATABASE_URL contract intact, strong AUTH_SECRET); db/custom.db seeded at the repo root (sandbox DATABASE_URL shadow neutralized per-command — the standalone health probe 503s otherwise).
+- Re-verified visual parity against the LIVE reference (logged in via agent-browser): desktop home, hero carousel, trust badges, 8 categories, featured products (identical names/counts/prices), products page — reference unchanged; mobile menu re-verified on the production build (open → expanded=true push-down panel, navigate → closes on /products) — Tailwind v4 conditional-mount intact.
+- Fresh deep audit (read-only subagent on the repo code-review-checklist + own evidence verification): session-6 fixes 13 WIRED / 1 PARTIAL (S6-11 legal body copy residual) / 0 MISSING; new findings 2 MEDIUM / 8 LOW / 3 NIT; verified clean again: money math, atomic stock/coupon, anti-enumeration shells, admin gates, CSP, cookies, no committed secrets.
+- Wrote the session-7 remediation plan (docs/REMEDIATION_PLAN.md) and executed it TDD-first (red → green for every fix):
+  - S7-1 (MED): guarded claim in safeCreateCart/safeCreateWishlist — the token-P2002 winner (the guest row on the first-login path) is claimed via updateMany({ where: { id, userId: null } }), never stealing a claimed row; new cross-device e2e (fresh registered account, second context sees the claimed cart).
+  - S7-2: resolveReplay() + ReplayDeniedError in order-access.ts; the checkout P2002 recovery path is now ownership-bound (genuine double-submit passes; a leaked key 409s); 4 unit cases.
+  - S7-3 (MED): src/lib/seed-policy.ts — productSeedUpdate refreshes CONTENT fields only (price/compareAtPrice/stock/rating/reviewCount/sku/badge/featured/newArrival/isActive are admin- or traffic-owned); settings + carousel slides create-only (S4-8 precedent); seed wired; LIVE-VERIFIED (mutated stock/price/rating/setting survive db:seed; catalog content still refreshes); DEPLOYMENT.md seed paragraph rewritten.
+  - S7-4: siteBaseUrl() imported into layout.tsx (metadataBase), sitemap.ts, robots.ts, (storefront)/layout.tsx — the fallback now exists in exactly one place.
+  - S7-5: legal body copy tokenized ({{contactEmail}} ×7) + interpolateContactEmail(); rendered through the settings email; LIVE-VERIFIED (a settings change re-renders all 14 paragraphs).
+  - S7-6: imageUrlSchema root-relative ONLY (http(s)/protocol-relative/data rejected) — validation now agrees exactly with img-src 'self' data:; unit cases flipped.
+  - S7-7: price/compareAtPrice .max(100_000_000) — typos fail as validation errors, not opaque Int32 Prisma errors.
+  - S7-8: MAX_ADDRESSES_PER_USER=20 (src/lib/addresses.ts) on /api/addresses POST (friendly 409) and checkout saveAddress (skip-save, order still places); default-making saves unset previous defaults in-tx (deterministic findFirst); new addresses-cap e2e (20 OK → 21st 409).
+  - S7-9: jsonLdScript() escaper (< → \u003c, U+2028/2029) on all three ld+json blocks — admin-authored strings can no longer terminate the element; 4 unit cases.
+  - S7-10: newRequestId() (src/lib/random-id.ts) with getRandomValues hex fallback — checkout no longer crashes at mount on non-secure origins; 3 unit cases.
+  - S7-11: /api/search + /api/cart-summary wrapped in the sibling { error } 500 shape.
+  - S7-12: sessionSweepDue() pure helper + hourly time-gated opportunistic purge in getCurrentUser (void, non-blocking); 3 unit cases.
+  - S7-13: wishlist heart aria-labels carry the product name (Add {name} to wishlist); filled-state feature DEFERRED (needs wishlist ids threaded through every grid).
+- Gates after: lint ✓, typecheck ✓, typecheck:tests ✓, 197/197 unit ✓, build ✓, 41/41 e2e ✓ (new: cross-device claim; address cap).
+- Manual verification via agent-browser + curl on the fresh standalone build: ld+json blocks escape-serialized and JSON-parseable (Product price 21.99, priceValidUntil 2027-10-12, absolute image); canonical/robots/sitemap rendered from siteBaseUrl; legal page email follows settings live; mobile menu open→navigate→close; wishlist labels product-named; zero console errors on cart.
+- Refreshed docs/screenshots/ (23 shots); updated AGENTS.md (7 new/extended invariants + restored the review-aggregates invariant accidentally clobbered mid-edit), CLAUDE.md, README.md (197/41 counts, address book row, coverage bullets), PAD (§4.3 seed policy, 8.1/8.2 counts, known issues #24–26, key-files counts), docs/DEPLOYMENT.md (create-or-refresh seed paragraph), homenest-store-s_SKILL.md v1.4.0, docs/session_7.md, worklog.md.
+
+Stage Summary:
+- Codebase closes the two MEDIUM data-integrity gaps (unclaimed guest carts; live-data-resetting reseeds), binds the last unguarded idempotency path, single-sources the base URL, aligns image validation with the CSP, bounds the address book and prices, escapes JSON-LD, and survives non-secure-origin checkouts — with the test suite now pinning every one of those contracts.
+- 197 unit + 41 e2e green; all docs aligned; deferred items re-documented with justification (404 nonce, __Host- prefix, shared-store limiter, admin coupon UI, radiogroup roving focus, real mailer, wishlist filled-state, saveAddress dedup).

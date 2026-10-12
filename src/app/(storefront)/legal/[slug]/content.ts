@@ -2,7 +2,21 @@
 // Legal content — typed, static policy copy for /legal/[slug].
 // Each document is real, substantive policy text written for HomeNest Kitchen
 // (an e-commerce storefront). ~400–600 words per document.
+// Body copy references the contact address through the {{contactEmail}} token
+// (session-7 S7-5): the admin-editable settings.contactEmail is substituted at
+// render time (legal/[slug]/page.tsx), so the legally binding paragraphs can
+// never contradict the footer or the other contact surfaces.
 // ---------------------------------------------------------------------------
+
+/**
+ * Substitute every {{contactEmail}} token with the live settings address.
+ * Pure, unit-pinned in tests/unit/session7-hardening.test.ts. Text without
+ * the token passes through untouched; other {{…}} sequences are left alone
+ * (the token is the only recognized placeholder).
+ */
+export function interpolateContactEmail(text: string, contactEmail: string): string {
+  return text.split("{{contactEmail}}").join(contactEmail);
+}
 
 export type LegalSection = {
   heading: string;
@@ -70,8 +84,8 @@ export const legalContent: Record<LegalSlug, LegalDoc> = {
       {
         heading: "Your Rights & Choices",
         body: [
-          "You may access, correct, or delete the personal information associated with your account at any time from the Account page, or by emailing hello@homenest.com. You can unsubscribe from marketing emails using the link in any message. If you request deletion, we will remove your data except where we are legally required to retain it (for example, completed-order records for tax purposes).",
-          "If you have questions about this policy or how your data is handled, contact us at hello@homenest.com and we will respond within 24 hours on business days.",
+          "You may access, correct, or delete the personal information associated with your account at any time from the Account page, or by emailing {{contactEmail}}. You can unsubscribe from marketing emails using the link in any message. If you request deletion, we will remove your data except where we are legally required to retain it (for example, completed-order records for tax purposes).",
+          "If you have questions about this policy or how your data is handled, contact us at {{contactEmail}} and we will respond within 24 hours on business days.",
         ],
       },
     ],
@@ -87,7 +101,7 @@ export const legalContent: Record<LegalSlug, LegalDoc> = {
         heading: "Using the Store",
         body: [
           "You may use HomeNest Kitchen for lawful, personal, non-commercial purposes. You agree not to misuse the site: no scraping at volumes that degrade service, no attempts to breach authentication or access other customers' data, no fraudulent orders, and no interference with the store's normal operation.",
-          "You are responsible for keeping your account credentials confidential and for activity that occurs under your account. Notify us immediately at hello@homenest.com if you suspect unauthorized use.",
+          "You are responsible for keeping your account credentials confidential and for activity that occurs under your account. Notify us immediately at {{contactEmail}} if you suspect unauthorized use.",
         ],
       },
       {
@@ -114,7 +128,7 @@ export const legalContent: Record<LegalSlug, LegalDoc> = {
         heading: "Limitation of Liability & Changes",
         body: [
           "To the maximum extent permitted by law, HomeNest Kitchen is not liable for indirect, incidental, special, or consequential damages arising from your use of the site or products, and our total liability for any claim is limited to the amount you paid for the order giving rise to the claim.",
-          "We may update these terms as the store evolves. The version posted here at the time of your order applies to that order. Material changes will be announced on the site. Questions? Email hello@homenest.com — a human will answer.",
+          "We may update these terms as the store evolves. The version posted here at the time of your order applies to that order. Material changes will be announced on the site. Questions? Email {{contactEmail}} — a human will answer.",
         ],
       },
     ],
@@ -149,7 +163,7 @@ export const legalContent: Record<LegalSlug, LegalDoc> = {
       {
         heading: "Errors & Omissions",
         body: [
-          "If you spot an error in a product description, price, or specification, please tell us at hello@homenest.com. We correct verified mistakes promptly and will make things right on any affected order. Your use of the site and reliance on its information is at your own discretion.",
+          "If you spot an error in a product description, price, or specification, please tell us at {{contactEmail}}. We correct verified mistakes promptly and will make things right on any affected order. Your use of the site and reliance on its information is at your own discretion.",
         ],
       },
     ],
@@ -184,7 +198,7 @@ export const legalContent: Record<LegalSlug, LegalDoc> = {
       {
         heading: "Changes to This Policy",
         body: [
-          "If our cookie practices change — for example, if we add optional analytics tooling — we will update this page and note the change in the 'Last updated' date. Questions about cookies? Email hello@homenest.com and we'll explain exactly what is stored on your device.",
+          "If our cookie practices change — for example, if we add optional analytics tooling — we will update this page and note the change in the 'Last updated' date. Questions about cookies? Email {{contactEmail}} and we'll explain exactly what is stored on your device.",
         ],
       },
     ],
@@ -206,7 +220,7 @@ export const legalContent: Record<LegalSlug, LegalDoc> = {
       {
         heading: "How to Start a Return",
         body: [
-          "Find your order on the Account page or the Track Order page using your order number, then contact us at hello@homenest.com with your order number and the items you'd like to return. We'll reply within 24 hours with a prepaid return label for defective or incorrect items, or simple shipping instructions for change-of-mind returns.",
+          "Find your order on the Account page or the Track Order page using your order number, then contact us at {{contactEmail}} with your order number and the items you'd like to return. We'll reply within 24 hours with a prepaid return label for defective or incorrect items, or simple shipping instructions for change-of-mind returns.",
           "Please don't ship anything back before we confirm the return — prepaid labels and the correct return warehouse depend on the item, and unannounced packages can be delayed or lost.",
         ],
       },

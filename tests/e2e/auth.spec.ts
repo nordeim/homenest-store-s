@@ -86,4 +86,47 @@ test.describe("auth", () => {
     await expect(page.getByRole("heading", { name: "Shopping Cart" })).toBeVisible();
     await expect(page.getByRole("link", { name: productName }).first()).toBeVisible();
   });
+
+  test("first login CLAIMS the guest cart — a second device sees the same items (S7-1)", async ({
+    browser,
+  }) => {
+    // A DEDICATED fresh account keeps this deterministic under parallel
+    // workers: no pre-existing cart can shadow the first-login claim path.
+    // Device A shops as a guest (guest cart token cookie minted), then
+    // registers. The user has NO pre-existing cart, so this exercises the
+    // safeCreateCart P2002 path: the guest row wins the token collision and
+    // MUST be claimed (userId set), not merely returned.
+    const email = `s7-claim-${Date.now()}-${Math.floor(Math.random() * 1000)}@example.com`;
+    const deviceA = await browser.newContext();
+    const pageA = await deviceA.newPage();
+    await gotoHydrated(pageA, "/products");
+    const productName = (await pageA.locator("article").first().locator("h3").innerText()).trim();
+    await pageA.locator("article").first().getByRole("button", { name: "Add to Cart" }).click();
+    await expect(pageA.getByTestId("cart-count")).toHaveText("1");
+
+    await gotoHydrated(pageA, "/register");
+    await pageA.getByLabel("Name").fill("S7 Claim Check");
+    await pageA.getByLabel("Email").fill(email);
+    await pageA.getByLabel("Password").fill("ClaimCheck1!");
+    await pageA.getByRole("button", { name: /Create account/i }).click();
+    await expect(pageA).toHaveURL(/\/account/, { timeout: 10_000 });
+
+    // Device B: a FRESH context (no cookies) signing in as the same user must
+    // land on the claimed cart. If the claim regressed, getOrCreateCart would
+    // find no cart for the userId and mint a fresh empty one instead.
+    const deviceB = await browser.newContext();
+    const pageB = await deviceB.newPage();
+    await gotoHydrated(pageB, "/login");
+    await pageB.getByLabel("Email").fill(email);
+    await pageB.getByLabel("Password").fill("ClaimCheck1!");
+    await pageB.getByRole("button", { name: "Sign in" }).click();
+    await expect(pageB).toHaveURL(/\/account/, { timeout: 10_000 });
+
+    await gotoHydrated(pageB, "/cart");
+    await expect(pageB.getByRole("heading", { name: "Shopping Cart" })).toBeVisible();
+    await expect(pageB.getByRole("link", { name: productName }).first()).toBeVisible();
+
+    await deviceA.close();
+    await deviceB.close();
+  });
 });

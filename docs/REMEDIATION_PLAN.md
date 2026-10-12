@@ -488,3 +488,90 @@ Visual parity re-verified against the LIVE reference (logged in via agent-browse
 - [x] Full gate chain re-run green; manual agent-browser verification (mobile menu incl. toggle-close, OG tags in DOM, canonicals, pagination controls)
 
 **Post-remediation totals (session 6):** 174/174 unit tests, 39/39 e2e tests, lint/typecheck/typecheck:tests/build clean.
+
+---
+
+# Session 7 — Post-push audit & data-integrity completion (2026-10-13)
+
+> **Status:** EXECUTED (see the Session-7 Execution Log at the end)
+> **Scope:** Re-validation of the session-6 deliverables on a fresh clone (`1c0b480` = `b7010e0` + docs/session_6.md), a fresh read-only deep audit (repo `code-review-checklist` 12-category scan over every `src/lib` module, all 10 API routes, all 3 action files, all storefront/admin pages, configs, seed + schema), and TDD remediation of the newly identified findings (2 MEDIUM + 8 LOW + 3 NIT).
+> **Method:** unchanged — failing tests first, then the fix, then the full gate chain (`lint && typecheck && typecheck:tests && test && build && test:e2e`).
+
+## 1. Re-validation (all session-6 gates green on the fresh clone)
+
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · 174/174 unit ✓ · build ✓ · 39/39 e2e ✓ (webServer requires the sandbox `DATABASE_URL` shadow neutralized — the documented env-shadowing trap; the standalone server otherwise health-checks 503 and the Playwright probe times out).
+`.env` recreated from `.env.example` (`DATABASE_URL="file:../db/custom.db"` + strong `AUTH_SECRET`); `db/custom.db` seeded at the repo root.
+Visual parity re-verified against the LIVE reference (logged in via agent-browser): desktop home, hero carousel, trust badges, 8 categories, featured products (identical names/counts/prices), products page — reference unchanged; the clone remains the superset. **Mobile menu re-verified on the production build** (iPhone viewport: open → `expanded=true`, push-down panel with all links; navigate → closes, `expanded=false`, lands on `/products`) — the Tailwind v4 conditional-mount pattern is intact.
+
+## 2. Session-6 fix verification (subagent + spot-checks)
+
+**13 WIRED / 1 PARTIAL / 0 MISSING.** S6-11 is PARTIAL: the legal *footer* email now reads `settings.contactEmail`, but the policy *body copy* still hardcodes `hello@homenest.com` in 7 paragraphs — folded into S7-5 below. All other fixes verified with file:line evidence (S6-1 clientIp + 5 call sites; S6-2 transactional wishlist merge; S6-3 OG/Twitter cards; S6-4 canonicals; S6-5 carousel imageUrlSchema; S6-6 stock-aware merge; S6-7 bounded analytics; S6-8 replay ownership; S6-9 pagination; S6-10 address limiters; S6-12 docs/counts; S6-13 hamburger toggle + dots a11y; S6-14 priceValidUntil + bounds; S6-15 DEPLOYMENT.md).
+
+## 3. Session-7 audit findings (evidence-based)
+
+**2 MEDIUM / 8 LOW / 3 NIT.** Verified clean again: integer-cents money end-to-end, atomic stock + coupon cap, cart POST/PATCH/DELETE ownership + clamping, track-order/receipt anti-enumeration shells, admin role gates, rate limiter + spoof-resistant clientIp, Zod boundaries, CSP nonce, robots/sitemap privacy, auth (scrypt, uniform errors, dummy burn), auth-secret gate, db-path contract.
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| S7-1 | MED | **Guest cart/wishlist is never claimed on the first-login path** — `safeCreateCart`/`safeCreateWishlist` P2002 fallback returns the guest row (token collision) without setting `userId`; the merge branch only runs when the user *already has* a cart. Result: a guest who shops then signs in keeps an unclaimed cart row (`User.cart` relation never materializes; a second-device login silently abandons the first device's items; orphan rows accumulate). Orders are unaffected (checkout reads by token fallback), which is why the suite stayed green. | `src/lib/cart.ts:134-154`; `src/lib/wishlist.ts:60-81`; `prisma/schema.prisma:105` ("claims userId on login" — dead invariant) |
+| S7-2 | LOW | **Idempotency-key P2002 recovery bypasses the S6-8 ownership gate** — the retry loop returns `winner.number` ("same client by construction") without `replayAuthorized`; the pre-tx gate blocks a leaked key, the recovery path re-opens it. | `src/app/api/checkout/route.ts:217-222` vs gate at `:124-129` |
+| S7-3 | MED | **`db:seed` resets live store data** — product upsert `update: data` overwrites `stock`, `rating`, `reviewCount`, `price`, `compareAtPrice`, badge/featured flags; settings upsert resets admin edits; carousel upsert overwrites admin slides. The documented update flow (`DEPLOYMENT.md` §6) runs `db:seed`. Coupon bookkeeping alone survives (S4-8). | `prisma/seed.ts:635-639` (products), `:676` (settings), `:656-665` (carousel) |
+| S7-4 | LOW | **`siteBaseUrl()` single-sourcing incomplete** — `layout.tsx` (metadataBase), `sitemap.ts`, `robots.ts`, `(storefront)/layout.tsx` still hand-roll the `NEXT_PUBLIC_SITE_URL \|\| "http://localhost:3000"` fallback. | 4 sites (grep) vs `src/lib/seo.ts:68-71` |
+| S7-5 | LOW | **Legal policy body copy hardcodes `hello@homenest.com`** in 7 paragraphs while the footer reads settings — the page contradicts itself once the admin changes the email (S6-11 residual). | `legal/[slug]/content.ts:73,74,90,117,152,187,209` |
+| S7-6 | LOW | **`imageUrlSchema` accepts absolute http(s) URLs the production CSP then blocks** (`img-src 'self' data:`) — a validated admin entry silently renders broken. All seed/DB images are root-relative; the permissive branch is a trap with no legitimate user. | `validation.ts:112-120` vs `csp.ts:30` |
+| S7-7 | LOW | **`price`/`compareAtPrice` have no upper bound** — a typo'd price ≥ 2³¹ cents fails only as an opaque Prisma Int32 error; every other numeric admin input is bounded (stock `.max(100000)`). | `validation.ts:133-134` |
+| S7-8 | LOW | **Unbounded `Address` growth + nondeterministic default** — every `saveAddress` checkout mints another `isDefault: true` row (no cap, no dedup, previous defaults left set); `findFirst({ isDefault: true })` becomes an arbitrary pick. | `api/checkout/route.ts:350-366`; `api/addresses/route.ts:41-55`; `checkout/page.tsx:29` |
+| S7-9 | LOW | **JSON-LD blocks `JSON.stringify`'d without `<`-escaping** inside `dangerouslySetInnerHTML` — a `</script>` inside an admin-authored name/description terminates the `ld+json` element early (hardening: requires a rogue admin account). | `product/[id]/page.tsx:131`; `(storefront)/layout.tsx:48,52` |
+| S7-10 | LOW | **`crypto.randomUUID()` at checkout mount breaks on non-secure origins** — `randomUUID` is secure-context-only; a plain-HTTP LAN/staging deploy throws at mount and the branded error boundary swallows checkout. The server treats the key as optional, so the client can degrade. | `checkout/checkout-client.tsx:153` |
+| S7-11 | NIT | **`/api/search` + `/api/cart-summary` lack the try/catch `{ error }` 500 shape** every sibling route uses. | `api/search/route.ts`; `api/cart-summary/route.ts` |
+| S7-12 | NIT | **Expired sessions purged only at login** — a store with registrations but no logins never prunes `Session` rows (slow unbounded growth; single-process acceptable). | `actions/auth.ts:40-46,103` |
+| S7-13 | NIT | **Wishlist heart has no active state and its label omits the product name** — screen readers hear identical labels across a grid. | `add-to-cart-button.tsx:108-132` |
+
+## 4. Remediation plan (TDD)
+
+1. **S7-1** — guarded claim in both `safeCreate*` fallbacks: `updateMany({ where: { id: winner.id, userId: null }, data: { userId } })` (idempotent; can never steal another user's row; a lost claim race self-heals via the existing merge branch on the next request). E2E: first-login claim is visible cross-device (context A adds as guest + logs in; fresh context B logs in as the same user and sees the items).
+2. **S7-2** — extract `resolveReplay(winner, callerUserId, callerCartToken)` into `src/lib/order-access.ts` (pure: returns the winner's number, null when no winner, throws `ReplayDeniedError` when ownership fails); unit-test red-first (owner match, guest-cookie match, thief denial); wire into the checkout retry loop.
+3. **S7-3** — new pure `src/lib/seed-policy.ts`: `productSeedUpdate(data)` picks ONLY content fields (name, shortDescription, description, categoryId, images, tags, specs) — price/compareAtPrice/stock/rating/reviewCount/sku/badge/featured/newArrival/isActive are admin- or traffic-owned and never reset; settings + carousel slides become create-only (`update: {}`, matching the S4-8 coupon precedent). Unit-test red-first on the picked-field contract; amend the DEPLOYMENT.md seed paragraph.
+4. **S7-4** — import `siteBaseUrl()` into the 4 hand-rolled sites (mechanical; seo-platform e2e pins the behavior).
+5. **S7-5** — tokenize legal content: `{{contactEmail}}` in `content.ts` + pure `interpolateContactEmail(sections, email)` in the same module; unit-test red-first (replacement, no-token passthrough, multiple occurrences); render through the page (settings email).
+6. **S7-6** — `imageUrlSchema` root-relative ONLY (regex `/^\/(?!\/)[^\s]*$/`); flip the http(s)-accepted unit cases to rejected; update the schema comment + product-page og comment (metadataBase already resolves root-relative og:image to absolute).
+7. **S7-7** — `.max(100_000_000)` ($1M) on `price` + `compareAtPrice`; unit cases red-first.
+8. **S7-8** — `MAX_ADDRESSES_PER_USER = 20` shared guard used by `/api/addresses` POST and checkout `saveAddress` (friendly 409/400); new-default writes unset previous defaults inside the same transaction (deterministic `findFirst({ isDefault: true })`); e2e pins the cap on the API path.
+9. **S7-9** — pure `jsonLdScript(data)` in `src/lib/seo.ts` (`<` → `\u003c`, U+2028/2029 escaped, output re-parses to the same object); unit-test red-first; wire the 3 `dangerouslySetInnerHTML` sites.
+10. **S7-10** — `newRequestId(cryptoLike?)` in `src/lib/random-id.ts`: `randomUUID` when present, else `getRandomValues` hex fallback; unit-test red-first (both shapes); checkout-client mounts through it.
+11. **S7-11** — try/catch `{ error }` 500 wrap on search GET + cart-summary GET (mechanical, sibling-consistent).
+12. **S7-12** — `sessionSweepDue(now, last, interval)` pure helper (unit-tested red-first) + hourly time-gated `deleteMany({ expiresAt: { lt: now } })` opportunist in `getCurrentUser` (void, non-blocking, module-level timestamp).
+13. **S7-13** — wishlist heart aria-labels carry the product name (`Add {name} to wishlist` / `Remove {name} from wishlist`); the filled-heart visual state is DEFERRED (feature work — needs wishlist ids threaded through every product grid).
+
+### Deferred (with justification)
+
+| # | Item | Why |
+|---|---|---|
+| 1 | Wishlist heart filled state | Feature work (server data threaded through product grids), not a defect; labels now distinguish per-product. |
+| 2 | `saveAddress` dedup by (userId, line1, postalCode) | The cap + deterministic default close the operational risk; dedup risks surprising users who intentionally save variant addresses. |
+| 3 | 404-shell CSP nonce | Inert islands only (carried). |
+| 4 | `__Host-` cookie prefix | Needs TLS-guaranteed topology (carried). |
+| 5 | Shared-store rate limiter | Mechanical; correct for single-process standalone (carried). |
+| 6 | Admin coupon-management UI | Enforcement ships; seed/DB-level management (carried). |
+| 7 | Real email delivery | Provider credentials + bounce handling — an epic, not a fix (carried). |
+| 8 | Review-form radiogroup roving focus | WCAG-conformant as-is (carried). |
+
+## 5. Execution log (session 7)
+
+- [x] S7-1 — guarded `updateMany` claim in `safeCreateCart`/`safeCreateWishlist`; e2e `auth.spec.ts` "claims the guest cart on first login (visible on a second device)" (red → green)
+- [x] S7-2 — `resolveReplay()` ownership gate in order-access.ts + 4 unit cases; wired into the checkout P2002 recovery path (red → green)
+- [x] S7-3 — `seed-policy.ts` content-only product update + create-only settings/carousel (+5 unit cases); seed wired; DEPLOYMENT.md seed paragraph amended (red → green)
+- [x] S7-4 — `siteBaseUrl()` imported into layout.tsx / sitemap.ts / robots.ts / (storefront)/layout.tsx
+- [x] S7-5 — `{{contactEmail}}` tokens + `interpolateContactEmail()` (+3 unit cases); legal page renders settings email everywhere (red → green)
+- [x] S7-6 — `imageUrlSchema` root-relative only; unit cases flipped (http(s)/protocol-relative rejected); comments updated (red → green)
+- [x] S7-7 — `.max(100_000_000)` on price/compareAtPrice (+2 unit cases) (red → green)
+- [x] S7-8 — `MAX_ADDRESSES_PER_USER` cap (addresses POST + checkout saveAddress) + single-default tx invariant; e2e cap case (red → green)
+- [x] S7-9 — `jsonLdScript()` escaper (+4 unit cases); 3 ld+json sites wired (red → green)
+- [x] S7-10 — `newRequestId()` (+3 unit cases); checkout-client wired (red → green)
+- [x] S7-11 — search/cart-summary `{ error }` 500 shape
+- [x] S7-12 — `sessionSweepDue()` (+2 unit cases) + hourly opportunistic purge in `getCurrentUser` (red → green)
+- [x] S7-13 — wishlist heart labels carry the product name
+- [x] Full gate chain re-run green; manual agent-browser verification (mobile menu, checkout, legal pages, JSON-LD escape output)
+- [x] Screenshots refreshed; AGENTS/CLAUDE/README/PAD/SKILL/worklog updated
+
+**Post-remediation totals (session 7):** 197/197 unit tests, 41/41 e2e tests, lint/typecheck/typecheck:tests/build clean.

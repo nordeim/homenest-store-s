@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth";
+import { assertAddressCap, AddressCapError } from "@/lib/addresses";
 import { findCartId, getCartSummary, readCartToken, type CartLine } from "@/lib/cart";
 import { applyCouponCode, couponDiscount, couponRedemptionWhere, isCouponRedeemable } from "@/lib/coupons";
 import { db } from "@/lib/db";
 import { computeOrderMoney } from "@/lib/order-money";
-import { orderAccessToken, replayAuthorized } from "@/lib/order-access";
+import { orderAccessToken, replayAuthorized, resolveReplay, ReplayDeniedError } from "@/lib/order-access";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import { checkoutSchema, firstError } from "@/lib/validation";
@@ -218,7 +219,18 @@ async function placeOrderWithRetry(args: PlaceOrderArgs): Promise<string> {
         const winner = args.idempotencyKey
           ? await db.order.findUnique({ where: { idempotencyKey: args.idempotencyKey } })
           : null;
-        if (winner) return winner.number; // racing FIRST placement: same client by construction
+        // Session-7 S7-2: the recovery path is ownership-bound too. A genuine
+        // double-submit shares the same cookies and passes; a caller who only
+        // KNOWS the key (log/XSS leak) gets a 409 instead of the receipt.
+        try {
+          const resolved = resolveReplay(winner, args.userId, args.cartToken);
+          if (resolved) return resolved;
+        } catch (denied) {
+          if (denied instanceof ReplayDeniedError) {
+            throw new CheckoutError(409, "We couldn't verify this checkout retry belongs to you. Please review your cart and try again.");
+          }
+          throw denied;
+        }
       }
       if (isUniqueViolation(error)) {
         lastError = error;
@@ -348,21 +360,36 @@ async function placeOrderTx(orderNumber: string, args: PlaceOrderArgs): Promise<
     await tx.cartItem.deleteMany({ where: { cartId: args.cartId } });
 
     if (args.saveAddress && args.userId) {
-      await tx.address.create({
-        data: {
-          userId: args.userId,
-          label: args.address.label || "Home",
-          fullName: args.address.fullName,
-          phone: args.address.phone,
-          line1: args.address.line1,
-          line2: args.address.line2 ? args.address.line2 : null,
-          city: args.address.city,
-          state: args.address.state,
-          postalCode: args.address.postalCode,
-          country: args.address.country,
-          isDefault: true,
-        },
-      });
+      // Session-7 S7-8: the save is best-effort relative to the ORDER — at the
+      // address-book cap the order still places (the address rides on it in
+      // shippingAddressJson) and only the bookkeeping save is skipped. When it
+      // DOES save, previous defaults are unset in the same transaction so
+      // `findFirst({ isDefault: true })` stays deterministic (the latest save).
+      try {
+        await assertAddressCap(tx, args.userId);
+        await tx.address.updateMany({
+          where: { userId: args.userId, isDefault: true },
+          data: { isDefault: false },
+        });
+        await tx.address.create({
+          data: {
+            userId: args.userId,
+            label: args.address.label || "Home",
+            fullName: args.address.fullName,
+            phone: args.address.phone,
+            line1: args.address.line1,
+            line2: args.address.line2 ? args.address.line2 : null,
+            city: args.address.city,
+            state: args.address.state,
+            postalCode: args.address.postalCode,
+            country: args.address.country,
+            isDefault: true,
+          },
+        });
+      } catch (error) {
+        if (!(error instanceof AddressCapError)) throw error;
+        // At cap: keep the order, skip the address-book save.
+      }
     }
 
     return order.number;

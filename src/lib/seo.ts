@@ -168,3 +168,23 @@ export function buildWebsiteJsonLd(input: { baseUrl: string; name: string }): Js
     },
   };
 }
+
+/**
+ * JSON-LD serialization for `ld+json` script blocks (session-7 S7-9).
+ *
+ * The HTML parser does not honor JSON context inside <script>: a raw `</script>`
+ * (or U+2028/U+2029, which break JS string semantics in some embedding contexts)
+ * inside ANY interpolated string — admin-authored names/descriptions included —
+ * terminates the element early and can pivot into markup injection. Escaping
+ * `<` as `\u003c` (and the line separators) is JSON-equivalent, so the output
+ * still parses to the exact same object; it just can no longer break out of
+ * the element. Every `dangerouslySetInnerHTML` ld+json site must go through
+ * this helper — no bare `JSON.stringify` in page markup. Unit-pinned in
+ * tests/unit/session7-hardening.test.ts.
+ */
+export function jsonLdScript(data: JsonLdObject): string {
+  return JSON.stringify(data)
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}

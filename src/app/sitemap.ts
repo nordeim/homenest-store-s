@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 
 import { db } from "@/lib/db";
+import { siteBaseUrl } from "@/lib/seo";
 
 // ---------------------------------------------------------------------------
 // sitemap.xml — static routes plus every active product detail page. The DB
@@ -26,7 +27,7 @@ export const STATIC_ROUTES: { path: string; priority: number; changeFrequency: M
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/+$/, "");
+  const base = siteBaseUrl();
   const now = new Date();
 
   const entries: MetadataRoute.Sitemap = STATIC_ROUTES.map((route) => ({

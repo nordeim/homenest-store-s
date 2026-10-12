@@ -63,9 +63,36 @@ export async function createSession(userId: string): Promise<void> {
   });
 }
 
+/**
+ * Is an expired-session sweep due? (session-7 S7-12) — pure, unit-pinned in
+ * tests/unit/session7-hardening.test.ts. `last === 0` (never swept) is always
+ * due once `now` itself is a real epoch timestamp.
+ */
+export function sessionSweepDue(now: number, lastSweepAt: number, intervalMs: number): boolean {
+  return now - lastSweepAt >= intervalMs;
+}
+
+// Hourly opportunistic sweep (session-7 S7-12): sessions were previously
+// purged only at login (actions/auth.ts), so a store with registrations but
+// few logins never pruned Session rows. The gate costs one comparison per
+// request; the deleteMany runs void + non-blocking and stays correct if it
+// fails. Single-process standalone: no shared sweep state to coordinate.
+const SESSION_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
+let lastSessionSweepAt = 0;
+
+function maybeSweepSessions(): void {
+  const now = Date.now();
+  if (!sessionSweepDue(now, lastSessionSweepAt, SESSION_SWEEP_INTERVAL_MS)) return;
+  lastSessionSweepAt = now;
+  void db.session
+    .deleteMany({ where: { expiresAt: { lt: new Date(now) } } })
+    .catch(() => undefined);
+}
+
 /** Resolve the current user from the cookie, or null. Never throws. */
 export async function getCurrentUser(): Promise<SessionUser | null> {
   try {
+    maybeSweepSessions();
     const store = await cookies();
     const raw = store.get(SESSION_COOKIE)?.value;
     if (!raw) return null;

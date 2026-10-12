@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { discountPercent, formatMoney } from "@/lib/money";
 import { parseImages, parseSpecs, parseTags, toCardData } from "@/lib/products";
-import { buildProductJsonLd, siteBaseUrl } from "@/lib/seo";
+import { buildProductJsonLd, jsonLdScript, siteBaseUrl } from "@/lib/seo";
 import { getSettings } from "@/lib/settings";
 import { getCurrentUser } from "@/lib/auth";
 import { ProductCard } from "@/components/store/product-card";
@@ -34,9 +34,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     select: { name: true, shortDescription: true, images: true },
   });
   if (!product) return { title: "Product not found" };
-  // First product image as the share card (root-relative or http(s) — both
-  // pass imageUrlSchema; metadataBase resolves root-relative to absolute).
-  // Unknown hosts would need a CSP img-src widening decision first.
+  // First product image as the share card (root-relative store path — the
+  // only form imageUrlSchema accepts since S7-6). metadataBase resolves the
+  // relative path to an absolute URL for crawlers. External hosts would need
+  // a CSP img-src widening decision first.
   const firstImage = parseImages(product.images)[0];
   const ogImages = firstImage ? [firstImage] : ["/images/og-default.png"];
   return {
@@ -126,9 +127,11 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
     <div className="container-page flex flex-col gap-14 py-6 sm:py-8">
       <script
         type="application/ld+json"
-        // The JSON-LD object contains only builder-shaped strings/numbers —
-        // no user-authored HTML can reach this slot.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+        // Serialized through jsonLdScript (session-7 S7-9): `<` and line
+        // separators are escaped so even an admin-authored string (name /
+        // description) can never terminate the element early — the old
+        // "builder-shaped strings only" assumption did not hold for admins.
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(productJsonLd) }}
       />
       <div>
         <Link

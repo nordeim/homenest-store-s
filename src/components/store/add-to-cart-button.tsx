@@ -81,10 +81,14 @@ export function AddToCartButton({
 
 export function AddToWishlistButton({
   productId,
+  productName,
   className,
   compact = false,
 }: {
   productId: string;
+  /** Session-7 S7-13: the label names the product — identical "Toggle wishlist"
+   *  strings across a grid give a screen-reader user nothing to distinguish. */
+  productName?: string;
   className?: string;
   compact?: boolean;
 }) {
@@ -122,7 +126,7 @@ export function AddToWishlistButton({
       type="button"
       onClick={toggle}
       disabled={pending}
-      aria-label="Toggle wishlist"
+      aria-label={productName ? `Add ${productName} to wishlist` : "Add to wishlist"}
       className={cn(
         "inline-flex items-center justify-center rounded-full bg-white/90 text-foreground shadow-sm backdrop-blur transition-all hover:bg-white hover:shadow hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
         compact ? "h-8 w-8" : "h-9 w-9",

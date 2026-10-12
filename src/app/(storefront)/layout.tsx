@@ -1,7 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { findCartId, getCartSummary } from "@/lib/cart";
 import { getSettings } from "@/lib/settings";
-import { buildOrganizationJsonLd, buildWebsiteJsonLd } from "@/lib/seo";
+import { buildOrganizationJsonLd, buildWebsiteJsonLd, jsonLdScript, siteBaseUrl } from "@/lib/seo";
 
 import { StoreChrome } from "@/components/store/store-chrome";
 import { Footer } from "@/components/store/footer";
@@ -26,7 +26,8 @@ export default async function StorefrontLayout({ children }: { children: React.R
     cartCount = 0;
   }
 
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/+$/, "");
+  // Session-7 S7-4: shared base URL (same source as the canonicals).
+  const siteUrl = siteBaseUrl();
   const socials = [settings.socialFacebook, settings.socialInstagram, settings.socialPinterest, settings.socialTikTok]
     .filter((v): v is string => typeof v === "string" && v.length > 0);
   const organizationJsonLd = buildOrganizationJsonLd({
@@ -42,14 +43,16 @@ export default async function StorefrontLayout({ children }: { children: React.R
   return (
     <div className="flex min-h-screen flex-col">
       {/* Site-wide structured data (schema.org Organization + WebSite).
-          Data blocks — CSP script-src does not apply to ld+json. */}
+          Data blocks — CSP script-src does not apply to ld+json. Serialized
+          through jsonLdScript (session-7 S7-9): `<` and line separators are
+          escaped so an admin-authored string can never terminate the element. */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(organizationJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(websiteJsonLd) }}
       />
       <StoreChrome user={user} cartCount={cartCount} />
       <main className="flex-1">{children}</main>
