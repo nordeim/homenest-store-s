@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { canTransitionOrderStatus, shouldRestockOnStatusChange } from "@/lib/order-status";
 import { updateSettings } from "@/lib/settings";
 import {
   carouselSlideInputSchema,
@@ -294,20 +295,48 @@ export async function setOrderStatusAction(input: z.input<typeof orderStatusSche
   const parsed = orderStatusSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
 
-  const order = await db.order.findUnique({ where: { id: parsed.data.orderId }, select: { id: true, status: true } });
+  const order = await db.order.findUnique({
+    where: { id: parsed.data.orderId },
+    select: { id: true, status: true, items: { select: { productId: true, quantity: true } } },
+  });
   if (!order) return { ok: false, error: "Order not found. Refresh the list." };
 
-  await db.$transaction([
-    db.order.update({ where: { id: order.id }, data: { status: parsed.data.status } }),
-    db.orderEvent.create({
+  // Submitting the status that's already set is a UI no-op — succeed without
+  // writing a duplicate event (the strict transition rules stay in
+  // canTransitionOrderStatus for real changes).
+  if (order.status === parsed.data.status) return { ok: true };
+
+  // Workflow rules (order-status.ts): cancelled is terminal — reopening it
+  // would double-sell stock that was already restored. Delivered is terminal.
+  if (!canTransitionOrderStatus(order.status, parsed.data.status)) {
+    return { ok: false, error: `An order cannot move from "${order.status}" to "${parsed.data.status}".` };
+  }
+
+  const restock = shouldRestockOnStatusChange(order.status, parsed.data.status);
+  await db.$transaction(async (tx) => {
+    await tx.order.update({ where: { id: order.id }, data: { status: parsed.data.status } });
+    await tx.orderEvent.create({
       data: {
         orderId: order.id,
         type: "status_changed",
         status: parsed.data.status,
-        note: parsed.data.note || `Status updated to ${parsed.data.status}.`,
+        note:
+          parsed.data.note ||
+          `Status updated to ${parsed.data.status}.${restock ? " Stock restored." : ""}`,
       },
-    }),
-  ]);
+    });
+    // Cancelling releases the reserved inventory back to the catalog —
+    // otherwise a cancelled order would consume stock forever.
+    if (restock) {
+      for (const item of order.items) {
+        if (!item.productId) continue; // deleted product — nothing to restore
+        await tx.product.updateMany({
+          where: { id: item.productId },
+          data: { stock: { increment: item.quantity } },
+        });
+      }
+    }
+  });
 
   revalidatePath("/admin/orders");
   revalidatePath("/admin");

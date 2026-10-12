@@ -63,6 +63,9 @@ export const checkoutSchema = z.object({
   paymentMethod: z.enum(PAYMENT_METHODS),
   couponCode: z.string().trim().max(40).optional().or(z.literal("")),
   saveAddress: z.boolean().optional(),
+  // Client-generated (crypto.randomUUID). A retry that carries the same key
+  // returns the already-placed order instead of double-ordering.
+  idempotencyKey: z.string().trim().min(16, "Invalid idempotency key").max(64).optional(),
   address: addressSchema,
 });
 

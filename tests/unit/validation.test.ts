@@ -97,6 +97,15 @@ describe("checkoutSchema", () => {
     expect(checkoutSchema.safeParse({ ...valid, shippingMethod: "drone" }).success).toBe(false);
     expect(checkoutSchema.safeParse({ ...valid, paymentMethod: "crypto" }).success).toBe(false);
   });
+
+  it("accepts an optional idempotency key (16..64 chars)", () => {
+    const key = "3f2b8a64-1c5d-4e9a-9f0b-2d7c8e1a4b5c"; // uuid-shaped, 36 chars
+    expect(checkoutSchema.safeParse(valid).success).toBe(true); // absent = fine
+    expect(checkoutSchema.safeParse({ ...valid, idempotencyKey: key }).success).toBe(true);
+    expect(checkoutSchema.safeParse({ ...valid, idempotencyKey: "short" }).success).toBe(false);
+    expect(checkoutSchema.safeParse({ ...valid, idempotencyKey: "x".repeat(65) }).success).toBe(false);
+    expect(checkoutSchema.safeParse({ ...valid, idempotencyKey: "" }).success).toBe(false);
+  });
 });
 
 describe("reviewSchema", () => {

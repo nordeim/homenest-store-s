@@ -129,3 +129,77 @@ Clean checks: no SQL injection (Prisma parameterized), no XSS sinks (zero `dange
 - [x] Screenshots refreshed; committed to `main` and pushed via the SSH wrapper
 
 **Post-remediation totals:** 94/94 unit tests, 28/28 e2e tests (the track-order spec now pins the number+email access contract end-to-end), lint/typecheck/build clean.
+
+---
+
+# Session 3 — Post-push audit & superset hardening (2026-10-12)
+
+> **Status:** EXECUTED (see the Session-3 Execution Log at the end)
+> **Scope:** Re-validation of the session-2 deliverables on the pulled tree (`86bf17f`), a fresh read-only deep audit (repo `code-review-checklist` 12-category scan + targeted validation of the session-2 deferred items), and TDD remediation of the newly identified findings.
+> **Method:** unchanged — failing tests first, then the fix, then the full gate chain (`lint && typecheck && test && build && test:e2e`).
+
+## 1. Re-validation of session-2 claims (all green)
+
+- `lint` ✓ · `typecheck` ✓ · **94/94 unit** ✓ · `build` ✓ · **28/28 e2e** ✓
+- `.env` contract intact (`DATABASE_URL="file:../db/custom.db"`, real `AUTH_SECRET`); env-shadowing convergence (hardlink) re-confirmed
+- Visual parity re-verified with agent-browser: desktop home (header anatomy, hero carousel, trust badges) and the **mobile menu** (push-down panel, orange active pill, green circular close button, open→navigate→close, `aria-expanded` bound)
+- Tailwind v4 pattern compliance re-audited: zero display-utility JS toggling in `src/`, no `tailwind.config.js`, full `hsl()` values in `@theme inline`
+
+## 2. Fresh audit findings → work items (S3-*)
+
+### S3-1 (HIGH) — `/checkout/success` renders full buyer PII from a guessable order number
+- **Evidence:** `checkout/success/page.tsx` looked up the order by `?order=` only (sequential `ORD-YYYY-NNN`) and rendered buyer email, full shipping address, items, spend, payment label and coupon — no session check, no token, no rate limit, and the page was indexable. Same bug class as session-2 WI-1, but this page was missed (only its deep-link was changed). **Confirmed live**: `curl /checkout/success?order=ORD-2026-001` returned buyer PII unauthenticated.
+- **Fix (TDD):** new `src/lib/order-access.ts` — `orderAccessToken(number)` (HMAC-SHA256 keyed by the auth secret, domain-separated, 128-bit hex) + `verifyOrderAccessToken` (timing-safe). `/api/checkout` returns `{ orderNumber, token }`; the success page renders the full receipt **only** for a valid `order`+`token` pair; any other combination (missing/bad token) renders the same "We couldn't find that order" shell (anti-enumeration — order existence is no longer observable). `robots: { index: false }`. Checkout client carries the token in the redirect. Unit tests `tests/unit/order-access.test.ts`; e2e pins the guess-denial.
+
+### S3-2 (MEDIUM) — Order money derived from a pre-transaction snapshot
+- **Evidence:** subtotal/discount/shipping/tax/total were computed from `getCartSummary()` read *before* the tx while item `unitPrice` was re-read from products *inside* the tx — a concurrent admin price edit in that window produced `order.total ≠ Σ(unitPrice×qty)` plus wrong tax/shipping.
+- **Fix:** move all money derivation inside `placeOrderTx`: build `orderItems` from the tx-read products first, derive `subtotal` from the snapshots, re-validate the coupon inside the tx, then `computeOrderMoney`. The pre-tx coupon check remains as a fast-fail UX path only.
+
+### S3-3 (MEDIUM) — Cancelling an order never restored stock; cancelled was not terminal
+- **Evidence:** `setOrderStatusAction` accepted any transition (including `delivered → pending`) with no restock, so cancelled orders permanently consumed inventory.
+- **Fix (TDD):** new pure helpers in `src/lib/order-status.ts` — `canTransitionOrderStatus(from, to)` (cancelled is terminal; no self-transitions) and `shouldRestockOnStatusChange(from, to)` (true iff `from ≠ cancelled && to === cancelled`). The action runs inside a `$transaction`, increments each item's product stock on cancel, and records "Stock restored." in the event note. Unit tests `tests/unit/order-status.test.ts`; e2e cancels an order through the admin UI.
+
+### S3-4 (MEDIUM) — Guest cart/wishlist never merged at login
+- **Evidence:** the merge lived only inside `getOrCreateCart`/`getOrCreateWishlist`, whose callers are the cart/wishlist API routes — a guest who logged in with a full guest cart saw their old (possibly empty) cart until the next add-to-cart, violating the documented invariant "on login the guest cart merges into the user's".
+- **Fix:** `loginAction` and `registerAction` call `getOrCreateCart(user.id)` + `getOrCreateWishlist(user.id)` after `createSession` (best-effort try/catch — a merge failure must never block login). E2E: guest adds to cart → login → the item is in the account cart.
+
+### S3-5 (MEDIUM, session-2 L4) — Checkout idempotency key
+- **Evidence:** the only double-submit guard was client-side state; a lost response after the atomic commit turned the retry into a 409 "Your cart is empty" with no receipt.
+- **Fix (TDD):** `Order.idempotencyKey String? @unique` (+ `db:push`); `checkoutSchema.idempotencyKey` (16–64 chars, optional); the client generates `crypto.randomUUID()` once per checkout-mount and reuses it across retries; the route short-circuits replays by looking the key up and returning the same `{ orderNumber, token }`; a `P2002` on the key (race) is resolved by re-query instead of retrying the number loop (unique-violation handling now distinguishes `number` from `idempotencyKey` targets). E2E: POST `/api/checkout` twice with the same key → identical order number, single stock decrement.
+
+### S3-6 (MEDIUM, session-2 MEDIUM-4 minimal slice) — Coupon expiry + redemption cap
+- **Evidence:** `Coupon` had only `isActive` — seeded codes were immortal and unlimited; the only lever was editing the DB.
+- **Fix (TDD):** `Coupon.expiresAt DateTime?`, `maxRedemptions Int?`, `timesUsed Int @default(0)` (+ `db:push`); new pure `isCouponRedeemable(coupon, now)` in `src/lib/coupons.ts` (inactive / expired / cap-reached → false); `findActiveCoupon` enforces it; `timesUsed` increments inside the checkout transaction. Admin coupon-management UI stays deferred. Unit tests in `tests/unit/coupons.test.ts`.
+
+### S3-7 (LOW bundle)
+| # | Finding | Fix |
+|---|---|---|
+| L-a | `/api/addresses` malformed JSON → 500 (the L3 pattern missed this route) | Split body-parse into its own try/catch returning 400 |
+| L-b | Review rate-limit key was attacker-chosen (`author:productId`) | Key becomes `review:ip:product:author` with the `x-forwarded-for` IP from `headers()` |
+| L-c | Cart-drawer optimistic quantity could disagree with the server clamp | `/api/cart` PATCH returns the clamped `quantity`; the drawer mirrors it |
+| L-d | `/products` and `/wishlist` had no page titles | `metadata` exports (wishlist additionally `noindex`) |
+| L-e | Wishlist duplicated cookie options inline twice | Export the shared `cookieOptions()` from `cart.ts` and reuse |
+
+## Deferred again (with justification)
+
+| # | Item | Why |
+|---|---|---|
+| 1 | Analytics `groupBy`/`$queryRaw` for top products | Correct at seeded volume; top-product revenue (Σ unitPrice×qty) is not expressible in Prisma `groupBy` and adding raw SQL is a perf optimization, not a correctness fix. Admin orders already paginated; revisit past ~50k order items. |
+| 2 | 404-shell CSP nonce | `not-found.tsx` has no interactive islands of its own; the root-layout islands that fail to hydrate there are inert on a 404. The `(auth)` fix pattern is documented if it ever matters (a root-layout `connection()` would de-prerender everything). |
+| 3 | `__Host-` cookie prefix | Requires a TLS-guaranteed deployment topology; breaks the plain-HTTP standalone deploy. Revisit at deploy-config time. |
+| 4 | Shared-store rate limiter | The sync `rateLimit()` signature is the only coupling; a shared-store swap forces async at 9 call sites. Correct for the single-process standalone deploy; documented in the scale-out checklist. |
+| 5 | Admin coupon-management UI | Enforcement ships (S3-6); management remains DB/seed-level until there is a merchandising need. |
+
+## 3. Execution log (session 3)
+
+- [x] S3-1 — `order-access.ts` + unit tests; `/api/checkout` returns `{ orderNumber, token }`; success page token gate + noindex; checkout client token deep-link; e2e pins the guess-denial
+- [x] S3-2 — money derivation moved inside `placeOrderTx` (coupon re-validated in-tx, `computeOrderMoney` on tx snapshots)
+- [x] S3-3 — `order-status.ts` + unit tests; cancel restocks stock in the admin transaction; cancelled is terminal; e2e cancels via the admin UI
+- [x] S3-4 — guest cart + wishlist merge on login/register (best-effort); e2e pins the merge
+- [x] S3-5 — `Order.idempotencyKey @unique` + schema/test/wire-up; e2e pins the replay (same order number, single stock decrement)
+- [x] S3-6 — `Coupon.expiresAt/maxRedemptions/timesUsed` + `isCouponRedeemable` + in-tx `timesUsed` increment; unit tests
+- [x] S3-7 — addresses 400, review limiter IP key, drawer clamp mirror, `/products` + `/wishlist` metadata, wishlist cookie options dedupe
+- [x] Full gate chain re-run green; manual agent-browser verification (success-page guess-denial, token receipt, mobile menu)
+- [x] Screenshots refreshed (`docs/screenshots/`, 23 shots incl. `23-checkout-success-locked.png`); docs (`AGENTS.md`, `README.md`, `CLAUDE.md`, PAD, `homenest-store-s_SKILL.md`, `worklog.md`) updated for every changed contract
+
+**Post-remediation totals (session 3):** 115/115 unit tests, 31/31 e2e tests, lint/typecheck/build clean.

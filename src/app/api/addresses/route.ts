@@ -15,7 +15,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "You must be signed in to save addresses." }, { status: 401 });
     }
 
-    const body: unknown = await request.json();
+    // Malformed payloads are a client error (400), not a 500 — same pattern as
+    // the cart/checkout/wishlist routes.
+    let body: unknown = null;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    }
     const parsed = addressSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: firstError(parsed.error) }, { status: 400 });

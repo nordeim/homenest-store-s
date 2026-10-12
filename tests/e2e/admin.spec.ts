@@ -63,6 +63,53 @@ test.describe("admin back office", () => {
     }
   });
 
+  test("cancelling an order restores the reserved stock (S3-3)", async ({ page, request }) => {
+    // Self-contained setup: place a fresh guest order through the real API.
+    const search = await request.get("/api/search?q=knife");
+    const { results } = (await search.json()) as { results: Array<{ id: string }> };
+    expect(results.length).toBeGreaterThan(0);
+    const productId = results[0].id;
+
+    await request.post("/api/cart", { data: { productId, quantity: 2 } });
+    const placed = await request.post("/api/checkout", {
+      data: {
+        email: "cancel-restock@example.com",
+        customerName: "Restock Test",
+        shippingMethod: "standard",
+        paymentMethod: "cod",
+        idempotencyKey: crypto.randomUUID(),
+        address: {
+          fullName: "Restock Test",
+          phone: "+1 512 555 0166",
+          line1: "5 Cancel Way",
+          city: "Austin",
+          state: "TX",
+          postalCode: "73301",
+          country: "United States",
+        },
+      },
+    });
+    expect(placed.ok()).toBeTruthy();
+    const { orderNumber } = (await placed.json()) as { orderNumber: string };
+    expect(orderNumber).toMatch(/^ORD-\d{4}-\d{3}$/);
+
+    await loginAsAdmin(page);
+    await gotoHydrated(page, "/admin/orders");
+
+    // The newest order sits at the top of the table (placedAt desc).
+    const row = page.locator("tr", { hasText: orderNumber }).first();
+    await expect(row).toBeVisible();
+    await row.getByRole("button", { name: /manage/i }).click();
+
+    await page.getByLabel("Update status").click();
+    await page.getByRole("option", { name: /mark as cancelled/i }).click();
+    await page.getByRole("button", { name: /update status/i }).click();
+
+    // The action's success toast proves the restock transaction committed.
+    await expect(page.getByText(new RegExp(`Order ${orderNumber} updated`))).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("tr", { hasText: orderNumber }).first()).toContainText(/cancelled/i);
+  });
+
   test("carousel manager lists the seeded hero slides", async ({ page }) => {
     await loginAsAdmin(page);
     await gotoHydrated(page, "/admin/carousel");

@@ -58,15 +58,70 @@ test.describe("shopping flow", () => {
     await expect(page.getByRole("heading", { name: "Review Your Order" })).toBeVisible();
     await page.getByRole("button", { name: /Place Order/ }).click();
 
-    // Success page with a real order number.
-    await expect(page).toHaveURL(/\/checkout\/success\?order=ORD-\d{4}-\d{3}/, { timeout: 15_000 });
+    // Success page with a real order number + access token.
+    await expect(page).toHaveURL(/\/checkout\/success\?order=ORD-\d{4}-\d{3}&token=/, { timeout: 15_000 });
     await expect(page.getByRole("heading", { name: /Thank You/i })).toBeVisible();
-    const orderNumber = new URL(page.url()).searchParams.get("order");
+    const params = new URL(page.url()).searchParams;
+    const orderNumber = params.get("order");
     expect(orderNumber).toMatch(/^ORD-\d{4}-\d{3}$/);
+    expect(params.get("token") ?? "").toMatch(/^[0-9a-f]{32}$/);
+
+    // ACCESS CONTRACT (S3-1): the sequential number alone must NOT reveal the
+    // receipt — the same "not found" shell renders with or without a bad
+    // token, so an attacker cannot even observe that the order exists.
+    await gotoHydrated(page, `/checkout/success?order=${orderNumber}`);
+    await expect(page.getByRole("heading", { name: /couldn.t find that order/i })).toBeVisible();
+    await expect(page.getByText("guest@example.com")).toHaveCount(0);
+    await gotoHydrated(page, `/checkout/success?order=${orderNumber}&token=${"0".repeat(32)}`);
+    await expect(page.getByRole("heading", { name: /couldn.t find that order/i })).toBeVisible();
 
     // The cart is empty again.
     await gotoHydrated(page, "/cart");
     await expect(page.getByText(/cart is empty/i)).toBeVisible();
+  });
+
+  test("checkout replay with the same idempotency key returns the same order (S3-5)", async ({ request }) => {
+    // Pick an in-stock product via the public typeahead API.
+    const search = await request.get("/api/search?q=knife");
+    expect(search.ok()).toBeTruthy();
+    const { results } = (await search.json()) as { results: Array<{ id: string }> };
+    expect(results.length).toBeGreaterThan(0);
+    const productId = results[0].id;
+
+    // Seed the guest cart through the real API (cookie jar on `request`).
+    const add = await request.post("/api/cart", { data: { productId, quantity: 1 } });
+    expect(add.ok()).toBeTruthy();
+
+    const checkoutBody = {
+      email: "idempotent@example.com",
+      customerName: "Replay Test",
+      shippingMethod: "standard",
+      paymentMethod: "cod",
+      // Fresh key per run — mirrors the client's crypto.randomUUID() usage.
+      idempotencyKey: crypto.randomUUID(),
+      address: {
+        fullName: "Replay Test",
+        phone: "+1 512 555 0177",
+        line1: "7 Retry Court",
+        city: "Austin",
+        state: "TX",
+        postalCode: "73301",
+        country: "United States",
+      },
+    };
+
+    const first = await request.post("/api/checkout", { data: checkoutBody });
+    expect(first.ok()).toBeTruthy();
+    const firstBody = (await first.json()) as { orderNumber?: string; token?: string };
+    expect(firstBody.orderNumber).toMatch(/^ORD-\d{4}-\d{3}$/);
+
+    // The replay (lost response / double click) returns the SAME receipt —
+    // not a 409 "cart empty" and not a second order.
+    const replay = await request.post("/api/checkout", { data: checkoutBody });
+    expect(replay.ok()).toBeTruthy();
+    const replayBody = (await replay.json()) as { orderNumber?: string; token?: string };
+    expect(replayBody.orderNumber).toBe(firstBody.orderNumber);
+    expect(replayBody.token).toBe(firstBody.token);
   });
 
   test("coupon WELCOME10 reduces the total", async ({ page }) => {

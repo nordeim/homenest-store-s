@@ -139,6 +139,12 @@ await shoot(browser, mobile, "22-tracking-locked", "viewport", async (page) => {
   await page.goto("/track-order?number=ORD-2026-001");
   await page.waitForLoadState("networkidle");
 });
+await shoot(browser, desktop, "23-checkout-success-locked", "viewport", async (page) => {
+  // S3-1 access contract, visually: a guessed sequential order number without
+  // its token renders the same not-found shell — no receipt, no PII.
+  await page.goto("/checkout/success?order=ORD-2026-001");
+  await page.waitForLoadState("networkidle");
+});
 
 await browser.close();
 console.log(`\nScreenshots written to ${OUT}`);

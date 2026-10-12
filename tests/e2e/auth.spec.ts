@@ -66,4 +66,24 @@ test.describe("auth", () => {
     await gotoHydrated(page, "/account");
     await expect(page).toHaveURL(/\/login/);
   });
+
+  test("guest cart merges into the account cart on login (S3-4)", async ({ page }) => {
+    // As a guest: add the first catalog product to the cart.
+    await gotoHydrated(page, "/products");
+    const productName = (await page.locator("article").first().locator("h3").innerText()).trim();
+    await page.locator("article").first().getByRole("button", { name: "Add to Cart" }).click();
+    await expect(page.getByTestId("cart-count")).toHaveText("1");
+
+    // Sign in — the server action must claim the guest cart right here.
+    await gotoHydrated(page, "/login");
+    await page.getByLabel("Email").fill("demo@homenestkitchen.com");
+    await page.getByLabel("Password").fill("Demo1234!");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/account/, { timeout: 10_000 });
+
+    // The account cart already contains the guest's item — no re-add needed.
+    await gotoHydrated(page, "/cart");
+    await expect(page.getByRole("heading", { name: "Shopping Cart" })).toBeVisible();
+    await expect(page.getByRole("link", { name: productName }).first()).toBeVisible();
+  });
 });

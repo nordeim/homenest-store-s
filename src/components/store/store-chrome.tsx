@@ -108,9 +108,25 @@ function CartDrawer() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lineId, quantity }),
       });
-      const data = (await res.json()) as { itemCount?: number; error?: string };
+      const data = (await res.json()) as { itemCount?: number; quantity?: number; error?: string };
       if (!res.ok) throw new Error(data.error ?? "Could not update your cart.");
       if (typeof data.itemCount === "number") setCartCount(data.itemCount);
+      // Mirror the SERVER clamp (the drawer has no stock data): the server is
+      // the only truth for what quantity survived — including "0" (the line
+      // was deleted because the product sold out under the click).
+      if (typeof data.quantity === "number") {
+        setLines((prev) =>
+          (prev ?? [])
+            .map((l) =>
+              l.id === lineId
+                ? data.quantity === 0
+                  ? null
+                  : { ...l, quantity: data.quantity as number, lineTotal: l.unitPrice * (data.quantity as number) }
+                : l,
+            )
+            .filter((l): l is DrawerLine => l !== null),
+        );
+      }
     } catch {
       // Roll back to the pre-click state; the drawer re-syncs on next open.
       setLines(prev);

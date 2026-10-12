@@ -75,22 +75,27 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Cart line not found." }, { status: 404 });
     }
 
-    if (parsed.data.quantity === 0) {
+    const requested = parsed.data.quantity;
+    let finalQuantity = 0; // deletion (explicit 0 or clamp-to-0) is the fallback
+    if (requested === 0) {
       await db.cartItem.delete({ where: { id: line.id } });
     } else {
       const product = await db.product.findUnique({ where: { id: line.productId } });
-      const qty = clampPurchaseQuantity(parsed.data.quantity, product?.stock ?? null);
+      const qty = clampPurchaseQuantity(requested, product?.stock ?? null);
       if (qty === 0) {
         // Out of stock (or product gone) — the line is not purchasable, so it
         // must not survive as a quantity-0 ghost that checkout can "buy".
         await db.cartItem.delete({ where: { id: line.id } });
       } else {
         await db.cartItem.update({ where: { id: line.id }, data: { quantity: qty } });
+        finalQuantity = qty;
       }
     }
 
     const summary = await getCartSummary(cartId);
-    return NextResponse.json({ itemCount: summary.itemCount });
+    // `quantity` mirrors the SERVER clamp back to optimistic islands (the
+    // drawer) so their local state can never disagree with the cart's truth.
+    return NextResponse.json({ itemCount: summary.itemCount, quantity: finalQuantity });
   } catch {
     return NextResponse.json({ error: "Something went wrong." }, { status: 500 });
   }

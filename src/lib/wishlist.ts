@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
+import { cookieOptions } from "./cart";
 
 /**
  * Server-side wishlist — same token-cookie pattern as the cart. Guest
@@ -34,13 +35,7 @@ export async function getOrCreateWishlist(userId: string | null): Promise<string
     const created = await db.wishlist.create({
       data: { userId, token: token ?? randomBytes(24).toString("base64url") },
     });
-    store.set(WISHLIST_COOKIE, created.token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: TTL_S,
-  });
+    store.set(WISHLIST_COOKIE, created.token, { ...cookieOptions(), maxAge: TTL_S });
     return created.id;
   }
 
@@ -50,13 +45,7 @@ export async function getOrCreateWishlist(userId: string | null): Promise<string
   }
   const newToken = randomBytes(24).toString("base64url");
   const created = await db.wishlist.create({ data: { token: newToken } });
-  store.set(WISHLIST_COOKIE, newToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: TTL_S,
-  });
+  store.set(WISHLIST_COOKIE, newToken, { ...cookieOptions(), maxAge: TTL_S });
   return created.id;
 }
 

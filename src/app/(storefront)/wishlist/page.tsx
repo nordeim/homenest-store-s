@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Heart } from "lucide-react";
 
@@ -9,6 +10,13 @@ import { ProductCard } from "@/components/store/product-card";
 import { AddAllToCartButton } from "./add-all-button";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "My Wishlist",
+  description: "The HomeNest Kitchen products you saved for later.",
+  // Per-visitor private content — nothing here for a search engine.
+  robots: { index: false, follow: false },
+};
 
 export default async function WishlistPage() {
   const ids = await getWishlistIds();

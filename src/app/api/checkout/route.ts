@@ -3,9 +3,10 @@ import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth";
 import { findCartId, getCartSummary, type CartLine } from "@/lib/cart";
-import { applyCouponCode } from "@/lib/coupons";
+import { applyCouponCode, couponDiscount, isCouponRedeemable } from "@/lib/coupons";
 import { db } from "@/lib/db";
 import { computeOrderMoney } from "@/lib/order-money";
+import { orderAccessToken } from "@/lib/order-access";
 import { rateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import { checkoutSchema, firstError } from "@/lib/validation";
@@ -47,25 +48,38 @@ type PlaceOrderArgs = {
   email: string;
   customerName: string;
   lines: CartLine[];
-  subtotal: number;
-  discount: number;
-  shipping: number;
-  tax: number;
-  total: number;
   couponCode: string | null;
-  shippingMethod: string;
+  shippingMethod: "standard" | "express";
   paymentMethod: string;
   cardLast4: string | null;
   shippingAddressJson: string;
   saveAddress: boolean;
   address: CheckoutBody["address"];
+  idempotencyKey: string | null;
+  settings: {
+    freeShippingThresholdCents: number;
+    standardShippingCents: number;
+    expressShippingCents: number;
+    taxRatePercent: number;
+  };
 };
+
+type PlacedOrder = { orderNumber: string; token: string };
+
+function respond(orderNumber: string): NextResponse {
+  return NextResponse.json({ orderNumber, token: orderAccessToken(orderNumber) });
+}
 
 /**
  * POST /api/checkout — THE critical path. Every monetary amount is re-derived
- * server-side from the live cart + settings (client totals are never trusted),
- * stock is re-validated inside the transaction, and the order + items +
- * "placed" event + stock decrement + cart clear all commit atomically.
+ * server-side INSIDE the order transaction from the live product rows and
+ * settings (client totals are never trusted), stock is reserved via
+ * conditional atomic decrements, and the order + items + "placed" event +
+ * stock decrement + cart clear all commit atomically.
+ *
+ * Idempotency: the body may carry a client-generated `idempotencyKey`. A retry
+ * (lost response, double click) with the same key returns the ALREADY-placed
+ * order's `{ orderNumber, token }` instead of double-ordering.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -97,7 +111,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const settings = await getSettings();
+    // Idempotent replay: the order already committed on an earlier attempt —
+    // hand back its receipt without touching stock or the cart again.
+    if (data.idempotencyKey) {
+      const existing = await db.order.findUnique({ where: { idempotencyKey: data.idempotencyKey } });
+      if (existing) return respond(existing.number);
+    }
+
     const user = await getCurrentUser();
     const cartId = await findCartId(user?.id ?? null);
     const summary = await getCartSummary(cartId);
@@ -115,32 +135,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ---- Re-derive ALL money server-side (the tested seam) ----
-    const subtotal = summary.subtotal;
-    let discount = 0;
-    let couponCode: string | null = null;
+    // Fast-fail coupon check for good UX only — the AUTHORITATIVE validation
+    // and discount derivation happen inside the transaction below.
     if (data.couponCode) {
-      const applied = await applyCouponCode(data.couponCode, subtotal);
+      const applied = await applyCouponCode(data.couponCode, summary.subtotal);
       if (!applied.ok) {
         return NextResponse.json({ error: applied.error }, { status: 409 });
       }
-      discount = applied.discount;
-      couponCode = applied.code;
     }
 
-    const money = computeOrderMoney({
-      subtotal,
-      discount,
-      shippingMethod: data.shippingMethod,
-      freeShippingThresholdCents: settings.freeShippingThresholdCents,
-      standardShippingCents: settings.standardShippingCents,
-      expressShippingCents: settings.expressShippingCents,
-      taxRatePercent: settings.taxRatePercent,
-    });
-    const shipping = money.shipping;
-    const tax = money.tax;
-    const total = money.total;
-
+    const settings = await getSettings();
     const shippingAddressJson = JSON.stringify({
       fullName: data.address.fullName,
       phone: data.address.phone,
@@ -158,22 +162,24 @@ export async function POST(request: NextRequest) {
       email: data.email,
       customerName: data.customerName,
       lines: summary.lines,
-      subtotal,
-      discount,
-      shipping,
-      tax,
-      total,
-      couponCode,
+      couponCode: data.couponCode ? data.couponCode.trim().toUpperCase() : null,
       shippingMethod: data.shippingMethod,
       paymentMethod: data.paymentMethod,
       cardLast4: data.paymentMethod === "card" ? (data.cardLast4 ?? null) : null,
       shippingAddressJson,
       saveAddress: Boolean(user) && data.saveAddress === true,
       address: data.address,
+      idempotencyKey: data.idempotencyKey ?? null,
+      settings: {
+        freeShippingThresholdCents: settings.freeShippingThresholdCents,
+        standardShippingCents: settings.standardShippingCents,
+        expressShippingCents: settings.expressShippingCents,
+        taxRatePercent: settings.taxRatePercent,
+      },
     };
 
     const orderNumber = await placeOrderWithRetry(args);
-    return NextResponse.json({ orderNumber });
+    return respond(orderNumber);
   } catch (error) {
     if (error instanceof CheckoutError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
@@ -184,8 +190,10 @@ export async function POST(request: NextRequest) {
 
 /**
  * ORD-YYYY-NNN allocation. The counter is derived from existing rows; a unique
- * violation (concurrent order) retries with the next suffix. The whole
- * transaction retries, so a failed attempt never leaves partial writes.
+ * violation on the NUMBER (concurrent order) retries with the next suffix. A
+ * unique violation on the IDEMPOTENCY KEY (two racing first-attempts with the
+ * same key) resolves to the winning order instead. The whole transaction
+ * retries, so a failed attempt never leaves partial writes.
  */
 async function placeOrderWithRetry(args: PlaceOrderArgs): Promise<string> {
   const year = new Date().getFullYear();
@@ -196,6 +204,12 @@ async function placeOrderWithRetry(args: PlaceOrderArgs): Promise<string> {
     try {
       return await placeOrderTx(candidate, args);
     } catch (error) {
+      if (uniqueTarget(error) === "idempotencyKey") {
+        const winner = args.idempotencyKey
+          ? await db.order.findUnique({ where: { idempotencyKey: args.idempotencyKey } })
+          : null;
+        if (winner) return winner.number;
+      }
       if (isUniqueViolation(error)) {
         lastError = error;
         continue;
@@ -210,9 +224,8 @@ async function placeOrderTx(orderNumber: string, args: PlaceOrderArgs): Promise<
   // NOTE: cookies() can never be touched inside this transaction — the cart
   // ROW is intentionally left in place (harmless); only its items are cleared.
   return db.$transaction(async (tx) => {
-    // Stock reservation via CONDITIONAL atomic decrements — the guard lives in
-    // the UPDATE itself (`WHERE stock >= qty`), so two concurrent transactions
-    // can never both pass a check-then-decrement validation (oversell race).
+    // Snapshot the products inside the transaction — these reads are the
+    // source of truth for both the line items and ALL money math below.
     const orderItems: OrderItemCreate[] = [];
     for (const line of args.lines) {
       const product = await tx.product.findUnique({ where: { id: line.productId } });
@@ -231,6 +244,50 @@ async function placeOrderTx(orderNumber: string, args: PlaceOrderArgs): Promise<
       });
     }
 
+    // ---- Re-derive ALL money server-side, inside the tx (the tested seam) ----
+    // Deriving here (not from the pre-tx cart summary) closes the TOCTOU
+    // window: a concurrent price edit can no longer desync `total` from
+    // Σ(unitPrice × qty) or skew tax/shipping.
+    const subtotal = orderItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+
+    let discount = 0;
+    if (args.couponCode) {
+      const couponRow = await tx.coupon.findUnique({ where: { code: args.couponCode } });
+      if (!couponRow || !isCouponRedeemable(couponRow)) {
+        throw new CheckoutError(409, "This coupon code is not valid.");
+      }
+      const applied = couponDiscount(
+        {
+          code: couponRow.code,
+          type: couponRow.type,
+          value: couponRow.value,
+          minSubtotal: couponRow.minSubtotal,
+          description: couponRow.description,
+        },
+        subtotal,
+      );
+      if (!applied.ok) {
+        throw new CheckoutError(409, applied.error);
+      }
+      discount = applied.discount;
+      // Redemption bookkeeping commits with the order — a lost order can
+      // never burn a coupon use, and a placed order always does.
+      await tx.coupon.update({
+        where: { code: couponRow.code },
+        data: { timesUsed: { increment: 1 } },
+      });
+    }
+
+    const money = computeOrderMoney({
+      subtotal,
+      discount,
+      shippingMethod: args.shippingMethod,
+      freeShippingThresholdCents: args.settings.freeShippingThresholdCents,
+      standardShippingCents: args.settings.standardShippingCents,
+      expressShippingCents: args.settings.expressShippingCents,
+      taxRatePercent: args.settings.taxRatePercent,
+    });
+
     const order = await tx.order.create({
       data: {
         number: orderNumber,
@@ -238,16 +295,17 @@ async function placeOrderTx(orderNumber: string, args: PlaceOrderArgs): Promise<
         email: args.email,
         customerName: args.customerName,
         status: "pending",
-        subtotal: args.subtotal,
-        shipping: args.shipping,
-        tax: args.tax,
-        discount: args.discount,
-        total: args.total,
+        subtotal,
+        shipping: money.shipping,
+        tax: money.tax,
+        discount,
+        total: money.total,
         couponCode: args.couponCode,
         shippingMethod: args.shippingMethod,
         shippingAddress: args.shippingAddressJson,
         paymentMethod: args.paymentMethod,
         cardLast4: args.cardLast4,
+        idempotencyKey: args.idempotencyKey,
         items: { create: orderItems },
         events: {
           create: { type: "placed", status: "pending", note: "Order placed" },
@@ -291,6 +349,19 @@ async function placeOrderTx(orderNumber: string, args: PlaceOrderArgs): Promise<
 
     return order.number;
   });
+}
+
+/** Prisma P2002 meta target — which unique constraint fired ("number" | "idempotencyKey"). */
+function uniqueTarget(error: unknown): string | null {
+  if (!isUniqueViolation(error)) return null;
+  const meta = (error as { meta?: { target?: unknown } }).meta;
+  const target = meta?.target;
+  if (typeof target === "string") return target;
+  if (Array.isArray(target)) {
+    const first = target.find((t): t is string => typeof t === "string");
+    return first?.split(".").pop() ?? null;
+  }
+  return null;
 }
 
 function isUniqueViolation(error: unknown): boolean {

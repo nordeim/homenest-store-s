@@ -5,7 +5,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { createSession, destroySession, getCurrentUser } from "@/lib/auth";
+import { getOrCreateCart } from "@/lib/cart";
 import { db } from "@/lib/db";
+import { getOrCreateWishlist } from "@/lib/wishlist";
 import { scryptHash, scryptVerify } from "@/lib/password";
 import { rateLimit } from "@/lib/rate-limit";
 import { firstError, loginSchema, profileSchema, registerSchema } from "@/lib/validation";
@@ -42,6 +44,23 @@ async function purgeExpiredSessions(): Promise<void> {
   }
 }
 
+/**
+ * Claim the guest cart + wishlist right after the session starts. This is the
+ * documented invariant "on login the guest cart merges into the user's": the
+ * merge lives in getOrCreateCart/getOrCreateWishlist, so WITHOUT this call a
+ * guest with a full cart who signs in would see their old (possibly empty)
+ * cart until the next add-to-cart. Best-effort — a merge failure must never
+ * block a login (server actions may set cookies, so this works here).
+ */
+async function mergeGuestCarts(userId: string): Promise<void> {
+  try {
+    await getOrCreateCart(userId);
+    await getOrCreateWishlist(userId);
+  } catch {
+    // The merge retried at the next cart/wishlist touch; login proceeds.
+  }
+}
+
 /** Verify credentials, start a session, land on /account (or /admin). */
 export async function loginAction(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const parsed = loginSchema.safeParse({
@@ -66,6 +85,7 @@ export async function loginAction(_prev: AuthFormState, formData: FormData): Pro
 
   void purgeExpiredSessions();
   await createSession(user.id);
+  await mergeGuestCarts(user.id);
   revalidatePath("/", "layout");
   redirect(user.role === "admin" ? "/admin" : "/account");
 }
@@ -94,6 +114,7 @@ export async function registerAction(_prev: AuthFormState, formData: FormData): 
       },
     });
     await createSession(user.id);
+    await mergeGuestCarts(user.id);
     revalidatePath("/", "layout");
     redirect("/account");
   } catch (error) {

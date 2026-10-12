@@ -147,6 +147,11 @@ export function CheckoutClient({
   const [couponError, setCouponError] = React.useState<string | null>(null);
   const couponAutoTried = React.useRef(false);
 
+  // One idempotency key per checkout visit: a retry after a lost response
+  // (or a double click) reuses it, so the server returns the already-placed
+  // order instead of charging twice. A fresh visit generates a new key.
+  const idempotencyKeyRef = React.useRef<string>(crypto.randomUUID());
+
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
@@ -278,6 +283,7 @@ export function CheckoutClient({
           cardLast4: paymentMethod === "card" ? card.number.replace(/\D/g, "").slice(-4) : "",
           couponCode: coupon?.code ?? "",
           saveAddress: Boolean(user) && saveAddress,
+          idempotencyKey: idempotencyKeyRef.current,
           address: {
             label: "Home",
             fullName: fullName.trim(),
@@ -291,7 +297,7 @@ export function CheckoutClient({
           },
         }),
       });
-      const data = (await res.json()) as { orderNumber?: string; error?: string };
+      const data = (await res.json()) as { orderNumber?: string; token?: string; error?: string };
       if (!res.ok || !data.orderNumber) {
         const message = data.error ?? "Could not place your order. Please try again.";
         setFormError(message);
@@ -299,7 +305,10 @@ export function CheckoutClient({
         return;
       }
       window.sessionStorage.removeItem(COUPON_STORAGE_KEY);
-      router.push(`/checkout/success?order=${encodeURIComponent(data.orderNumber)}`);
+      // The success page renders the receipt only for a valid order+token pair
+      // (minted server-side) — guessable sequential numbers alone show nothing.
+      const params = new URLSearchParams({ order: data.orderNumber, token: data.token ?? "" });
+      router.push(`/checkout/success?${params.toString()}`);
     } catch {
       const message = "Network error — please try again.";
       setFormError(message);

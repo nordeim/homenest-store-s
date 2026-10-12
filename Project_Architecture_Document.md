@@ -92,10 +92,10 @@ The starting point of this remediation was a client-only Vite SPA that kept the 
 **ADR-005: Integer-cent money; server-side total re-derivation via `computeOrderMoney`.**
 
 - **Context:** Money bugs come from floats and from trusting the client.
-- **Decision:** Every monetary column is INTEGER cents. `src/lib/order-money.ts#computeOrderMoney` is the single source of truth: `taxable = max(0, subtotal − discount)`, free shipping when `taxable ≥ freeShippingThresholdCents` (both methods — the threshold is a spend gate), `tax = round(taxable × rate / 100)`, `total = taxable + shipping + tax`. `/api/checkout` re-derives everything from the live cart + settings and validates stock inside a single `db.$transaction` that also writes order + items + `placed` event, decrements stock, clears cart items, and optionally saves the address.
-- **Rationale:** The checkout route can never be talked into a wrong total; `tests/unit/order-money.test.ts` pins the arithmetic including threshold edge cases.
-- **Consequences:** (+) Order numbers are `ORD-YYYY-NNN` with P2002 retry inside the transaction. (−) The client renders mirror totals only — UI must not pretend to be authoritative.
-- **Alternatives rejected:** Stripe-backed pricing (no processor in scope; the demo payment is clearly labeled); trusting client totals (the vulnerability).
+- **Decision:** Every monetary column is INTEGER cents. `src/lib/order-money.ts#computeOrderMoney` is the single source of truth: `taxable = max(0, subtotal − discount)`, free shipping when `taxable ≥ freeShippingThresholdCents` (both methods — the threshold is a spend gate), `tax = round(taxable × rate / 100)`, `total = taxable + shipping + tax`. `/api/checkout` re-derives everything **inside the placement transaction** — the product rows are re-read there, the coupon is re-validated (`isCouponRedeemable`: active, unexpired, under its redemption cap) and its `timesUsed` incremented, and the stock reservation runs via conditional atomic decrements — one `db.$transaction` also writing order + items + `placed` event, clearing cart items, and optionally saving the address. The order is **idempotent**: a client-generated `idempotencyKey` (unique, nullable column) short-circuits replays to the already-placed order's receipt.
+- **Rationale:** The checkout route can never be talked into a wrong total, a lost response can never double-order, and a concurrent price edit can never desync `total` from Σ(unitPrice×qty); `tests/unit/order-money.test.ts` pins the arithmetic including threshold edge cases.
+- **Consequences:** (+) Order numbers are `ORD-YYYY-NNN` with P2002 retry inside the transaction (number collisions only — an idempotency-key collision resolves to the winner). (−) The client renders mirror totals only — UI must not pretend to be authoritative.
+- **Alternatives rejected:** Stripe-backed pricing (no processor in scope; the demo payment is clearly labeled); trusting client totals (the vulnerability); deriving money from the pre-transaction cart summary (a TOCTOU window closed in session 3).
 
 **ADR-006: Per-request CSP nonces via `src/proxy.ts`, and the prerender trap it creates.**
 
@@ -223,9 +223,9 @@ Non-relational stores: `Coupon`, `CarouselSlide`, `StoreSetting` (key/value), `N
 - **Money:** `Int` cents everywhere (`price`, `compareAtPrice`, `subtotal`, `shipping`, `tax`, `discount`, `total`, `unitPrice`, coupon `value`).
 - **Enums-as-strings:** `role`, `status`, `shippingMethod`, `paymentMethod`, coupon `type`, event `type` — vocabularies validated by `src/lib/validation.ts` (`ORDER_STATUSES`, `PAYMENT_METHODS`, …).
 - **JSON-encoded columns:** `Product.images` / `tags` / `specs` (parsed by `src/lib/products.ts`); `Order.shippingAddress` (checkout snapshot — orders never break because a product or address later changes).
-- **Order integrity:** `OrderItem` snapshots `nameSnapshot`/`imageSnapshot`/`unitPrice`; `OrderEvent` is the append-only audit trail for `placed` / `status_changed` / `tracking_added`; `Order.carrier`/`trackingNumber` are operator-set resting state, never derived.
+- **Order integrity:** `OrderItem` snapshots `nameSnapshot`/`imageSnapshot`/`unitPrice`; `OrderEvent` is the append-only audit trail for `placed` / `status_changed` / `tracking_added`; `Order.carrier`/`trackingNumber` are operator-set resting state, never derived; `Order.idempotencyKey` (nullable unique) makes placement replay-safe.
 - **Natural keys:** `User.email`, `Product.slug` + `sku`, `Category.slug`, `Coupon.code` unique — the seed upserts by these so reseeding is idempotent.
-- **Stock:** decremented inside the checkout transaction; `CartItem.quantity` is clamped to live stock on read paths; `stock < 10` surfaces on the admin dashboard.
+- **Stock:** decremented inside the checkout transaction (conditional atomic guard), restored inside the admin cancellation transaction; `CartItem.quantity` is clamped to live stock on read paths; `stock < 10` surfaces on the admin dashboard.
 
 ### 4.3 Seed Data (idempotent, `prisma/seed.ts`)
 
@@ -264,12 +264,14 @@ Component vocabulary: white cards with `border-border` + `rounded-xl` + `shadow-
 | Sessions | DB rows (SHA-256 token hashes) + `homenest_session` cookie = `token.hmac(token)`; httpOnly, SameSite=Lax, Secure in production, 30-day TTL |
 | Authorization | Role gate server-side on every admin action + layout; ownership checks on address/cart/wishlist mutations |
 | Input validation | Zod schemas at every boundary (`src/lib/validation.ts`); `FormData` and JSON bodies never touch Prisma raw |
-| Money integrity | Server-side re-derivation (`computeOrderMoney`); stock re-checked in the placement transaction; P2002 retry for order-number collisions |
+| Money integrity | Server-side re-derivation **inside the placement transaction** (`computeOrderMoney`); conditional atomic stock decrements; idempotency key resolves lost-response replays; P2002 retry for order-number collisions |
 | SQL injection | Prisma parameterized queries only; no raw string interpolation (the sole `$queryRaw` is a constant health probe) |
 | XSS | Strict CSP with per-request nonce + `strict-dynamic` (ADR-006); zero inline styles/scripts authored in the codebase; React-escaped output |
 | Clickjacking / sniffing | `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, HSTS |
 | CSRF | Server Actions and route handlers are same-origin by construction; cookies are SameSite=Lax; state-changing handlers validate content types |
 | Secrets | `.env` git-ignored; `AUTH_SECRET` required in production (insecure dev fallback documented); no keys in the repo (`*.key`, `ssh-key.txt` rejected by `.gitignore`) |
+| PII access control | `/track-order` requires number + purchase email; `/checkout/success` receipt is gated by an HMAC order-access token (`src/lib/order-access.ts`) returned by `/api/checkout` — sequential numbers alone render the same denial shell as unknown ones (no enumeration), and the page is `noindex` |
+| Inventory integrity | Cancelled orders restock inside the admin status transaction (`shouldRestockOnStatusChange`); cancelled + delivered are terminal states |
 | PII | Stored: name, email, phone, address (checkout requirement only); logs carry no credentials or PII |
 
 Known posture limits (explicit, not hidden): the payment step is a labeled demo (no processor); single-process SQLite (no multi-writer scale-out); email sending is out of scope (newsletter/contact persist to DB).
@@ -286,21 +288,21 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 **Two suites, one gate:** `npm run lint && npm run typecheck && npm run test && npm run build && npm run test:e2e` — all five must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 94 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 115 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
 | `money.test.ts` | `formatMoney` / `parseDollarsToCents` / `discountPercent` |
 | `db-path.test.ts` | The `DATABASE_URL` resolution contract: relative-vs-anchor resolution, standalone detection, absolute + non-SQLite passthrough |
 | `order-money.test.ts` | Checkout math: threshold, express/standard, tax rounding, negative-guard, a worked reference order |
-| `coupons.test.ts` | Percent/fixed discounts, min-subtotal, cap-at-subtotal, invalid configs |
+| `coupons.test.ts` | Percent/fixed discounts, min-subtotal, cap-at-subtotal, invalid configs; lifecycle gate (`isCouponRedeemable`: inactive/expired/cap-reached) |
 | `password.test.ts` | scrypt format, verify/reject, unique salts, malformed-hash safety |
 | `validation.test.ts` | Zod schemas incl. enum vocabularies and bounds |
 | `products.test.ts` | JSON column parsing + card projection |
 | `csp.test.ts` | CSP builder: production vs dev directive sets |
 | `format.test.ts` | Status pills, timeline indices, slugify, dates |
 
-### 8.2 E2E (Playwright — 28 tests, `tests/e2e/`)
+### 8.2 E2E (Playwright — 31 tests, `tests/e2e/`)
 
 Two projects: `mobile-navigation` (iPhone-13 device emulation on Chromium — WebKit is not installable in the target sandbox) and `desktop-chromium` (1440×900). The config boots the standalone production build on :3100 with `/api/health` as the readiness probe (reusing an existing healthy server).
 
@@ -308,9 +310,9 @@ Two projects: `mobile-navigation` (iPhone-13 device emulation on Chromium — We
 |---|---|
 | `mobile-navigation.spec.ts` | **The Tailwind v4 regression guard** — hamburger opens the push-down panel with search + 5 links; navigation closes it; the green close button works; reopen proves state-driven mounting; `aria-current` + `bg-primary` on the active pill; body scroll locks/unlocks |
 | `storefront.spec.ts` | Reference anatomy on home (carousel, badges, 8 categories, grids), products listing (count, pagination to the reference items on page 2, category filter), search, product detail (price/compare/−%/stock/reviews/related), footer policies |
-| `shopping-flow.spec.ts` | Add-to-cart badge + mini drawer (off-viewport + inert assertions), **full guest checkout placing a real order** (`ORD-YYYY-NNN`, cart emptied), coupon application, placed-order tracking via `/track-order` |
-| `auth.spec.ts` | Login card anatomy, demo-customer sign-in → `/account`, wrong-password + unknown-email inline errors (no redirect), short-password server rejection, `/account` gate |
-| `admin.spec.ts` | Customer blocked from `/admin` (access-denied card, no route leak), admin sign-in → dashboard KPIs, products manager (search + add affordance), orders manager, carousel slides, settings values |
+| `shopping-flow.spec.ts` | Add-to-cart badge + mini drawer (off-viewport + inert assertions), **full guest checkout placing a real order** (`ORD-YYYY-NNN`, token-gated receipt, guess-denial without the token, cart emptied), **idempotent checkout replay** (same key → same receipt), coupon application, placed-order tracking via `/track-order` |
+| `auth.spec.ts` | Login card anatomy, demo-customer sign-in → `/account`, wrong-password + unknown-email inline errors (no redirect), short-password server rejection, `/account` gate, **guest-cart merge at login** |
+| `admin.spec.ts` | Customer blocked from `/admin` (access-denied card, no route leak), admin sign-in → dashboard KPIs, products manager (search + add affordance), orders manager, **cancel-restocks-stock via the management dialog**, carousel slides, settings values |
 
 **E2E conventions:** `gotoHydrated(page, url)` before any interaction (the `data-hydrated` sentinel from `StoreProvider` — clicking before hydration falls back to native GET, a real bug class this suite caught); async cart effects asserted via the `data-testid="cart-count"` badge before navigating; off-canvas drawers assert `not.toBeInViewport()` + `pointer-events-none` (the always-mounted translate pattern is invisible to `toBeHidden`); DB-mutating specs tolerate re-runs (seed is idempotent, order numbers increment).
 

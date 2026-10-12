@@ -48,12 +48,34 @@ export function couponDiscount(coupon: CouponInfo, subtotal: number): CouponAppl
   return { ok: false, error: "Invalid coupon configuration." };
 }
 
-/** DB lookup seam: case-insensitive code -> active coupon or null. */
+/**
+ * Lifecycle gate for a coupon ROW (the Prisma model shape): inactive, expired
+ * (the expiry instant itself counts as past — the sale ends when it begins)
+ * or cap-exhausted coupons are not redeemable. Pure so the checkout
+ * transaction can reuse it against the in-tx coupon read.
+ */
+export function isCouponRedeemable(
+  coupon: {
+    isActive: boolean;
+    expiresAt: Date | null;
+    maxRedemptions: number | null;
+    timesUsed: number;
+  },
+  now: Date = new Date(),
+): boolean {
+  if (!coupon.isActive) return false;
+  if (coupon.expiresAt && coupon.expiresAt.getTime() <= now.getTime()) return false;
+  if (coupon.maxRedemptions !== null && coupon.timesUsed >= coupon.maxRedemptions) return false;
+  return true;
+}
+
+/** DB lookup seam: case-insensitive code -> active, unexpired, unexhausted coupon or null. */
 export async function findActiveCoupon(code: string): Promise<CouponInfo | null> {
   const normalized = code.trim().toUpperCase();
   if (!normalized) return null;
   const coupon = await db.coupon.findUnique({ where: { code: normalized } });
-  if (!coupon || !coupon.isActive) return null;
+  if (!coupon) return null;
+  if (!isCouponRedeemable(coupon)) return null;
   return {
     code: coupon.code,
     type: coupon.type,

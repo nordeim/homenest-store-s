@@ -531,9 +531,11 @@ const SETTINGS: Record<string, string> = {
 };
 
 const COUPONS = [
-  { code: "WELCOME10", type: "percent", value: 10, description: "10% off your first order", minSubtotal: 0 },
-  { code: "SAVE20", type: "percent", value: 20, description: "20% off orders over $100", minSubtotal: 10000 },
-  { code: "FREESHIP", type: "fixed", value: 695, description: "Standard shipping on us", minSubtotal: 3000 },
+  // Lifecycle fields (expiresAt / maxRedemptions) are enforced by
+  // isCouponRedeemable at coupon-lookup and inside the checkout transaction.
+  { code: "WELCOME10", type: "percent", value: 10, description: "10% off your first order", minSubtotal: 0, expiresAt: null, maxRedemptions: null },
+  { code: "SAVE20", type: "percent", value: 20, description: "20% off orders over $100", minSubtotal: 10000, expiresAt: null, maxRedemptions: 500 },
+  { code: "FREESHIP", type: "fixed", value: 695, description: "Standard shipping on us", minSubtotal: 3000, expiresAt: null, maxRedemptions: null },
 ];
 
 const REVIEW_TEMPLATES = [

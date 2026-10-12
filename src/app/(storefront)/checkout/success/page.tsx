@@ -9,12 +9,15 @@ import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
+import { verifyOrderAccessToken } from "@/lib/order-access";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Order Confirmation",
   description: "Thank you for your HomeNest order.",
+  // A buyer receipt must never become search-engine content.
+  robots: { index: false, follow: false },
 };
 
 type OrderWithDetails = Prisma.OrderGetPayload<{
@@ -78,9 +81,9 @@ function eventLabel(type: string, status: string | null, note: string | null): s
 export default async function OrderSuccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ order?: string }>;
+  searchParams: Promise<{ order?: string; token?: string }>;
 }) {
-  const { order: orderParam } = await searchParams;
+  const { order: orderParam, token: tokenParam } = await searchParams;
   const orderNumber = orderParam?.trim().toUpperCase() ?? "";
   const order = orderNumber
     ? await db.order.findUnique({
@@ -89,7 +92,13 @@ export default async function OrderSuccessPage({
       })
     : null;
 
-  if (!order) {
+  // ACCESS CONTRACT: the receipt (email, address, spend) renders only for a
+  // valid order+token pair — the token is minted by /api/checkout and rides
+  // in the redirect URL. Order numbers are sequential, so any other
+  // combination (missing/bad token, unknown number) renders the SAME shell:
+  // an attacker cannot even observe whether a number exists (anti-enumeration).
+  // Lost the link? /track-order recovers it with number + purchase email.
+  if (!order || !verifyOrderAccessToken(order.number, tokenParam ?? "")) {
     return (
       <div className="container-page flex justify-center py-16 sm:py-24">
         <div className="flex w-full max-w-md flex-col items-center rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center shadow-sm">

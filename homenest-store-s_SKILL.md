@@ -262,9 +262,18 @@ through untouched. `db/` is git-ignored (recreate with `db:setup`).
   expressShippingCents, taxRatePercent })` — pure, integer, unit-tested
   (`tests/unit/order-money.test.ts` pins threshold/waive-tax/tax rounding).
 - `/api/checkout` is the only caller that matters: it re-reads the cart from
-  the DB, re-reads prices from live `Product` rows **inside the transaction**,
-  applies the coupon server-side (`applyCouponCode`), then computes
-  shipping/tax/total. The client never sends an amount except `cardLast4`.
+  the DB, then **inside the transaction** re-reads prices from live `Product`
+  rows, re-validates the coupon (`isCouponRedeemable` — active, unexpired,
+  under its `maxRedemptions` cap; `timesUsed` increments with the order),
+  derives subtotal from those snapshots and computes shipping/tax/total via
+  `computeOrderMoney`. The client never sends an amount except `cardLast4`.
+  Pre-transaction reads are a fast-fail UX path only — never the authority.
+- Placement is **idempotent**: the client sends one `idempotencyKey`
+  (`crypto.randomUUID()` per checkout visit, `Order.idempotencyKey` unique
+  nullable column). A replay — same key — returns the already-placed order's
+  `{ orderNumber, token }` instead of double-ordering; a `P2002` on the key
+  resolves to the winning order (the retry loop only retries `number`
+  collisions).
 - Stock is reserved with a **conditional atomic decrement** (`updateMany`
   with `stock: { gte: qty }`, rollback when `count === 0`) — see §8.4.
 
@@ -306,9 +315,11 @@ e2e specs. (The 404 shell stays prerendered — accepted, it has no islands.)
 
 In-memory fixed-window limiter: `rateLimit(key, limit, windowMs) → { ok,
 retryAfterSec }`, opportunistic stale-bucket sweep. Single-process by design;
-swap internals for a shared store if the deployment scales out. Wired into:
-`loginAction` (10/min/email), `registerAction` (5/min/email),
-`submitReviewAction` (5/min per author+product), `/api/contact` (5/min/IP),
+swap internals for a shared store if the deployment scales out (the sync
+signature is the only coupling — a shared store forces async at all call
+sites). Wired into: `loginAction` (10/min/email), `registerAction`
+(5/min/email), `submitReviewAction` (5/min per **IP+product+author** — the
+IP stops author-string rotation), `/api/contact` (5/min/IP),
 `/api/newsletter` (5/min/IP), `/api/coupon/apply` (30/min/IP),
 `/api/checkout` (20/min/IP), `/track-order` lookups (30/min/IP). Limits are
 deliberately generous so humans and the e2e suite are unaffected.
@@ -325,6 +336,16 @@ success page deep-links with both fields prefilled. E2E
 (`tests/e2e/shopping-flow.spec.ts`) pins the full contract: number-only →
 alert + zero PII; wrong email → alert; correct pair → order timeline.
 
+**The same bug class on `/checkout/success` (fixed session 3):** the receipt
+page rendered buyer email + address + spend from a bare `?order=` param.
+Now `/api/checkout` mints an **order-access token**
+(`src/lib/order-access.ts` — HMAC-SHA256 of the number keyed by
+`AUTH_SECRET`, domain-separated, 128-bit hex) and the page renders the full
+receipt ONLY for a valid `order`+`token` pair; anything else renders the
+SAME "couldn't find that order" shell — an attacker cannot even observe that
+an order number exists. The page is `noindex`. Pinned by the shopping-flow
+e2e (guess → locked shell + zero PII; 32-char token in the redirect URL).
+
 ### 8.5 Boundary discipline
 
 - **Zod at every boundary** — all Server Actions and all POST/PATCH bodies.
@@ -333,11 +354,22 @@ alert + zero PII; wrong email → alert; correct pair → order timeline.
 - **Admin is role-gated server-side**: every action in
   `src/lib/actions/admin.ts` starts with `requireAdmin()`; the layout checks
   too. Client checks are UX only.
-- **Checkout hardening:** malformed JSON → 400 (not 500); a quantity-0 line
-  can never be created (`clampPurchaseQuantity` in `src/lib/cart-quantity.ts`
-  — the cart PATCH **deletes** the line) and a stale one is rejected with 409
-  before pricing; stock decrement is a conditional atomic `updateMany` inside
-  the transaction (the check-then-decrement race is closed).
+- **Checkout hardening:** malformed JSON → 400 (not 500) on every route that
+  reads a JSON body (cart, checkout, wishlist, contact, newsletter,
+  addresses); a quantity-0 line can never be created
+  (`clampPurchaseQuantity` in `src/lib/cart-quantity.ts` — the cart PATCH
+  **deletes** the line) and a stale one is rejected with 409 before pricing;
+  stock decrement is a conditional atomic `updateMany` inside the
+  transaction (the check-then-decrement race is closed); the PATCH response
+  carries the server-clamped `quantity` so optimistic islands can mirror it.
+- **Order lifecycle:** `src/lib/order-status.ts` — `cancelled` and
+  `delivered` are terminal (`canTransitionOrderStatus`); moving a live order
+  to `cancelled` restocks every item inside the SAME admin transaction
+  (`shouldRestockOnStatusChange`), exactly once.
+- **Login merges the guest cart + wishlist** (`mergeGuestCarts` in
+  `src/lib/actions/auth.ts`): `getOrCreateCart`/`getOrCreateWishlist` run
+  right after `createSession`, best-effort — without them a guest with a
+  full cart would see a stale cart after signing in.
 - Cookies: `httpOnly`, `SameSite=Lax`, `secure` in production
   (`homenest_session`, `homenest_cart`, `homenest_wishlist` all aligned).
 - Output safety: zero `dangerouslySetInnerHTML`; carousel `ctaLink` accepts

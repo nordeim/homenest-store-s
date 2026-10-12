@@ -107,7 +107,8 @@ export async function findCartId(userId: string | null): Promise<string | null> 
   return guest?.id ?? null;
 }
 
-function cookieOptions() {
+/** Shared cookie attributes for all durable token cookies (cart, wishlist). */
+export function cookieOptions() {
   return {
     httpOnly: true,
     sameSite: "lax" as const,

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, PackageSearch, Search } from "lucide-react";
 
@@ -9,6 +10,12 @@ import { ProductCard } from "@/components/store/product-card";
 import { ProductsControls } from "./products-controls";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Shop Premium Kitchenware & Home Essentials",
+  description:
+    "Browse the full HomeNest Kitchen catalog — cookware, bakeware, appliances, dining and more, with search, category and sort filters.",
+};
 
 const PER_PAGE = 12;
 const MAX_PAGE = 1000; // sanity clamp against hand-typed ?page= URLs

@@ -158,6 +158,9 @@ model Address {
 model Order {
   id              String       @id @default(cuid())
   number          String       @unique // ORD-YYYY-NNN (zero-padded 3)
+  // Client-generated checkout key: a retry with the same key returns the
+  // already-placed order instead of double-ordering (nullable: legacy rows).
+  idempotencyKey  String?      @unique
   userId          String?
   user            User?        @relation(fields: [userId], references: [id])
   email           String
@@ -212,6 +215,10 @@ model Coupon {
   description String   @default("")
   minSubtotal Int      @default(0) // cents; 0 = no minimum
   isActive    Boolean  @default(true)
+  // Lifecycle: null = never expires / unlimited redemptions.
+  expiresAt      DateTime?
+  maxRedemptions Int?
+  timesUsed      Int   @default(0)
   createdAt   DateTime @default(now())
 }
 

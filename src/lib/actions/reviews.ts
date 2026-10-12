@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -26,9 +27,13 @@ export async function submitReviewAction(
 
   const { productId: pid, rating: safeRating, title: safeTitle, comment: safeComment, author: safeAuthor } = parsed.data;
 
-  // Guest-reachable write — keep the spam budget tight but human-friendly
-  // (per author-name per product per minute).
-  const limit = rateLimit(`review:${safeAuthor.toLowerCase()}:${pid}`, 5, 60_000);
+  // Guest-reachable write — keep the spam budget tight but human-friendly.
+  // The client IP (x-forwarded-for behind a proxy) pins the budget to a
+  // network origin: without it an attacker could rotate the author string to
+  // mint unlimited fresh budgets.
+  const h = await headers();
+  const clientIp = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "direct";
+  const limit = rateLimit(`review:${clientIp}:${pid}:${safeAuthor.toLowerCase()}`, 5, 60_000);
   if (!limit.ok) {
     return { ok: false, error: "Too many reviews submitted. Please try again shortly." };
   }
