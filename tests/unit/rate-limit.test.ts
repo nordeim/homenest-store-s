@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { rateLimit, resetRateLimiter } from "@/lib/rate-limit";
+import { rateLimit, resetRateLimiter, clientIp } from "@/lib/rate-limit";
 
 describe("rateLimit", () => {
   afterEach(() => {
@@ -48,5 +48,22 @@ describe("rateLimit", () => {
     await new Promise((r) => setTimeout(r, 40));
     rateLimit("fresh:new", 1, 60_000);
     expect(rateLimit("stale:old", 1, 20).ok).toBe(true); // bucket was swept, not retained
+  });
+});
+
+describe("clientIp", () => {
+  it("returns 'direct' for a missing header", () => {
+    expect(clientIp(null)).toBe("direct");
+    expect(clientIp(undefined)).toBe("direct");
+    expect(clientIp("")).toBe("direct");
+  });
+
+  it("returns the first hop of an x-forwarded-for chain, trimmed", () => {
+    expect(clientIp("203.0.113.7, 70.41.3.18, 150.2.2.2")).toBe("203.0.113.7");
+    expect(clientIp("  203.0.113.9 , 70.41.3.18")).toBe("203.0.113.9");
+  });
+
+  it("returns the whole value when there is no comma", () => {
+    expect(clientIp("198.51.100.23")).toBe("198.51.100.23");
   });
 });

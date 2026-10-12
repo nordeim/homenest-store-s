@@ -1,6 +1,6 @@
 # HomeNest Kitchen
 
-![Next.js](https://img.shields.io/badge/Next.js-16-black) ![React](https://img.shields.io/badge/React-19-149ECA) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6) ![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4_CSS--first-38BDF8) ![Prisma](https://img.shields.io/badge/Prisma-6_+_SQLite-2D3748) ![Tests](https://img.shields.io/badge/tests-115_unit_·_31_e2e-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue)
+![Next.js](https://img.shields.io/badge/Next.js-16-black) ![React](https://img.shields.io/badge/React-19-149ECA) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6) ![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4_CSS--first-38BDF8) ![Prisma](https://img.shields.io/badge/Prisma-6_+_SQLite-2D3748) ![Tests](https://img.shields.io/badge/tests-131_unit_·_32_e2e-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue)
 
 A production-grade e-commerce storefront + admin back office — a visual-and-functional **superset** of the Base44 reference app at [`nest-culinary-hub.base44.app`](https://nest-culinary-hub.base44.app/). Premium kitchenware catalog, guest carts, coupons, order tracking, reviews, legal pages, and a full admin console, on Next.js 16 · React 19 · TypeScript strict · Tailwind CSS v4 · Prisma 6 + SQLite.
 
@@ -34,11 +34,11 @@ Demo accounts (seeded):
 | Area | Highlights |
 |---|---|
 | **Storefront** | Auto-rotating hero carousel · 8 category tiles · featured & new-arrival grids · search + category/sort filters + pagination · product detail with gallery, specs, reviews (read + submit) and related products · trust badges · newsletter capture |
-| **Commerce** | Guest carts (token-cookie, merged on login **and at sign-in**) · mini cart drawer + cart page · coupons (`WELCOME10`, `SAVE20`, `FREESHIP`) with expiry + redemption caps · free-shipping threshold · 3-step checkout (shipping → payment → review) with inline validation · **idempotent order placement** (retries reuse the same key — no double orders) · demo payment (clearly labeled, no real charges) · server-side total re-derivation **inside the order transaction** + atomic stock checks |
+| **Commerce** | Guest carts (token-cookie, merged on login **and at sign-in**) · mini cart drawer + cart page · coupons (`WELCOME10`, `SAVE20`, `FREESHIP`) with expiry + **atomic redemption caps** · free-shipping threshold · 3-step checkout (shipping → payment → review) with inline validation · **idempotent order placement** (retries reuse the same key — no double orders) · demo payment (clearly labeled, no real charges) · server-side total re-derivation **inside the order transaction** + atomic stock checks · transactional cart adds (no lost increments, shared 99/stock clamp) |
 | **Orders** | `ORD-YYYY-NNN` order numbers · **token-gated order-success receipt** (sequential numbers alone reveal nothing) · order tracking gated by **number + purchase email** (anti-enumeration, rate-limited) with a 4-step status timeline · per-order event history · admin cancellation restores stock |
 | **Accounts** | Register/login (scrypt hashes, DB-backed sessions, HMAC-signed cookie) · profile editing · address book · order history |
 | **Admin** (`/admin`, role-gated) | Dashboard (KPIs + 14-day revenue chart + recent orders + low stock) · products CRUD · categories CRUD · carousel slide manager with reorder · orders manager (status workflow + carrier tracking) · analytics (top products, category mix) · store settings |
-| **Content** | About, Contact (working form), 5 legal pages, 404 · SEO metadata, `sitemap.xml`, `robots.txt` |
+| **Content** | About, Contact (working form), 5 legal pages, 404 · SEO metadata, `sitemap.xml` (public routes only), `robots.txt` (admin/account/checkout/api disallowed) |
 
 ## Architecture
 
@@ -52,7 +52,7 @@ Demo accounts (seeded):
 | UI primitives | Radix UI + CVA + lucide-react | latest | Accessible dialogs, selects, sheets, toasts |
 | Charts | Recharts | ^3 | Admin revenue/analytics |
 | Validation | Zod | ^3.25 | Every external input boundary |
-| Tests | Vitest · Playwright | ^3.2 · ^1.64 | 115 unit · 31 e2e |
+| Tests | Vitest · Playwright | ^3.2 · ^1.64 | 131 unit · 32 e2e |
 
 ```mermaid
 flowchart TB
@@ -117,13 +117,14 @@ flowchart TB
 ## Testing
 
 ```bash
-npm run test            # 115 unit tests (Vitest, node env)
+npm run test            # 131 unit tests (Vitest, node env)
+npm run typecheck:tests # the unit/e2e/seed sources are type-checked too
 npm run build           # required before e2e (suite starts the standalone server)
-npm run test:e2e        # 31 e2e tests (Playwright; server auto-started on :3100)
+npm run test:e2e        # 32 e2e tests (Playwright; server auto-started on :3100)
 npx playwright test tests/e2e/mobile-navigation.spec.ts   # single spec
 ```
 
-- **Unit** covers the money math, the `DATABASE_URL` resolution contract, coupon rules **and lifecycle gates**, scrypt hashing, Zod schemas, order-total derivation, the CSP builder, rate limiting, the auth-secret gate, order-access tokens, order-status transitions, and the cart quantity clamp.
+- **Unit** covers the money math, the `DATABASE_URL` resolution contract, coupon rules **and lifecycle gates** (incl. the atomic redemption-cap filter), scrypt hashing, Zod schemas, order-total derivation, the CSP builder, rate limiting **and `clientIp` derivation**, the auth-secret gate, order-access tokens, order-status transitions, the review-aggregate growth rule, the sitemap/robots privacy contract, and the cart quantity clamp.
 - **E2E** covers the reference anatomy (home/products/detail/footer), the full guest checkout → `ORD-YYYY-NNN` → tracking loop **including the token-gated receipt and its guess-denial**, an idempotent checkout replay, the guest-cart merge at login, the admin cancel-restocks-stock flow, auth success/failure, admin gating, and — most importantly — `mobile-navigation.spec.ts`, the **Tailwind v4 regression guard** for the mobile menu (open/navigate/close/active-pill/scroll-lock on an iPhone-13 viewport).
 - E2E specs wait for hydration (`gotoHydrated`) before interacting; clicking before hydration falls back to native form GET, which is exactly the class of bug the guard exists for.
 

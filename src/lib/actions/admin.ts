@@ -8,6 +8,7 @@
  *   4. returns { ok: true } or { ok: false, error }.
  */
 
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -88,8 +89,17 @@ export async function upsertProductAction(data: ProductUpsertInput): Promise<Adm
     } else {
       await db.product.create({ data: dbData });
     }
-  } catch {
-    return { ok: false, error: "Product not found. Refresh the list and try again." };
+  } catch (error) {
+    // The slug/SKU pre-checks race under concurrent admins — a P2002 here is
+    // a unique clash, NOT a missing product; say so instead of the misleading
+    // "refresh the list" message.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { ok: false, error: "A product with this slug or SKU already exists." };
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return { ok: false, error: "Product not found. Refresh the list and try again." };
+    }
+    throw error;
   }
 
   revalidatePath("/admin/products");

@@ -5,15 +5,18 @@ import { headers } from "next/headers";
 
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { mergeReviewAggregate } from "@/lib/review-aggregate";
 import { firstError, reviewSchema } from "@/lib/validation";
 
 export type ReviewActionResult = { ok: true } | { ok: false; error: string };
 
 /**
  * Submit a product review. Validates with the shared reviewSchema, stores the
- * review as unverified, then recomputes the product's rating / reviewCount
- * from the review aggregate so the storefront always shows honest numbers.
+ * review as unverified, then GROWS the product's rating / reviewCount via
+ * mergeReviewAggregate (review-aggregate.ts) so the displayed numbers stay
+ * monotonic instead of collapsing to the stored Review-row count (the seed
+ * ships reference-parity display counts with only one template row).
  */
 export async function submitReviewAction(
   productId: string,
@@ -32,8 +35,7 @@ export async function submitReviewAction(
   // network origin: without it an attacker could rotate the author string to
   // mint unlimited fresh budgets.
   const h = await headers();
-  const clientIp = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "direct";
-  const limit = rateLimit(`review:${clientIp}:${pid}:${safeAuthor.toLowerCase()}`, 5, 60_000);
+  const limit = rateLimit(`review:${clientIp(h.get("x-forwarded-for"))}:${pid}:${safeAuthor.toLowerCase()}`, 5, 60_000);
   if (!limit.ok) {
     return { ok: false, error: "Too many reviews submitted. Please try again shortly." };
   }
@@ -62,20 +64,22 @@ export async function submitReviewAction(
       },
     });
 
-    // Recompute the denormalized rating fields from the source of truth.
-    const agg = await db.review.aggregate({
-      where: { productId: pid },
-      _avg: { rating: true },
-      _count: { _all: true },
-    });
-    const average = agg._avg.rating ?? 0;
-    await db.product.update({
+    // Grow the denormalized rating fields from their current baseline (see
+    // review-aggregate.ts for why a from-scratch recompute is wrong here).
+    const liveProduct = await db.product.findUnique({
       where: { id: pid },
-      data: {
-        rating: Math.round(average * 10) / 10,
-        reviewCount: agg._count._all,
-      },
+      select: { rating: true, reviewCount: true },
     });
+    if (liveProduct) {
+      const next = mergeReviewAggregate(
+        { rating: liveProduct.rating, reviewCount: liveProduct.reviewCount },
+        safeRating,
+      );
+      await db.product.update({
+        where: { id: pid },
+        data: { rating: next.rating, reviewCount: next.reviewCount },
+      });
+    }
 
     revalidatePath(`/product/${pid}`);
     return { ok: true };

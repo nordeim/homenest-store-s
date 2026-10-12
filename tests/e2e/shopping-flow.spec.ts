@@ -86,7 +86,7 @@ test.describe("shopping flow", () => {
     expect(search.ok()).toBeTruthy();
     const { results } = (await search.json()) as { results: Array<{ id: string }> };
     expect(results.length).toBeGreaterThan(0);
-    const productId = results[0].id;
+    const productId = results[0]!.id;
 
     // Seed the guest cart through the real API (cookie jar on `request`).
     const add = await request.post("/api/cart", { data: { productId, quantity: 1 } });
@@ -122,6 +122,28 @@ test.describe("shopping flow", () => {
     const replayBody = (await replay.json()) as { orderNumber?: string; token?: string };
     expect(replayBody.orderNumber).toBe(firstBody.orderNumber);
     expect(replayBody.token).toBe(firstBody.token);
+  });
+
+  test("malformed JSON bodies are 400 client errors, not 200/500 (S4-2)", async ({ request }) => {
+    // Raw non-JSON bytes → the body-parse split must return 400 with a JSON
+    // error envelope (the L3 pattern applies to EVERY JSON route). Buffer
+    // data is sent verbatim — a plain string would be JSON-encoded by
+    // Playwright into a *valid* JSON string literal (200 by contract).
+    const raw = Buffer.from("{not-json", "utf8");
+    const bad = await request.post("/api/coupon/apply", {
+      headers: { "Content-Type": "application/json" },
+      data: raw,
+    });
+    expect(bad.status()).toBe(400);
+    const badBody = (await bad.json()) as { error?: string };
+    expect(badBody.error).toBeTruthy();
+
+    // The same contract holds on the cart route (pinned since session 2).
+    const badCart = await request.post("/api/cart", {
+      headers: { "Content-Type": "application/json" },
+      data: raw,
+    });
+    expect(badCart.status()).toBe(400);
   });
 
   test("coupon WELCOME10 reduces the total", async ({ page }) => {

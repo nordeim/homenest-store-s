@@ -68,7 +68,7 @@ test.describe("admin back office", () => {
     const search = await request.get("/api/search?q=knife");
     const { results } = (await search.json()) as { results: Array<{ id: string }> };
     expect(results.length).toBeGreaterThan(0);
-    const productId = results[0].id;
+    const productId = results[0]!.id;
 
     await request.post("/api/cart", { data: { productId, quantity: 2 } });
     const placed = await request.post("/api/checkout", {

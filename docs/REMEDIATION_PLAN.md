@@ -203,3 +203,128 @@ Clean checks: no SQL injection (Prisma parameterized), no XSS sinks (zero `dange
 - [x] Screenshots refreshed (`docs/screenshots/`, 23 shots incl. `23-checkout-success-locked.png`); docs (`AGENTS.md`, `README.md`, `CLAUDE.md`, PAD, `homenest-store-s_SKILL.md`, `worklog.md`) updated for every changed contract
 
 **Post-remediation totals (session 3):** 115/115 unit tests, 31/31 e2e tests, lint/typecheck/build clean.
+
+---
+
+# Session 4 — Post-push audit & production hygiene (2026-10-12)
+
+> **Status:** EXECUTED (see the Session-4 Execution Log at the end)
+> **Scope:** Re-validation of the session-3 deliverables on the pulled tree (`c5c021d` + `docs/session_3.md`), a fresh read-only deep audit (repo `code-review-checklist` 12-category scan + re-validation of the session-3 deferred items), and TDD remediation of the newly identified findings (1 MEDIUM + LOW bundle).
+> **Method:** unchanged — failing tests first, then the fix, then the full gate chain (`lint && typecheck && typecheck:tests && test && build && test:e2e`).
+
+## 1. Re-validation of session-3 claims (all green)
+
+- `lint` ✓ · `typecheck` ✓ · **115/115 unit** ✓ · `build` ✓ · **31/31 e2e** ✓
+- `.env` contract intact (`DATABASE_URL="file:../db/custom.db"`, real `AUTH_SECRET`); env-shadowing convergence (hardlink) re-confirmed
+- Visual parity re-verified with agent-browser against the LIVE reference (`nest-culinary-hub.base44.app`, logged in): desktop home (header anatomy, hero carousel, trust badges) and the **mobile menu** (push-down panel, orange active pill, green circular close button, open→navigate→close, `aria-expanded` bound) — the reference is unchanged and the clone remains a functional superset
+- Tailwind v4 pattern compliance re-audited: zero display-utility JS toggling in `src/`, no `tailwind.config.js`, full `hsl()` values in `@theme inline`
+
+## 2. Deep-audit verdicts on the session-3 deferred items (all re-validated as DEFER)
+
+| # | Item | Verdict | Evidence |
+|---|---|---|---|
+| 1 | Analytics `groupBy`/`$queryRaw` | DEFER | `admin/analytics/page.tsx` orderItem.findMany still unbounded, but the seed creates ZERO orders and traffic adds tens of rows; admin-only + force-dynamic. Revisit past ~50k items. |
+| 2 | 404-shell CSP nonce | DEFER | `not-found.tsx` is pure static markup; root-layout islands fail to hydrate there but are inert (no StoreChrome, no toast sources, Links degrade to native anchors). |
+| 3 | `__Host-` cookie prefix | DEFER | `cookieOptions()` (path=/, no Domain, secure=NODE_ENV) satisfies every `__Host-` requirement except Secure-on-plain-HTTP. Caveat recorded: non-localhost plain-HTTP hostnames already break cookies today — deploy-topology constraint. |
+| 4 | Shared-store rate limiter | DEFER | 8 call sites (re-counted), all async contexts, sync-signature coupling only. Mechanical swap when scaling out. |
+| 5 | Admin coupon-management UI | DEFER | Enforcement complete server-side; zero admin coupon mutations exist. Management stays DB/seed-level (see S4-8 which makes reseeds non-destructive). |
+
+## 3. Fresh audit findings → work items (S4-*)
+
+### S4-1 (MEDIUM, F-1) — Login/register limiter keyed only by attacker-chosen email
+- **Evidence:** `src/lib/actions/auth.ts:72` (`login:${email}`) and `:102` (`register:${email}`) — rotating emails bypasses the budget entirely, and every attempt forces a real scrypt burn (uniform-error dummy hash), making login an ~50–100ms-CPU-per-request amplification vector. Every other guest surface is per-IP.
+- **Fix (TDD):** extract `clientIp(headerValue)` into `src/lib/rate-limit.ts` (null/empty → "direct", comma list → first hop, trimmed — the pattern currently copy-pasted in 3 call sites) with unit tests; wire a SECOND per-IP check (`login-ip:` / `register-ip:`, 30/min) next to the per-email checks in both actions.
+
+### S4-2 (LOW, F-2) — `/api/coupon/apply`: malformed JSON → HTTP 200, server errors → HTTP 200
+- **Evidence:** `src/app/api/coupon/apply/route.ts:27` has no body-parse split; the generic catch at `:63-67` returns `NextResponse.json` without a status → 200 for both bad JSON and real 500s. The L3/L-a pattern missed this route.
+- **Fix:** split body-parse into its own try/catch → 400 `"Invalid JSON body."`; add `{ status: 500 }` to the generic catch. E2E pins the contract (raw non-JSON POST → 400).
+
+### S4-3 (LOW, F-3) — Coupon redemption cap has a small TOCTOU window inside the checkout tx
+- **Evidence:** `src/app/api/checkout/route.ts:275-278` — `isCouponRedeemable` reads `timesUsed`, then `update` increments unconditionally; two concurrent checkouts can both pass a `maxRedemptions` boundary.
+- **Fix (TDD):** new pure helper `couponRedemptionWhere(maxRedemptions)` in `src/lib/coupons.ts` returning the Prisma filter (`timesUsed < max` when capped, no-op when null) with unit tests; the checkout increment becomes `updateMany` + `count === 0` → 409 "just reached its redemption limit".
+
+### S4-4 (LOW, F-4) — Cart POST: lost-update race + 99-cap inconsistency with PATCH
+- **Evidence:** `src/app/api/cart/route.ts:41-49` — read-then-upsert outside a transaction (two concurrent add-to-carts lose one increment) and POST can push a line above 99 while PATCH caps at `clampPurchaseQuantity` (99).
+- **Fix:** read+upsert inside `db.$transaction`; `nextQty = clampPurchaseQuantity(existing + quantity, product.stock)` so POST and PATCH share one clamp contract.
+
+### S4-5 (LOW, F-5) — Guest cart/wishlist creation is unmetered (DB-growth spam)
+- **Evidence:** `/api/cart` POST and `/api/wishlist` POST are not in the WI-4 limiter set; a scripted client that ignores cookies mints a Cart/Wishlist row per request.
+- **Fix:** per-IP limiter on both POSTs (`cart:ip` / `wishlist:ip`, 60/min), matching the checkout pattern.
+
+### S4-6 (LOW, F-6) — Missing FK/hot-path indexes in the Prisma schema
+- **Evidence:** no `@@index` on `Review.productId`, `OrderItem.orderId`, `OrderItem.productId`, `OrderEvent.orderId`, `Order.userId`, `Product.categoryId` — all hot query paths (product reviews, receipt/timeline joins, account orders, related products, admin order-item counts). Prisma does not auto-index FKs on SQLite.
+- **Fix:** add the six `@@index` entries + `db:push` (additive, no data loss). Cosmetic at seeded volume; standard hygiene.
+
+### S4-7 (LOW, F-8) — First real review collapses the seeded parity counts
+- **Evidence:** `prisma/seed.ts:626-627` seeds `reviewCount` 41–412 (reference parity) but creates one Review row per product; `submitReviewAction` (`reviews.ts:66-78`) recomputes the aggregate from real rows, so the first genuine review drops a product from 412 → 2 displayed.
+- **Fix (TDD):** new pure `mergeReviewAggregate(current, newRating)` in `src/lib/review-aggregate.ts` — reviewCount increments and rating becomes a rounded weighted average (seeded baseline grows organically instead of collapsing); unit tests pin the math (rounding, count growth, zero-baseline); `submitReviewAction` uses it.
+
+### S4-8 (LOW, F-9) — Reseeding silently resets coupon bookkeeping
+- **Evidence:** `prisma/seed.ts:681-687` — coupon upsert `update: coupon` zeroes `timesUsed` and overwrites `expiresAt`/`maxRedemptions` on every `db:setup`; with no admin coupon UI, DB state is the only state.
+- **Fix:** `update: {}` (create-only seeding — codes/descriptions stay, lifecycle bookkeeping survives reseeds).
+
+### S4-9 (LOW, F-10) — SEO: sitemap lists noindex/private routes; robots allows admin
+- **Evidence:** `src/app/sitemap.ts:14-20` includes `/track-order`, `/login`, `/register`, `/cart`, `/wishlist` (wishlist is explicitly `noindex`; the rest are per-visitor) — a Search-Console warning; `src/app/robots.ts:10` allows everything including `/admin`.
+- **Fix (TDD):** drop the five private routes from `STATIC_ROUTES` (exported for testing); robots gains `disallow: ["/admin", "/account", "/checkout", "/api"]`; new `tests/unit/seo-routes.test.ts` pins both.
+
+### S4-10 (LOW, F-11) — Dead npm scripts `db:migrate` / `db:reset`
+- **Evidence:** `package.json:14-15` reference Prisma migrations; there is no `prisma/migrations/` directory (the project uses `db push`). Both scripts fail if invoked.
+- **Fix:** remove them.
+
+### S4-11 (LOW, F-12) — Tests + seed are never type-checked
+- **Evidence:** `tsconfig.json:39-45` excludes `tests` and `playwright.config.ts`; eslint ignores `prisma/seed.ts`; vitest/tsx execute without type checking — the "typecheck ✓" gate covers none of the ~20 test files or the seed.
+- **Fix:** new `tsconfig.tests.json` (extends the base config; includes `tests/**`, `prisma/**`, `playwright.config.ts`, `vitest.config.ts`) + `npm run typecheck:tests`; the gate order in AGENTS.md gains the step. Any surfaced pre-existing type drift is fixed in this session.
+
+### S4-12 (nits bundle, each small)
+| # | Finding | Fix |
+|---|---|---|
+| N-1 | Wishlist toggle double-click race → occasional P2002 → 500 toast | Catch P2002 on the create → treat as "already in wishlist" (`inWishlist: true`) |
+| N-2 | `upsertProductAction` unique-clash race returns the misleading "Product not found. Refresh…" | Distinguish P2002 → "A product with this slug or SKU already exists."; P2025 → the refresh message |
+| N-3 | `src/lib/db.ts:7` comment cites `tests/db-path.test.ts` (file lives at `tests/unit/`) | Fix the comment |
+| N-4 | Cart drawer: no Escape-to-close, no initial focus (a11y) | `keydown` listener closes on Escape; close button receives focus on open |
+| N-5 | Hero carousel auto-rotates with no pause control (WCAG 2.2.2) | Pause on hover/focus + respect `prefers-reduced-motion` |
+| N-6 | Header cart button lacks `aria-expanded` | Bind to `cartDrawerOpen` |
+| N-7 | `cart-lines.tsx` ignores the server-clamped `quantity` the PATCH returns (the drawer mirrors it since S3-7) | Mirror `data.quantity` like the drawer |
+| N-8 | `storefront/layout.tsx` runs `getCurrentUser()` and `getSettings()` sequentially | `Promise.all` (the cart-count chain still depends on `user`) |
+| N-9 | `reactStrictMode: false` in `next.config.ts` is undocumented | Record it in the AGENTS.md trap log with the rationale |
+
+### Deferred again (with justification)
+| # | Item | Why |
+|---|---|---|
+| 1 | Analytics `groupBy`/`$queryRaw` | Correct at seeded volume (seed creates zero orders); raw-SQL design is a perf optimization. Revisit past ~50k order items. |
+| 2 | 404-shell CSP nonce | Inert islands only; the `(auth)` `connection()` pattern is documented if an island is ever added. |
+| 3 | `__Host-` cookie prefix | Requires a TLS-guaranteed topology; breaks the plain-HTTP standalone deploy. |
+| 4 | Shared-store rate limiter | Mechanical (8 sites); correct for single-process standalone. |
+| 5 | Admin coupon-management UI | Enforcement ships (S3-6); management is seed/DB-level and reseeds are now non-destructive (S4-8). |
+| 6 | Account-orders & product-reviews pagination (F-7) | Correct at seeded volume; a silent `take` cap would HIDE data without a pagination UI — proper pagination is the only honest fix. |
+
+## 4. Execution order & gates
+
+1. **Foundation tests first** (red): `rate-limit.clientIp`, `coupons.couponRedemptionWhere`, `review-aggregate.mergeReviewAggregate`, `seo-routes` (sitemap/robots).
+2. **Implement** the pure helpers + export `STATIC_ROUTES` (green).
+3. **S4-1** per-IP limiter wiring in `actions/auth.ts`; **S4-5** cart/wishlist POST limiters.
+4. **S4-2** coupon/apply JSON 400 + 500; **S4-3** conditional coupon increment in checkout; **S4-4** cart POST transaction + clamp.
+5. **S4-6** schema indexes + `db:push`; **S4-7** reviews wiring; **S4-8** seed; **S4-9** sitemap/robots; **S4-10** scripts; **S4-11** tsconfig.tests.
+6. **S4-12** nit bundle.
+7. **Full gate chain:** `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e`.
+8. **Manual verification:** production server + agent-browser (home, mobile menu, drawer Escape, coupon 400).
+9. **Screenshots** refreshed into `docs/screenshots/`; docs (`AGENTS.md`, `README.md`, `CLAUDE.md`, PAD, `homenest-store-s_SKILL.md`, `worklog.md`) updated for every changed contract.
+
+## 5. Execution log (session 4)
+
+- [x] S4-1 — `clientIp()` helper + unit tests; per-IP `login-ip:`/`register-ip:` budgets wired into both auth actions
+- [x] S4-2 — coupon/apply body-parse split (400) + `{ status: 500 }` generic catch; e2e pins the malformed-JSON contract
+- [x] S4-3 — `couponRedemptionWhere()` + unit tests; checkout increment is a guarded `updateMany` (count 0 → 409)
+- [x] S4-4 — cart POST inside `db.$transaction` with the shared `clampPurchaseQuantity` cap
+- [x] S4-5 — per-IP limiters on `/api/cart` POST + `/api/wishlist` POST (60/min)
+- [x] S4-6 — six `@@index` entries added (`Review.productId`, `OrderItem.orderId`, `OrderItem.productId`, `OrderEvent.orderId`, `Order.userId`, `Product.categoryId`) + `db:push`
+- [x] S4-7 — `mergeReviewAggregate()` + unit tests; `submitReviewAction` grows the seeded baseline instead of collapsing it
+- [x] S4-8 — coupon seeding is create-only (`update: {}`) — reseeds preserve lifecycle bookkeeping
+- [x] S4-9 — sitemap drops the 5 private/noindex routes; robots disallows `/admin`, `/account`, `/checkout`, `/api`; unit-pinned
+- [x] S4-10 — dead `db:migrate`/`db:reset` scripts removed
+- [x] S4-11 — `tsconfig.tests.json` + `typecheck:tests` script wired into the gate; surfaced test-type drift fixed
+- [x] S4-12 — N-1…N-9 nit bundle
+- [x] Full gate chain re-run green; manual agent-browser verification (mobile menu, drawer Escape, coupon 400)
+- [x] Screenshots refreshed; docs (`AGENTS.md`, `README.md`, `CLAUDE.md`, PAD, `homenest-store-s_SKILL.md`, `worklog.md`) updated
+
+**Post-remediation totals (session 4):** 138/138 unit tests, 32/32 e2e tests, lint/typecheck/typecheck:tests/build clean.

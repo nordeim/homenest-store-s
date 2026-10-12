@@ -8,16 +8,16 @@ import { db } from "@/lib/db";
 // emits the static routes instead of failing the build.
 // ---------------------------------------------------------------------------
 
-const STATIC_ROUTES: { path: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"] }[] = [
+// Static routes eligible for the sitemap. PRIVATE / per-visitor / noindex
+// surfaces (login, register, cart, wishlist, track-order, checkout, account,
+// admin) are intentionally EXCLUDED — listing noindexed URLs is a
+// Search-Console warning and order/account helpers are not catalog content.
+// Exported for tests/unit/seo-routes.test.ts.
+export const STATIC_ROUTES: { path: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"] }[] = [
   { path: "/", priority: 1, changeFrequency: "daily" },
   { path: "/products", priority: 0.9, changeFrequency: "daily" },
-  { path: "/track-order", priority: 0.6, changeFrequency: "monthly" },
   { path: "/about", priority: 0.6, changeFrequency: "monthly" },
   { path: "/contact", priority: 0.6, changeFrequency: "monthly" },
-  { path: "/login", priority: 0.4, changeFrequency: "yearly" },
-  { path: "/register", priority: 0.4, changeFrequency: "yearly" },
-  { path: "/cart", priority: 0.4, changeFrequency: "weekly" },
-  { path: "/wishlist", priority: 0.4, changeFrequency: "weekly" },
   { path: "/legal/privacy-policy", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/terms-of-service", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/disclaimer", priority: 0.3, changeFrequency: "yearly" },

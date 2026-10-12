@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getOrCreateWishlist } from "@/lib/wishlist";
 
 const wishlistToggleSchema = z.object({
@@ -24,6 +26,13 @@ export async function POST(request: NextRequest) {
     }
     const { productId } = parsed.data;
 
+    // Guest-reachable row creation — metered like the cart POST (a scripted
+    // client that ignores cookies would mint a Wishlist row per request).
+    const ipLimit = rateLimit(`wishlist:${clientIp(request.headers.get("x-forwarded-for"))}`, 60, 60_000);
+    if (!ipLimit.ok) {
+      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+    }
+
     const product = await db.product.findUnique({ where: { id: productId }, select: { id: true, isActive: true } });
     if (!product || !product.isActive) {
       return NextResponse.json({ error: "Product not found." }, { status: 404 });
@@ -39,7 +48,16 @@ export async function POST(request: NextRequest) {
       await db.wishlistItem.delete({ where: { id: existing.id } });
       return NextResponse.json({ inWishlist: false });
     }
-    await db.wishlistItem.create({ data: { wishlistId, productId } });
+    try {
+      await db.wishlistItem.create({ data: { wishlistId, productId } });
+    } catch (error) {
+      // A double-click races the check-then-create: the concurrent request
+      // already created the item. That IS the desired end state.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        return NextResponse.json({ inWishlist: true });
+      }
+      throw error;
+    }
     return NextResponse.json({ inWishlist: true });
   } catch {
     return NextResponse.json({ error: "Something went wrong." }, { status: 500 });

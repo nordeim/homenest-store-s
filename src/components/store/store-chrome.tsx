@@ -84,6 +84,19 @@ function CartDrawer() {
     };
   }, [cartDrawerOpen, setCartCount]);
 
+  // a11y: Escape closes the dialog, and focus moves to the close button when
+  // the drawer opens (keyboard users land somewhere meaningful, not at body).
+  const closeRef = React.useRef<HTMLButtonElement>(null);
+  React.useEffect(() => {
+    if (!cartDrawerOpen) return;
+    closeRef.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setCartDrawerOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [cartDrawerOpen, setCartDrawerOpen]);
+
   const resolvedLines = lines ?? [];
   const subtotal = resolvedLines.reduce((sum, l) => sum + l.lineTotal, 0);
 
@@ -158,9 +171,10 @@ function CartDrawer() {
           <h2 className="font-display text-lg font-semibold">Your Cart</h2>
           <button
             type="button"
+            ref={closeRef}
             onClick={() => setCartDrawerOpen(false)}
             aria-label="Close cart"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X className="h-5 w-5" />
           </button>

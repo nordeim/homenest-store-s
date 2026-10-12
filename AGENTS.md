@@ -12,13 +12,14 @@ Production e-commerce storefront + admin console: Next.js 16 (App Router) · Rea
 | DB push only | `npm run db:push` |
 | Seed only | `npm run db:seed` |
 | Lint | `npm run lint` (ESLint 9 flat config — must exit 0) |
-| Typecheck | `npm run typecheck` |
+| Typecheck (app) | `npm run typecheck` |
+| Typecheck (tests + seed + configs) | `npm run typecheck:tests` |
 | Unit tests | `npm run test` (Vitest, node env, `tests/unit/*`) |
 | Production build | `npm run build` (standalone output + copies static/public) |
 | Production start | `npm run start` (standalone server on :3000; logs tee'd to `server.log`) |
 | E2E (needs `npm run build` first) | `npm run test:e2e` (spins the standalone server on :3100 itself) |
 | Single E2E spec | `npx playwright test tests/e2e/mobile-navigation.spec.ts` |
-| Clean check order | `npm run lint && npm run typecheck && npm run test && npm run build && npm run test:e2e` |
+| Clean check order | `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e` |
 
 Use `npm` (no bun lockfile is committed). Playwright's mobile project emulates iPhone 13 on **Chromium** (WebKit is not installable in the target sandbox).
 
@@ -37,6 +38,8 @@ Any `DATABASE_URL` already present in the process environment (shell export, CI 
 3. **`hover:` is un-gated**: `@custom-variant hover (&:hover)` in `globals.css` restores v3 semantics so touch devices still render hover styles.
 4. **`--shadow-sm` is pinned to v3 geometry**; the radius scale is pinned to the reference's measured px. Don't "upgrade" these pins.
 5. Config is CSS-first (`@theme` in `src/app/globals.css`) — there is no `tailwind.config.js` and none should be added.
+6. `reactStrictMode: false` in `next.config.ts` is deliberate: StrictMode's dev double-invocation produces double `useEffect` fetches in the cart-drawer/cart-summary islands that race the per-line pending locks. Re-enable only together with a re-audit of every fetch effect.
+7. The hero carousel pauses auto-rotation on hover/focus and under `prefers-reduced-motion` (WCAG 2.2.2) via `useSyncExternalStore` — do NOT replace that with a set-state-in-effect `matchMedia` listener (lint's `react-hooks/set-state-in-effect` rejects it, correctly).
 
 ## CSP nonce trap (Next 16 + `src/proxy.ts`)
 
@@ -57,11 +60,13 @@ The proxy stamps a **per-request nonce** CSP on every response; Next applies the
 - **Money is derived inside the checkout transaction**: subtotal comes from the in-tx product snapshots (never the pre-tx cart summary), the coupon is re-validated and its `timesUsed` incremented inside the tx, and `computeOrderMoney` runs there. The pre-tx coupon check is a fast-fail UX path only.
 - **Cancelled orders restock exactly once**: `setOrderStatusAction` uses `canTransitionOrderStatus`/`shouldRestockOnStatusChange` (`src/lib/order-status.ts`) — cancelled and delivered are terminal; transitioning a live order to `cancelled` increments each item's product stock in the same transaction.
 - **Login merges the guest cart + wishlist**: `loginAction`/`registerAction` call `getOrCreateCart`/`getOrCreateWishlist` after `createSession` (best-effort). Don't remove — without it a guest with a full cart sees a stale cart after signing in.
-- **Coupons have a lifecycle**: `isCouponRedeemable` (`src/lib/coupons.ts`) gates on `isActive`, `expiresAt`, and `maxRedemptions`/`timesUsed` at lookup AND inside the checkout tx. `WELCOME10`/`FREESHIP` are evergreen; `SAVE20` caps at 500.
+- **Coupons have a lifecycle**: `isCouponRedeemable` (`src/lib/coupons.ts`) gates on `isActive`, `expiresAt`, and `maxRedemptions`/`timesUsed` at lookup AND inside the checkout tx; the in-tx `timesUsed` increment is an **atomic guarded `updateMany`** (`couponRedemptionWhere` — `count === 0` rolls the order back with a 409), closing the cap TOCTOU. `WELCOME10`/`FREESHIP` are evergreen; `SAVE20` caps at 500. Seed coupons are CREATE-ONLY on reseed (`update: {}`) — reseeding never resets redemption bookkeeping.
 - **`AUTH_SECRET` is enforced in production**: `assertAuthSecret` (`src/lib/auth-secret.ts`) throws at module load when `NODE_ENV=production` and the secret is missing or equals the dev constant. The build copies `.env` into `standalone/` — env changes need a rebuild.
-- **Rate limiting**: in-memory fixed-window limiter (`src/lib/rate-limit.ts`) guards login/register/reviews/contact/newsletter/coupon/checkout/tracking. Keys are per-email or per-`x-forwarded-for` IP; limits are generous (humans and e2e pass). Swap internals for a shared store if you scale out.
+- **Rate limiting**: in-memory fixed-window limiter (`src/lib/rate-limit.ts`) guards login/register/reviews/contact/newsletter/coupon/checkout/tracking/cart-POST/wishlist-POST. Keys are per-email **plus per-IP** for credentials (`login-ip:`/`register-ip:` budgets — rotating emails must not mint fresh budgets), per-IP elsewhere; the shared `clientIp()` helper parses `x-forwarded-for`. Limits are generous (humans and e2e pass). Swap internals for a shared store if you scale out.
 - **Stock is reserved atomically**: checkout decrements via conditional `updateMany({ where: { id, stock: { gte: qty } } })` and rolls back on `count === 0` — never reintroduce check-then-decrement.
-- **Zero-quantity cart lines cannot exist**: the cart PATCH deletes a line whose clamped quantity is 0 (`clampPurchaseQuantity`); checkout 409s on `quantity <= 0` lines as a backstop.
+- **Zero-quantity cart lines cannot exist**: the cart PATCH deletes a line whose clamped quantity is 0 (`clampPurchaseQuantity`); checkout 409s on `quantity <= 0` lines as a backstop. The cart **POST** runs read+upsert inside one `$transaction` and routes through the SAME clamp (stock ceiling + 99 cap) — POST and PATCH can never disagree; concurrent add-to-carts never lose an increment.
+- **Review aggregates grow, never collapse**: `submitReviewAction` applies `mergeReviewAggregate` (`src/lib/review-aggregate.ts`) — reviewCount increments and rating becomes a rounded weighted average from the current baseline. Do NOT replace with a from-scratch row-count recompute: the seed ships reference-parity display counts with one template row, and a recompute collapses 412 → 2 on the first real review.
+- **SEO surfaces stay private**: `sitemap.ts` lists only public catalog/content routes (no login/register/cart/wishlist/track-order/checkout/account/admin); `robots.ts` disallows `/admin`, `/account`, `/checkout`, `/api`. Pinned by `tests/unit/seo-routes.test.ts`. Never "helpfully" add private routes back to the sitemap.
 - **Uniform auth errors**: login failures return exactly "Invalid email or password." (with a dummy scrypt burn for unknown accounts) — do not "helpfully" distinguish unknown-email from wrong-password.
 
 ## Demo accounts (seeded by `npm run db:seed`)
@@ -75,6 +80,6 @@ The proxy stamps a **per-request nonce** CSP on every response; Next applies the
 
 - Git: `main` only, Conventional Commits, atomic commits, never commit secrets (`.gitignore` rejects `.env`, `*.key`, `ssh-key.txt`, `db/*.db`).
 - Pushes use `docs/ssh_git_wrapper_v3.py` — see `docs/how-to-git-push-using-ssh-wrapper_SKILL.md`. The verification gate above is the only gate; it must be green first.
-- `homenest-store-s_SKILL.md` is the full engineering reference (20 sections + trap logs + playbooks); `docs/REMEDIATION_PLAN.md` records the session-2 security audit and its fixes; `scripts/capture-screenshots.mjs` regenerates `docs/screenshots/`.
-- E2E ordering: `npm run build` before `npm run test:e2e` (the suite starts the standalone server). Tests wait for hydration via `gotoHydrated()` (`tests/e2e/helpers.ts`) — keep using it for any new spec; clicks before hydration fall back to native form GET.
+- `homenest-store-s_SKILL.md` is the full engineering reference (20 sections + trap logs + playbooks); `docs/REMEDIATION_PLAN.md` records the session-2/3/4 security audits and their fixes; `scripts/capture-screenshots.mjs` regenerates `docs/screenshots/`.
+- E2E ordering: `npm run build` before `npm run test:e2e` (the suite starts the standalone server). Tests wait for hydration via `gotoHydrated()` (`tests/e2e/helpers.ts`) — keep using it for any new spec; clicks before hydration fall back to native form GET. Playwright quirk: `request.post(url, { data: "<string>" })` JSON-encodes the string — send `Buffer` data for genuinely malformed-JSON tests.
 - When a test fails, reproduce against the standalone server before touching code — the suite caught three real production bugs (Toaster nesting, CSP nonce hydration, toast/action races) exactly this way.

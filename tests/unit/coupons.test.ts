@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { couponDiscount, isCouponRedeemable, type CouponInfo } from "@/lib/coupons";
+import { couponDiscount, isCouponRedeemable, couponRedemptionWhere, type CouponInfo } from "@/lib/coupons";
 
 const percent10: CouponInfo = {
   code: "WELCOME10",
@@ -100,5 +100,20 @@ describe("isCouponRedeemable — expiry and redemption caps", () => {
 
   it("ignores the cap when it is unconfigured", () => {
     expect(isCouponRedeemable({ ...base, timesUsed: 100_000 })).toBe(true);
+  });
+});
+
+describe("couponRedemptionWhere — atomic redemption cap filter", () => {
+  it("adds a timesUsed guard when the coupon is capped", () => {
+    const where = couponRedemptionWhere(500);
+    expect(where).toEqual({ timesUsed: { lt: 500 } });
+  });
+
+  it("adds no guard when the cap is unconfigured (null)", () => {
+    expect(couponRedemptionWhere(null)).toEqual({});
+  });
+
+  it("still guards at the exact boundary (timesUsed < max, never <=)", () => {
+    expect(couponRedemptionWhere(1)).toEqual({ timesUsed: { lt: 1 } });
   });
 });

@@ -11,8 +11,9 @@ import { Footer } from "@/components/store/footer";
  * around each page.
  */
 export default async function StorefrontLayout({ children }: { children: React.ReactNode }) {
-  const user = await getCurrentUser();
-  const settings = await getSettings();
+  // The user + settings reads are independent — resolve them together (the
+  // cart-count chain below is the only one that depends on `user`).
+  const [user, settings] = await Promise.all([getCurrentUser(), getSettings()]);
 
   // Best-effort cart count (never blocks rendering).
   let cartCount = 0;

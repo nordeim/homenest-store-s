@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.0.0
+version: 1.1.0
 last_updated: 2026-10-12
-project_state: "94 unit tests · 28 e2e tests · lint/typecheck/build green · security-hardened (post-remediation session 2)"
+project_state: "131 unit tests · 32 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-4)"
 tags:
   - nextjs16
   - react19
@@ -317,12 +317,16 @@ In-memory fixed-window limiter: `rateLimit(key, limit, windowMs) → { ok,
 retryAfterSec }`, opportunistic stale-bucket sweep. Single-process by design;
 swap internals for a shared store if the deployment scales out (the sync
 signature is the only coupling — a shared store forces async at all call
-sites). Wired into: `loginAction` (10/min/email), `registerAction`
-(5/min/email), `submitReviewAction` (5/min per **IP+product+author** — the
-IP stops author-string rotation), `/api/contact` (5/min/IP),
-`/api/newsletter` (5/min/IP), `/api/coupon/apply` (30/min/IP),
-`/api/checkout` (20/min/IP), `/track-order` lookups (30/min/IP). Limits are
-deliberately generous so humans and the e2e suite are unaffected.
+sites). The shared `clientIp()` helper derives the per-IP key from
+`x-forwarded-for` (first hop, trimmed; missing → `"direct"`). Wired into:
+`loginAction` (10/min/email **plus 30/min/IP** — the email key alone is
+attacker-chosen, and every attempt burns real scrypt CPU), `registerAction`
+(5/min/email plus 30/min/IP), `submitReviewAction` (5/min per
+**IP+product+author**), `/api/contact` (5/min/IP), `/api/newsletter`
+(5/min/IP), `/api/coupon/apply` (30/min/IP), `/api/checkout` (20/min/IP),
+`/track-order` lookups (30/min/IP), `/api/cart` POST + `/api/wishlist` POST
+(60/min/IP — guest-reachable row creation). Limits are deliberately generous
+so humans and the e2e suite are unaffected.
 
 ### 8.4 Order tracking access control (the HIGH-severity fix)
 
@@ -451,7 +455,7 @@ object exposed publicly needs a second, unguessable or knowledge-based factor
 Run the full chain — it is the only gate:
 
 ```bash
-npm run lint && npm run typecheck && npm run test && npm run build && npm run test:e2e
+npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e
 ```
 
 Then verify by hand:
@@ -709,20 +713,38 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   SHA-256 "auth") → Next.js 16 + Prisma full-stack superset. Reference recon
   via agent-browser (13 screenshots, 8-product catalog + images scraped).
   69 unit + 28 e2e green; pushed as `87cfa40`.
-- **Session 2 (this remediation):** full re-audit (0 critical / 1 high /
+- **Session 2 (remediation):** full re-audit (0 critical / 1 high /
   6 medium / 14 low); remediation plan at `docs/REMEDIATION_PLAN.md`; all
   planned fixes executed TDD-first; gates re-run green (94 unit / 28 e2e);
   screenshots refreshed; `homenest-store-s_SKILL.md` + `worklog.md` created.
-- Known accepted risks (documented, deferred): no checkout idempotency key
-  (first task of the payments epic); analytics aggregation unbounded;
-  404 shell prerendered without nonce (cosmetic); cookie `secure` tied to
-  NODE_ENV (behind-proxy deployments should revisit).
+- **Session 3 (hardening):** fresh deep audit (1 HIGH / 4 MEDIUM / 4 LOW);
+  token-gated `/checkout/success` receipts (HMAC `order-access.ts`),
+  idempotent checkout (`Order.idempotencyKey @unique`), money derived inside
+  the order transaction, order-status workflow + cancel-restock, login
+  cart/wishlist merge, coupon lifecycle (`expiresAt`/`maxRedemptions`/
+  `timesUsed`). 115 unit + 31 e2e green.
+- **Session 4 (this pass):** re-validation + fresh deep audit (0 HIGH /
+  1 MEDIUM / 12 LOW + nits). Per-IP auth budgets (`clientIp()`), atomic
+  coupon-cap increment (`couponRedemptionWhere`), transactional cart POST
+  with the shared clamp, cart/wishlist POST limiters, six FK/hot-path
+  `@@index` entries, `mergeReviewAggregate` (fixes the parity-count
+  collapse), create-only coupon seeding, sitemap/robots privacy contract,
+  dead-script removal, `tsconfig.tests.json` (`typecheck:tests`), and the
+  a11y/nit bundle (drawer Escape + focus, carousel pause-on-hover/
+  reduced-motion, header `aria-expanded`, cart-lines clamp mirror).
+  131 unit + 32 e2e green.
+- Known accepted risks (documented, deferred): analytics aggregation
+  unbounded (fine at seeded volume); 404 shell prerendered without nonce
+  (inert islands); cookie `secure` tied to NODE_ENV (behind-proxy
+  deployments should revisit); shared-store rate limiter (mechanical swap,
+  8 sites); admin coupon UI (enforcement complete, management stays
+  DB-level with create-only seeding); account/review pagination.
 
 ## Appendix C — Quick Reference Card
 
 ```bash
 # full gate chain (the only gate)
-npm run lint && npm run typecheck && npm run test && npm run build && npm run test:e2e
+npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e
 
 # db
 npm run db:setup                 # push + idempotent seed
@@ -742,7 +764,10 @@ python3 docs/ssh_git_wrapper_v3.py push origin main
 ```
 
 Key files: `src/lib/db-path.ts` · `src/lib/money.ts` ·
-`src/lib/order-money.ts` · `src/lib/rate-limit.ts` ·
-`src/lib/order-tracking.ts` · `src/lib/auth-secret.ts` ·
+`src/lib/order-money.ts` · `src/lib/rate-limit.ts` (incl. `clientIp`) ·
+`src/lib/order-tracking.ts` · `src/lib/order-access.ts` ·
+`src/lib/order-status.ts` · `src/lib/coupons.ts` (incl.
+`couponRedemptionWhere`) · `src/lib/review-aggregate.ts` ·
+`src/lib/auth-secret.ts` ·
 `src/app/api/checkout/route.ts` · `src/components/store/mobile-nav.tsx` ·
 `src/app/globals.css` · `prisma/seed.ts` · `tests/e2e/helpers.ts`

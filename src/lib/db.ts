@@ -3,7 +3,7 @@ import { resolveProcessDatabaseUrl } from "./db-path";
 
 // ---------------------------------------------------------------------------
 // SQLite URL resolution — the rule lives in src/lib/db-path.ts (pure, unit
-// tested by tests/db-path.test.ts). Summary:
+// tested by tests/unit/db-path.test.ts). Summary:
 //
 //   .env DATABASE_URL="file:../db/custom.db"
 //     -> Prisma CLI (schema-relative):   <root>/db/custom.db

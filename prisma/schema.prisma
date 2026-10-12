@@ -80,6 +80,8 @@ model Product {
   wishlistItems    WishlistItem[]
   orderItems       OrderItem[]
   reviews          Review[]
+
+  @@index([categoryId])
 }
 
 model Review {
@@ -94,6 +96,8 @@ model Review {
   comment   String
   verified  Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  @@index([productId])
 }
 
 model Cart {
@@ -182,6 +186,8 @@ model Order {
   updatedAt       DateTime     @updatedAt
   items           OrderItem[]
   events          OrderEvent[]
+
+  @@index([userId])
 }
 
 model OrderItem {
@@ -195,6 +201,9 @@ model OrderItem {
   variantLabel  String?
   unitPrice     Int // cents at purchase time
   quantity      Int
+
+  @@index([orderId])
+  @@index([productId])
 }
 
 model OrderEvent {
@@ -205,6 +214,8 @@ model OrderEvent {
   status    String?
   note      String?
   createdAt DateTime @default(now())
+
+  @@index([orderId])
 }
 
 model Coupon {

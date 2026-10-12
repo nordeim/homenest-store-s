@@ -52,8 +52,8 @@ The starting point of this remediation was a client-only Vite SPA that kept the 
 | UI primitives | Radix UI (dialog, select, sheet, label, tabs, radio) + CVA + lucide-react | latest | Accessible primitives; the shadcn pattern without the CLI |
 | Charts | Recharts | ^3 | Admin revenue + analytics surfaces |
 | Validation | Zod | ^3.25 | Single validation boundary (ADR-005) |
-| Unit tests | Vitest | ^3.2 | Node-env pure-function suite (94 tests) |
-| E2E tests | Playwright | ^1.64 | 28 tests incl. the Tailwind v4 mobile-nav regression guard |
+| Unit tests | Vitest | ^3.2 | Node-env pure-function suite (131 tests) |
+| E2E tests | Playwright | ^1.64 | 32 tests incl. the Tailwind v4 mobile-nav regression guard |
 | Fonts | next/font (Playfair Display + Inter) | — | Self-hosted at build, no runtime font requests |
 
 ### 1.3 Architecture Decision Records
@@ -286,23 +286,31 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 ## 8. Testing Strategy
 
-**Two suites, one gate:** `npm run lint && npm run typecheck && npm run test && npm run build && npm run test:e2e` — all five must be green; there is no hosted CI, so this local gate is the only gate.
+**Two suites, one gate:** `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e` — all must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 115 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 131 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
 | `money.test.ts` | `formatMoney` / `parseDollarsToCents` / `discountPercent` |
 | `db-path.test.ts` | The `DATABASE_URL` resolution contract: relative-vs-anchor resolution, standalone detection, absolute + non-SQLite passthrough |
 | `order-money.test.ts` | Checkout math: threshold, express/standard, tax rounding, negative-guard, a worked reference order |
-| `coupons.test.ts` | Percent/fixed discounts, min-subtotal, cap-at-subtotal, invalid configs; lifecycle gate (`isCouponRedeemable`: inactive/expired/cap-reached) |
+| `coupons.test.ts` | Percent/fixed discounts, min-subtotal, cap-at-subtotal, invalid configs; lifecycle gate (`isCouponRedeemable`: inactive/expired/cap-reached); the atomic redemption-cap filter (`couponRedemptionWhere`) |
 | `password.test.ts` | scrypt format, verify/reject, unique salts, malformed-hash safety |
 | `validation.test.ts` | Zod schemas incl. enum vocabularies and bounds |
 | `products.test.ts` | JSON column parsing + card projection |
 | `csp.test.ts` | CSP builder: production vs dev directive sets |
 | `format.test.ts` | Status pills, timeline indices, slugify, dates |
+| `rate-limit.test.ts` | Fixed-window limits, window reset, key isolation, cleanup; `clientIp` x-forwarded-for derivation |
+| `auth-secret.test.ts` | `AUTH_SECRET` production enforcement (missing/dev-constant branches) |
+| `tracking-access.test.ts` | Email normalization + the number+email match rule |
+| `cart-quantity.test.ts` | Clamp semantics (stock ceiling, 99 cap, 0 = "no purchase") |
+| `order-access.test.ts` | HMAC receipt tokens: mint/verify, tamper rejection |
+| `order-status.test.ts` | Transition rules (terminal states) + restock-on-cancel predicate |
+| `review-aggregate.test.ts` | Weighted-average growth, rounding, empty baseline, out-of-range rejection |
+| `seo-routes.test.ts` | Sitemap lists only public routes; robots disallows admin/account/checkout/api |
 
-### 8.2 E2E (Playwright — 31 tests, `tests/e2e/`)
+### 8.2 E2E (Playwright — 32 tests, `tests/e2e/`)
 
 Two projects: `mobile-navigation` (iPhone-13 device emulation on Chromium — WebKit is not installable in the target sandbox) and `desktop-chromium` (1440×900). The config boots the standalone production build on :3100 with `/api/health` as the readiness probe (reusing an existing healthy server).
 
@@ -310,7 +318,7 @@ Two projects: `mobile-navigation` (iPhone-13 device emulation on Chromium — We
 |---|---|
 | `mobile-navigation.spec.ts` | **The Tailwind v4 regression guard** — hamburger opens the push-down panel with search + 5 links; navigation closes it; the green close button works; reopen proves state-driven mounting; `aria-current` + `bg-primary` on the active pill; body scroll locks/unlocks |
 | `storefront.spec.ts` | Reference anatomy on home (carousel, badges, 8 categories, grids), products listing (count, pagination to the reference items on page 2, category filter), search, product detail (price/compare/−%/stock/reviews/related), footer policies |
-| `shopping-flow.spec.ts` | Add-to-cart badge + mini drawer (off-viewport + inert assertions), **full guest checkout placing a real order** (`ORD-YYYY-NNN`, token-gated receipt, guess-denial without the token, cart emptied), **idempotent checkout replay** (same key → same receipt), coupon application, placed-order tracking via `/track-order` |
+| `shopping-flow.spec.ts` | Add-to-cart badge + mini drawer (off-viewport + inert assertions), **full guest checkout placing a real order** (`ORD-YYYY-NNN`, token-gated receipt, guess-denial without the token, cart emptied), **idempotent checkout replay** (same key → same receipt), coupon application, **malformed-JSON → 400 contract** (raw Buffer bodies; Playwright JSON-encodes string data), placed-order tracking via `/track-order` |
 | `auth.spec.ts` | Login card anatomy, demo-customer sign-in → `/account`, wrong-password + unknown-email inline errors (no redirect), short-password server rejection, `/account` gate, **guest-cart merge at login** |
 | `admin.spec.ts` | Customer blocked from `/admin` (access-denied card, no route leak), admin sign-in → dashboard KPIs, products manager (search + add affordance), orders manager, **cancel-restocks-stock via the management dialog**, carousel slides, settings values |
 
@@ -380,8 +388,14 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | 9 | Fixed (session 2) | Order tracking exposed customer PII to number-guessing | Now gated by number **+** purchase email, rate-limited; see `docs/REMEDIATION_PLAN.md` WI-1. |
 | 10 | Fixed (session 2) | `AUTH_SECRET` silently fell back to a public dev constant in production | `assertAuthSecret` throws at module load (unit-tested). |
 | 11 | Fixed (session 2) | Check-then-decrement stock race could oversell | Conditional atomic `updateMany` reservation inside the checkout transaction. |
-| 12 | Open | No checkout idempotency key | A retried double-POST can create two orders (client button disabling is the only guard today). First task of the payments epic. |
-| 13 | Open | Unauthenticated writes lack per-IP limits behind proxies without `x-forwarded-for` | The in-memory limiter keys on `x-forwarded-for` when present; direct connections share one bucket. Swap `src/lib/rate-limit.ts` internals for a shared store at scale. |
+| 12 | Fixed (session 3) | No checkout idempotency key | `Order.idempotencyKey @unique`; replays return the original receipt; P2002-on-key resolves to the winner. See `docs/REMEDIATION_PLAN.md` S3-5. |
+| 13 | Open | Unauthenticated writes lack per-IP limits behind proxies without `x-forwarded-for` | The limiter keys on `x-forwarded-for` when present (shared `clientIp()` helper); direct connections share one bucket. Swap `src/lib/rate-limit.ts` internals for a shared store at scale. |
+| 14 | Fixed (session 4) | Login/register rate budgets keyed only by attacker-chosen email | Per-IP `login-ip:`/`register-ip:` budgets added alongside the per-email budgets; shared `clientIp()` helper. |
+| 15 | Fixed (session 4) | Coupon redemption cap had a read-then-write TOCTOU window | In-tx increment is now a guarded `updateMany` (`couponRedemptionWhere`); count 0 → 409 rollback. |
+| 16 | Fixed (session 4) | First real review collapsed the seeded parity counts | `mergeReviewAggregate` grows the baseline (weighted average + count increment) instead of recomputing from stored rows. |
+| 17 | Fixed (session 4) | Sitemap listed noindex/private routes; robots allowed the admin surface | Sitemap reduced to public catalog/content routes; robots disallows `/admin`, `/account`, `/checkout`, `/api`. Pinned by `tests/unit/seo-routes.test.ts`. |
+| 18 | Accepted | Account orders & product-reviews lists are unpaginated | Correct at seeded volume; a silent `take` cap would hide data — proper pagination is the only honest fix. Revisit when data grows. |
+| 19 | Accepted | Analytics aggregates order items in JS (unbounded findMany) | Correct at current volume; needs `$queryRaw GROUP BY` design past ~50k items. |
 
 ---
 
@@ -407,7 +421,7 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | `src/components/store/mobile-nav.tsx` | The Tailwind-v4-safe mobile menu |
 | `src/components/store/store-chrome.tsx` | Sticky header + mobile panel + cart drawer |
 | `prisma/schema.prisma` / `seed.ts` | 17 models / idempotent seed |
-| `tests/unit/*` · `tests/e2e/*` | 94 unit · 28 e2e (incl. the v4 guard + tracking access contract) |
+| `tests/unit/*` · `tests/e2e/*` | 131 unit · 32 e2e (incl. the v4 guard + tracking access contract) |
 | `playwright.config.ts` / `vitest.config.ts` | Suite wiring (standalone webServer; iPhone-13-on-Chromium project) |
 
 ---

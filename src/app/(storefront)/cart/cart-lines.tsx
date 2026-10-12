@@ -47,9 +47,21 @@ export function CartLines({ initialLines }: { initialLines: CartLine[] }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lineId: line.id, quantity: next }),
       });
-      const data = (await res.json()) as { itemCount?: number; error?: string };
+      const data = (await res.json()) as { itemCount?: number; quantity?: number; error?: string };
       if (!res.ok) throw new Error(data.error ?? "Could not update your cart.");
       if (typeof data.itemCount === "number") setCartCount(data.itemCount);
+      // Mirror the SERVER clamp (stock/99 cap): the page's local copy must
+      // never disagree with the cart's truth — same contract the drawer uses.
+      if (typeof data.quantity === "number" && next > 0 && data.quantity !== next) {
+        const clamped = data.quantity;
+        setLines((prevLines) =>
+          clamped === 0
+            ? prevLines.filter((l) => l.id !== line.id)
+            : prevLines.map((l) =>
+                l.id === line.id ? { ...l, quantity: clamped, lineTotal: l.unitPrice * clamped } : l,
+              ),
+        );
+      }
       router.refresh();
     } catch (error) {
       setLines(prev); // rollback the optimistic change

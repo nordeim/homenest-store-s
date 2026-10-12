@@ -23,8 +23,15 @@ const applySchema = z.object({
  * label + description for inline display.
  */
 export async function POST(request: NextRequest) {
+  // Malformed payloads are a client error (400), not a 500 — the L3 pattern
+  // split applies to EVERY JSON route (this one was missed in sessions 2-3).
+  let body: unknown = null;
   try {
-    const body: unknown = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json<CouponApplyResponse>({ ok: false, error: "Invalid JSON body." }, { status: 400 });
+  }
+  try {
     const parsed = applySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json<CouponApplyResponse>({ ok: false, error: firstError(parsed.error) });
@@ -63,6 +70,7 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json<CouponApplyResponse>(
       { ok: false, error: "Something went wrong. Please try again." },
+      { status: 500 },
     );
   }
 }

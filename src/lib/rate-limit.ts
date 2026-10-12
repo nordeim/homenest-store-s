@@ -56,3 +56,17 @@ export function rateLimit(key: string, limit: number, windowMs: number): RateLim
 export function resetRateLimiter(): void {
   buckets.clear();
 }
+
+/**
+ * Derive the limiter key from an `x-forwarded-for` header. Behind a proxy the
+ * header carries a comma-separated chain — the FIRST hop is the original
+ * client. Missing/empty headers (direct connections) share the "direct"
+ * bucket, mirroring the checkout route's established convention. Pure, so
+ * every call site keys budgets the same way.
+ */
+export function clientIp(headerValue: string | null | undefined): string {
+  const value = headerValue?.trim();
+  if (!value) return "direct";
+  const first = value.split(",")[0]?.trim();
+  return first || "direct";
+}

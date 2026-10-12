@@ -77,3 +77,34 @@ Work Log:
 Stage Summary:
 - Codebase now closes the last HIGH-severity PII surface and adds the production-grade commerce contracts: idempotent checkout, in-transaction money derivation, coupon lifecycle, cancel-restock, login merge.
 - 115 unit + 31 e2e green; all docs aligned; deferred items re-documented with justification (analytics groupBy, 404 nonce, __Host- prefix, shared-store limiter, admin coupon UI).
+
+---
+
+Task ID: 4 (session 4)
+Agent: audit + remediation agent (Super Z)
+Task: Re-validate session-3 deliverables, run a fresh deep audit (incl. the deferred items), remediate the new findings TDD-first, refresh screenshots/docs/worklog, commit and push.
+
+Work Log:
+- Pulled c5c021d + docs/session_3.md; re-ran every gate on the pulled tree: lint ✓, typecheck ✓, 115/115 unit ✓, build ✓, 31/31 e2e ✓; env-shadowing convergence (hardlink) re-confirmed; .env contract intact.
+- Re-verified visual parity against the LIVE reference (logged in via agent-browser): desktop home, mobile menu open/navigate/close (push-down panel, orange active pill, green close circle, aria-expanded bound) — reference unchanged, clone remains the superset.
+- Deep-audit pass (Task 4-a read-only subagent + own verification): 0 HIGH / 1 MEDIUM (F-1 login/register limiter keyed only by attacker-chosen email) / 12 LOW (coupon/apply JSON 200s, coupon-cap TOCTOU, cart POST lost-update + >99 cap, unmetered guest cart/wishlist rows, missing FK indexes, unbounded account/review lists, seed reviewCount collapse, seed resets coupon bookkeeping, sitemap private routes, dead db:migrate scripts, tests+seed untyped, reactStrictMode undocumented) + nits (drawer Escape/focus, carousel pause, header aria-expanded, cart-lines clamp mirror, wishlist P2002, admin P2002 message, db.ts comment, sequential layout reads). All 5 session-3 deferrals re-validated as DEFER with evidence.
+- Wrote the session-4 remediation plan (docs/REMEDIATION_PLAN.md) and executed it TDD-first (red → green for every fix):
+  - S4-1 (MEDIUM): shared clientIp() in rate-limit.ts (unit-tested); per-IP login-ip:/register-ip: budgets beside the per-email budgets.
+  - S4-2: /api/coupon/apply body-parse split (400) + {status:500} generic catch; e2e pins the malformed-JSON contract (Buffer data — Playwright JSON-encodes string data, found live).
+  - S4-3: couponRedemptionWhere() + unit tests; checkout increments timesUsed via guarded updateMany (count 0 → 409 rollback).
+  - S4-4: cart POST inside db.$transaction with the shared clampPurchaseQuantity (stock ceiling + 99 cap; no lost increments).
+  - S4-5: per-IP limiters on /api/cart POST + /api/wishlist POST (60/min).
+  - S4-6: six @@index entries (Review.productId, OrderItem.orderId/productId, OrderEvent.orderId, Order.userId, Product.categoryId) + db:push.
+  - S4-7: mergeReviewAggregate() + unit tests; submitReviewAction grows the seeded baseline (weighted average) instead of collapsing it.
+  - S4-8: coupon seeding is create-only (update: {}) — reseeds preserve redemption bookkeeping.
+  - S4-9: sitemap drops the 5 private/noindex routes; robots disallows /admin, /account, /checkout, /api; unit-pinned (seo-routes.test.ts).
+  - S4-10: dead db:migrate/db:reset scripts removed.
+  - S4-11: tsconfig.tests.json + typecheck:tests script wired into the gate; surfaced two pre-existing noUncheckedIndexedAccess drifts in e2e specs (fixed).
+  - S4-12: wishlist P2002 no-op, admin P2002/P2025 message split, db.ts comment fix, cart-drawer Escape-close + close-button focus, hero-carousel pause-on-hover/focus + prefers-reduced-motion (useSyncExternalStore), header cart aria-expanded, cart-lines mirrors the server clamp, storefront layout Promise.all.
+- Gates after: lint ✓, typecheck ✓, typecheck:tests ✓, 131/131 unit ✓, build ✓, 32/32 e2e ✓ (new: malformed-JSON 400 contract).
+- Manual verification via agent-browser + curl: robots.txt Disallow rules live; sitemap reduced to public routes; drawer aria-expanded + Escape-close; mobile menu unchanged (Tailwind v4 conditional-mount); coupon route 400 on raw invalid JSON.
+- Refreshed docs/screenshots/ (23 shots from the remediated build); updated AGENTS.md / CLAUDE.md / README.md / Project_Architecture_Document.md / homenest-store-s_SKILL.md for every changed contract.
+
+Stage Summary:
+- Codebase closes the last DoS-class limiter gap (per-IP auth budgets), makes the coupon cap race-free, aligns cart POST with the clamp contract, adds the FK/hot-path indexes, and fixes the review-count collapse — with the tests/seed/configs now inside the typecheck gate.
+- 131 unit + 32 e2e green; all docs aligned; deferred items re-documented with justification (analytics groupBy, 404 nonce, __Host- prefix, shared-store limiter, admin coupon UI, account/review pagination).

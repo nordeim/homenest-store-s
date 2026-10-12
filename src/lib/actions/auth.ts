@@ -9,8 +9,9 @@ import { getOrCreateCart } from "@/lib/cart";
 import { db } from "@/lib/db";
 import { getOrCreateWishlist } from "@/lib/wishlist";
 import { scryptHash, scryptVerify } from "@/lib/password";
-import { rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { firstError, loginSchema, profileSchema, registerSchema } from "@/lib/validation";
+import { headers } from "next/headers";
 
 /**
  * Auth server actions — bound to forms via useActionState so they degrade to
@@ -45,6 +46,18 @@ async function purgeExpiredSessions(): Promise<void> {
 }
 
 /**
+ * Per-IP budget for credential endpoints. The per-email budget alone is keyed
+ * by ATTACKER-CHOSEN data — rotating emails mints fresh budgets for free, and
+ * every attempt burns real scrypt CPU (the uniform-error dummy hash), so
+ * login becomes an amplification vector. The IP bucket bounds that; it is
+ * generous (30/min) so NAT'd offices and e2e never feel it.
+ */
+async function ipBudget(kind: "login-ip" | "register-ip", limit: number): Promise<{ ok: boolean; retryAfterSec?: number }> {
+  const h = await headers();
+  return rateLimit(`${kind}:${clientIp(h.get("x-forwarded-for"))}`, limit, 60_000);
+}
+
+/**
  * Claim the guest cart + wishlist right after the session starts. This is the
  * documented invariant "on login the guest cart merges into the user's": the
  * merge lives in getOrCreateCart/getOrCreateWishlist, so WITHOUT this call a
@@ -72,6 +85,10 @@ export async function loginAction(_prev: AuthFormState, formData: FormData): Pro
   const limit = rateLimit(`login:${parsed.data.email}`, 10, 60_000);
   if (!limit.ok) {
     return { error: `Too many sign-in attempts. Please try again in ${limit.retryAfterSec}s.` };
+  }
+  const ipLimit = await ipBudget("login-ip", 30);
+  if (!ipLimit.ok) {
+    return { error: `Too many sign-in attempts. Please try again in ${ipLimit.retryAfterSec}s.` };
   }
 
   const user = await db.user.findUnique({ where: { email: parsed.data.email } });
@@ -102,6 +119,10 @@ export async function registerAction(_prev: AuthFormState, formData: FormData): 
   const limit = rateLimit(`register:${parsed.data.email}`, 5, 60_000);
   if (!limit.ok) {
     return { error: `Too many registration attempts. Please try again in ${limit.retryAfterSec}s.` };
+  }
+  const ipLimit = await ipBudget("register-ip", 30);
+  if (!ipLimit.ok) {
+    return { error: `Too many registration attempts. Please try again in ${ipLimit.retryAfterSec}s.` };
   }
 
   try {

@@ -11,13 +11,12 @@
     "db:push": "prisma db push --accept-data-loss",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
-    "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset",
     "db:setup": "prisma db push --accept-data-loss && tsx prisma/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit"
   },
   "dependencies": {
     "@prisma/client": "^6.11.1",

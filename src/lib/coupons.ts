@@ -91,3 +91,15 @@ export async function applyCouponCode(code: string, subtotal: number): Promise<C
   if (!coupon) return { ok: false, error: "This coupon code is not valid." };
   return couponDiscount(coupon, subtotal);
 }
+
+/**
+ * Prisma `where` fragment for the ATOMIC redemption-cap guard. The checkout
+ * transaction increments `timesUsed` through `updateMany({ where: { code,
+ * ...couponRedemptionWhere(coupon.maxRedemptions) } })` — when the cap was
+ * just reached by a concurrent checkout, `count === 0` and the tx rolls back,
+ * closing the read-then-write TOCTOU window that `isCouponRedeemable` alone
+ * leaves open. Pure and unit-tested; `null` maxRedemptions adds no guard.
+ */
+export function couponRedemptionWhere(maxRedemptions: number | null): { timesUsed?: { lt: number } } {
+  return maxRedemptions === null ? {} : { timesUsed: { lt: maxRedemptions } };
+}

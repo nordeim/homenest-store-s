@@ -114,6 +114,7 @@ export function Header({
           type="button"
           aria-label={cartCount > 0 ? `Cart, ${cartCount} items` : "Cart"}
           aria-haspopup="dialog"
+          aria-expanded={cartDrawerOpen}
           onClick={() => setCartDrawerOpen(!cartDrawerOpen)}
           className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-secondary"
         >

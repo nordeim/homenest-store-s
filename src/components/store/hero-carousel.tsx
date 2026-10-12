@@ -29,22 +29,44 @@ export type Slide = {
 export function HeroCarousel({ slides, autoRotateMs = 6000 }: { slides: Slide[]; autoRotateMs?: number }) {
   const [active, setActive] = React.useState(0);
   const count = slides.length;
+  // WCAG 2.2.2: auto-motion pauses on hover/focus and for users who ask the
+  // OS for reduced motion. Purely behavioral — no visual change in captures.
+  // `useSyncExternalStore` subscribes to the media query the React-idiomatic
+  // way (no set-state-in-effect; SSR snapshot is `false`).
+  const [paused, setPaused] = React.useState(false);
+  const reducedMotion = React.useSyncExternalStore(
+    React.useCallback((onStoreChange: () => void) => {
+      const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+      query.addEventListener("change", onStoreChange);
+      return () => query.removeEventListener("change", onStoreChange);
+    }, []),
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => false,
+  );
 
   const next = React.useCallback(() => setActive((i) => (i + 1) % count), [count]);
   const prev = React.useCallback(() => setActive((i) => (i - 1 + count) % count), [count]);
 
   React.useEffect(() => {
-    if (count <= 1) return;
+    if (count <= 1 || paused || reducedMotion) return;
     const timer = window.setInterval(next, autoRotateMs);
     return () => window.clearInterval(timer);
-  }, [next, autoRotateMs, count]);
+  }, [next, autoRotateMs, count, paused, reducedMotion]);
 
   if (count === 0) return null;
   const activeSlide = slides[active];
   if (!activeSlide) return null;
 
   return (
-    <section aria-roledescription="carousel" aria-label="Featured collections" className="relative overflow-hidden rounded-3xl bg-secondary shadow-sm">
+    <section
+      aria-roledescription="carousel"
+      aria-label="Featured collections"
+      className="relative overflow-hidden rounded-3xl bg-secondary shadow-sm"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+    >
       <div className="relative aspect-[21/9] min-h-[320px] w-full sm:aspect-[16/7]">
         {slides.map((slide, i) => (
           <div

@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth";
 import { findCartId, getCartSummary, type CartLine } from "@/lib/cart";
-import { applyCouponCode, couponDiscount, isCouponRedeemable } from "@/lib/coupons";
+import { applyCouponCode, couponDiscount, couponRedemptionWhere, isCouponRedeemable } from "@/lib/coupons";
 import { db } from "@/lib/db";
 import { computeOrderMoney } from "@/lib/order-money";
 import { orderAccessToken } from "@/lib/order-access";
@@ -271,11 +271,18 @@ async function placeOrderTx(orderNumber: string, args: PlaceOrderArgs): Promise<
       }
       discount = applied.discount;
       // Redemption bookkeeping commits with the order — a lost order can
-      // never burn a coupon use, and a placed order always does.
-      await tx.coupon.update({
-        where: { code: couponRow.code },
+      // never burn a coupon use, and a placed order always does. The guard
+      // is ATOMIC: `updateMany` only fires while `timesUsed < maxRedemptions`,
+      // so a concurrent checkout that hits the cap first makes `count === 0`
+      // and rolls this whole transaction back (closes the read-then-write
+      // TOCTOU window that `isCouponRedeemable` alone leaves open).
+      const redeemed = await tx.coupon.updateMany({
+        where: { code: couponRow.code, ...couponRedemptionWhere(couponRow.maxRedemptions) },
         data: { timesUsed: { increment: 1 } },
       });
+      if (redeemed.count === 0) {
+        throw new CheckoutError(409, "This coupon has just reached its redemption limit.");
+      }
     }
 
     const money = computeOrderMoney({

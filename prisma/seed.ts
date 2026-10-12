@@ -681,7 +681,10 @@ async function main() {
   for (const coupon of COUPONS) {
     await prisma.coupon.upsert({
       where: { code: coupon.code },
-      update: coupon,
+      // Create-only: a reseed must never reset live redemption bookkeeping
+      // (timesUsed / expiresAt / maxRedemptions) — with no admin coupon UI,
+      // DB state is the only state.
+      update: {},
       create: coupon,
     });
   }
