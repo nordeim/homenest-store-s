@@ -61,10 +61,20 @@ export const checkoutSchema = z.object({
   customerName: z.string().trim().min(2, "Full name is required").max(80),
   shippingMethod: z.enum(SHIPPING_METHODS),
   paymentMethod: z.enum(PAYMENT_METHODS),
-  cardNumber: z.string().trim().optional().or(z.literal("")),
   couponCode: z.string().trim().max(40).optional().or(z.literal("")),
   saveAddress: z.boolean().optional(),
   address: addressSchema,
+});
+
+/** Public order tracking: order number PLUS the purchase email (anti-enumeration). */
+export const trackOrderSchema = z.object({
+  number: z
+    .string()
+    .trim()
+    .min(4, "Order number is required")
+    .max(40)
+    .transform((v) => v.toUpperCase()),
+  email: emailSchema,
 });
 
 export const orderStatusSchema = z.object({
@@ -131,12 +141,24 @@ export const categoryInputSchema = z.object({
   isActive: z.boolean().default(true),
 });
 
+// Internal path (no protocol-relative "//") or absolute http(s) URL — blocks
+// `javascript:`/`data:`-style injection through the admin carousel form.
+export const safeLinkSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(200)
+  .regex(
+    /^(\/(?!\/)[^\s]*|https?:\/\/[^\s]+)$/i,
+    "Link must be an internal path (starting with /) or an http(s) URL",
+  );
+
 export const carouselSlideInputSchema = z.object({
   title: z.string().trim().min(2).max(80),
   subtitle: z.string().trim().max(200).default(""),
   image: z.string().trim().min(1),
   ctaText: z.string().trim().min(2).max(40).default("Shop Now"),
-  ctaLink: z.string().trim().min(1).max(200).default("/products"),
+  ctaLink: safeLinkSchema.default("/products"),
   sortOrder: z.number().int().min(0).max(99).default(0),
   isActive: z.boolean().default(true),
 });

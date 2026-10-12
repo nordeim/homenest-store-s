@@ -52,7 +52,7 @@ The starting point of this remediation was a client-only Vite SPA that kept the 
 | UI primitives | Radix UI (dialog, select, sheet, label, tabs, radio) + CVA + lucide-react | latest | Accessible primitives; the shadcn pattern without the CLI |
 | Charts | Recharts | ^3 | Admin revenue + analytics surfaces |
 | Validation | Zod | ^3.25 | Single validation boundary (ADR-005) |
-| Unit tests | Vitest | ^3.2 | Node-env pure-function suite (69 tests) |
+| Unit tests | Vitest | ^3.2 | Node-env pure-function suite (94 tests) |
 | E2E tests | Playwright | ^1.64 | 28 tests incl. the Tailwind v4 mobile-nav regression guard |
 | Fonts | next/font (Playfair Display + Inter) | — | Self-hosted at build, no runtime font requests |
 
@@ -286,7 +286,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 **Two suites, one gate:** `npm run lint && npm run typecheck && npm run test && npm run build && npm run test:e2e` — all five must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 69 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 94 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
@@ -375,6 +375,11 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | 6 | Open | Product variants | The old SPA's type had a `variants` field; the migrated model intentionally dropped it (no reference evidence of usage). Re-add as `ProductVariant` model if required. |
 | 7 | Debt | Admin orders pagination + filtering combined state | Works (status pills + search + page); the combined-param links are verbose — refactor candidate. |
 | 8 | Debt | `recharts` client bundle size | Admin-only; acceptable. If it matters, lazy-load under `next/dynamic`. |
+| 9 | Fixed (session 2) | Order tracking exposed customer PII to number-guessing | Now gated by number **+** purchase email, rate-limited; see `docs/REMEDIATION_PLAN.md` WI-1. |
+| 10 | Fixed (session 2) | `AUTH_SECRET` silently fell back to a public dev constant in production | `assertAuthSecret` throws at module load (unit-tested). |
+| 11 | Fixed (session 2) | Check-then-decrement stock race could oversell | Conditional atomic `updateMany` reservation inside the checkout transaction. |
+| 12 | Open | No checkout idempotency key | A retried double-POST can create two orders (client button disabling is the only guard today). First task of the payments epic. |
+| 13 | Open | Unauthenticated writes lack per-IP limits behind proxies without `x-forwarded-for` | The in-memory limiter keys on `x-forwarded-for` when present; direct connections share one bucket. Swap `src/lib/rate-limit.ts` internals for a shared store at scale. |
 
 ---
 
@@ -400,7 +405,7 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | `src/components/store/mobile-nav.tsx` | The Tailwind-v4-safe mobile menu |
 | `src/components/store/store-chrome.tsx` | Sticky header + mobile panel + cart drawer |
 | `prisma/schema.prisma` / `seed.ts` | 17 models / idempotent seed |
-| `tests/unit/*` · `tests/e2e/*` | 69 unit · 28 e2e (incl. the v4 guard) |
+| `tests/unit/*` · `tests/e2e/*` | 94 unit · 28 e2e (incl. the v4 guard + tracking access contract) |
 | `playwright.config.ts` / `vitest.config.ts` | Suite wiring (standalone webServer; iPhone-13-on-Chromium project) |
 
 ---

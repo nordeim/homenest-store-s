@@ -9,6 +9,8 @@ import {
   loginSchema,
   registerSchema,
   reviewSchema,
+  trackOrderSchema,
+  carouselSlideInputSchema,
 } from "@/lib/validation";
 
 describe("registerSchema", () => {
@@ -129,5 +131,34 @@ describe("firstError", () => {
     if (result.success) throw new Error("expected failure");
     expect(typeof firstError(result.error)).toBe("string");
     expect(firstError(result.error).length).toBeGreaterThan(0);
+  });
+});
+
+describe("trackOrderSchema", () => {
+  it("accepts an order number plus the purchase email and normalizes it", () => {
+    const parsed = trackOrderSchema.parse({ number: " ord-2026-001 ", email: " Buyer@Example.COM " });
+    expect(parsed.number).toBe("ORD-2026-001");
+    expect(parsed.email).toBe("buyer@example.com");
+  });
+
+  it("requires both fields", () => {
+    expect(trackOrderSchema.safeParse({ number: "", email: "a@b.co" }).success).toBe(false);
+    expect(trackOrderSchema.safeParse({ number: "ORD-2026-001", email: "" }).success).toBe(false);
+    expect(trackOrderSchema.safeParse({ number: "ORD-2026-001", email: "not-an-email" }).success).toBe(false);
+  });
+});
+
+describe("carouselSlideInputSchema.ctaLink", () => {
+  it("accepts internal paths and absolute http(s) URLs", () => {
+    const base = { title: "Summer Sale", image: "/images/hero-sale.png" };
+    expect(carouselSlideInputSchema.safeParse({ ...base, ctaLink: "/products" }).success).toBe(true);
+    expect(carouselSlideInputSchema.safeParse({ ...base, ctaLink: "https://example.com/promo" }).success).toBe(true);
+  });
+
+  it("rejects javascript: and other scheme-injected links", () => {
+    const base = { title: "Summer Sale", image: "/images/hero-sale.png" };
+    expect(carouselSlideInputSchema.safeParse({ ...base, ctaLink: "javascript:alert(1)" }).success).toBe(false);
+    expect(carouselSlideInputSchema.safeParse({ ...base, ctaLink: "data:text/html,<script>" }).success).toBe(false);
+    expect(carouselSlideInputSchema.safeParse({ ...base, ctaLink: "vbscript:x" }).success).toBe(false);
   });
 });

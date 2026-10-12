@@ -2,14 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth";
-import { getOrCreateCart, getCartSummary } from "@/lib/cart";
+import { clampPurchaseQuantity } from "@/lib/cart-quantity";
+import { findCartId, getOrCreateCart, getCartSummary } from "@/lib/cart";
 import { db } from "@/lib/db";
 import { cartMutateSchema, firstError } from "@/lib/validation";
+
+/** Parse a JSON body — malformed payloads are a client error (400), not a 500. */
+async function parseJsonBody(request: NextRequest): Promise<unknown> {
+  try {
+    return await request.json();
+  } catch {
+    return null;
+  }
+}
 
 /** POST /api/cart — add a product (or bump quantity of an existing line). */
 export async function POST(request: NextRequest) {
   try {
-    const body: unknown = await request.json();
+    const body = await parseJsonBody(request);
+    if (body === null) return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
     const parsed = cartMutateSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: firstError(parsed.error) }, { status: 400 });
@@ -47,7 +58,8 @@ export async function POST(request: NextRequest) {
 /** PATCH /api/cart — set a line's quantity. */
 export async function PATCH(request: NextRequest) {
   try {
-    const body: unknown = await request.json();
+    const body = await parseJsonBody(request);
+    if (body === null) return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
     const parsed = z
       .object({ lineId: z.string().min(1), quantity: z.number().int().min(0).max(99) })
       .safeParse(body);
@@ -55,7 +67,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: firstError(parsed.error) }, { status: 400 });
     }
     const user = await getCurrentUser();
-    const cartId = await findCartSafe(user?.id ?? null);
+    const cartId = await findCartId(user?.id ?? null);
     if (!cartId) return NextResponse.json({ error: "Cart not found." }, { status: 404 });
 
     const line = await db.cartItem.findUnique({ where: { id: parsed.data.lineId } });
@@ -67,8 +79,14 @@ export async function PATCH(request: NextRequest) {
       await db.cartItem.delete({ where: { id: line.id } });
     } else {
       const product = await db.product.findUnique({ where: { id: line.productId } });
-      const qty = Math.min(parsed.data.quantity, product?.stock ?? 99);
-      await db.cartItem.update({ where: { id: line.id }, data: { quantity: qty } });
+      const qty = clampPurchaseQuantity(parsed.data.quantity, product?.stock ?? null);
+      if (qty === 0) {
+        // Out of stock (or product gone) — the line is not purchasable, so it
+        // must not survive as a quantity-0 ghost that checkout can "buy".
+        await db.cartItem.delete({ where: { id: line.id } });
+      } else {
+        await db.cartItem.update({ where: { id: line.id }, data: { quantity: qty } });
+      }
     }
 
     const summary = await getCartSummary(cartId);
@@ -83,7 +101,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const params = request.nextUrl.searchParams;
     const user = await getCurrentUser();
-    const cartId = await findCartSafe(user?.id ?? null);
+    const cartId = await findCartId(user?.id ?? null);
     if (!cartId) return NextResponse.json({ itemCount: 0 });
 
     if (params.get("all") === "1") {
@@ -98,17 +116,4 @@ export async function DELETE(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Something went wrong." }, { status: 500 });
   }
-}
-
-async function findCartSafe(userId: string | null): Promise<string | null> {
-  if (userId) {
-    const own = await db.cart.findUnique({ where: { userId } });
-    if (own) return own.id;
-  }
-  const { cookies } = await import("next/headers");
-  const store = await cookies();
-  const token = store.get("homenest_cart")?.value;
-  if (!token) return null;
-  const guest = await db.cart.findUnique({ where: { token } });
-  return guest?.id ?? null;
 }

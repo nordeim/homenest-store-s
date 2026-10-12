@@ -81,14 +81,15 @@ test.describe("shopping flow", () => {
     await expect(page.getByText(/applied at checkout/)).toBeVisible();
   });
 
-  test("track-order finds a placed order", async ({ page }) => {
+  test("track-order finds a placed order (number + email required)", async ({ page }) => {
     // Place one order via the API-backed UI flow (condensed), then track it.
     await gotoHydrated(page, "/products");
     await page.locator("article").first().getByRole("button", { name: "Add to Cart" }).click();
     // The badge proves the POST /api/cart landed before we navigate away.
     await expect(page.getByTestId("cart-count")).toHaveText("1");
     await gotoHydrated(page, "/checkout");
-    await page.getByLabel("Email").fill("guest2@example.com");
+    const buyerEmail = "guest2@example.com";
+    await page.getByLabel("Email").fill(buyerEmail);
     await page.getByLabel("Full name").fill("Tracker Test");
     await page.getByLabel("Street address").fill("9 Loop Road");
     await page.getByLabel("City").fill("Austin");
@@ -104,7 +105,19 @@ test.describe("shopping flow", () => {
     await expect(page).toHaveURL(/\/checkout\/success\?order=ORD-\d{4}-\d{3}/, { timeout: 15_000 });
     const orderNumber = new URL(page.url()).searchParams.get("order");
 
+    // Security contract: the number alone must NOT unlock the order's PII.
     await gotoHydrated(page, `/track-order?number=${orderNumber}`);
+    const alert = page.locator("div[role=alert]").first();
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText(/couldn.t find an order/i);
+    await expect(page.getByText(buyerEmail)).toHaveCount(0);
+
+    // A wrong email is indistinguishable from a wrong number (no enumeration).
+    await gotoHydrated(page, `/track-order?number=${orderNumber}&email=wrong@example.com`);
+    await expect(page.locator("div[role=alert]").first()).toBeVisible();
+
+    // The correct pair (the success page deep-link's shape) tracks the order.
+    await gotoHydrated(page, `/track-order?number=${orderNumber}&email=${encodeURIComponent(buyerEmail)}`);
     await expect(page.getByText(orderNumber ?? "")).toBeVisible();
     // The stepper shows all four labels; the current step (Pending) is active.
     await expect(page.getByText("Pending", { exact: true }).first()).toBeVisible();

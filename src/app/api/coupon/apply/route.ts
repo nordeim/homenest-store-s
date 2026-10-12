@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth";
+import { rateLimit } from "@/lib/rate-limit";
 import { findCartId, getCartSummary } from "@/lib/cart";
 import { applyCouponCode, findActiveCoupon } from "@/lib/coupons";
 import { firstError } from "@/lib/validation";
@@ -27,6 +28,15 @@ export async function POST(request: NextRequest) {
     const parsed = applySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json<CouponApplyResponse>({ ok: false, error: firstError(parsed.error) });
+    }
+
+    const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "direct";
+    const limit = rateLimit(`coupon:${clientIp}`, 30, 60_000);
+    if (!limit.ok) {
+      return NextResponse.json<CouponApplyResponse>(
+        { ok: false, error: "Too many attempts. Please try again shortly." },
+        { status: 429 },
+      );
     }
 
     const user = await getCurrentUser();

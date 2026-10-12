@@ -35,16 +35,17 @@ test.describe("auth", () => {
 
     const alert = page.locator("div[role=alert]").first();
     await expect(alert).toBeVisible();
-    await expect(alert).toContainText(/incorrect password/i);
+    // Uniform message — the UI must not reveal whether the account exists.
+    await expect(alert).toContainText(/invalid email or password/i);
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test("unknown email shows a friendly error", async ({ page }) => {
+  test("unknown email gets the same uniform error (no enumeration)", async ({ page }) => {
     await gotoHydrated(page, "/login");
     await page.getByLabel("Email").fill("nobody@nowhere.test");
     await page.getByLabel("Password").fill("Whatever123!");
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.locator("div[role=alert]").first()).toContainText(/no account/i);
+    await expect(page.locator("div[role=alert]").first()).toContainText(/invalid email or password/i);
   });
 
   test("register rejects a short password via the server action", async ({ page }) => {

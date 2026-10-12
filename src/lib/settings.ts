@@ -60,14 +60,16 @@ export async function getSettings(): Promise<StoreSettings> {
   };
 }
 
-/** Persist a patch of settings (admin). */
+/** Persist a patch of settings (admin) — atomically, so a mid-loop failure never persists a partial patch. */
 export async function updateSettings(patch: Partial<Record<keyof StoreSettings, string>>): Promise<void> {
   const entries = Object.entries(patch).filter(([, v]) => v !== undefined);
-  for (const [key, value] of entries) {
-    await db.storeSetting.upsert({
-      where: { key },
-      update: { value: String(value) },
-      create: { key, value: String(value) },
-    });
-  }
+  await db.$transaction(
+    entries.map(([key, value]) =>
+      db.storeSetting.upsert({
+        where: { key },
+        update: { value: String(value) },
+        create: { key, value: String(value) },
+      }),
+    ),
+  );
 }

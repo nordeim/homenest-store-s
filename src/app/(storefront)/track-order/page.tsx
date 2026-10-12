@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Image from "next/image";
 import { AlertCircle, Check, XCircle } from "lucide-react";
 import type { Prisma } from "@prisma/client";
@@ -6,13 +7,17 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { formatDateTime, orderStatusBadgeClass, statusStepIndex } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
+import { emailsMatch } from "@/lib/order-tracking";
+import { rateLimit } from "@/lib/rate-limit";
+import { trackOrderSchema } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Track Your Order",
-  description: "Enter your HomeNest order number to see live status and shipment history.",
+  description:
+    "Enter your HomeNest order number and the email you used at checkout to see live status and shipment history.",
 };
 
 type OrderWithDetails = Prisma.OrderGetPayload<{
@@ -72,24 +77,46 @@ function eventForStatus(events: OrderWithDetails["events"], status: string) {
 export default async function TrackOrderPage({
   searchParams,
 }: {
-  searchParams: Promise<{ number?: string }>;
+  searchParams: Promise<{ number?: string; email?: string }>;
 }) {
-  const { number: numberParam } = await searchParams;
-  const raw = numberParam?.trim() ?? "";
-  const number = raw.toUpperCase();
-  const order = number
-    ? await db.order.findUnique({
-        where: { number },
+  const params = await searchParams;
+  const rawNumber = params.number?.trim() ?? "";
+  const rawEmail = params.email?.trim() ?? "";
+
+  // A GET form can carry anything — validate through the shared schema.
+  const parsed = trackOrderSchema.safeParse({ number: rawNumber, email: rawEmail });
+  const submitted = parsed.success ? parsed.data : null;
+
+  let order: OrderWithDetails | null = null;
+  if (submitted) {
+    // Order numbers are sequential and printed on every receipt — the email
+    // match is the access control. Lookups are rate-limited (per client) so
+    // iterating number/email pairs is impractical.
+    const h = await headers();
+    const clientIp = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "direct";
+    const limit = rateLimit(`track-order:${clientIp}`, 30, 60_000);
+    if (limit.ok) {
+      const found = await db.order.findUnique({
+        where: { number: submitted.number },
         include: { items: true, events: { orderBy: { createdAt: "asc" } } },
-      })
-    : null;
+      });
+      if (found && emailsMatch(found.email, submitted.email)) {
+        order = found;
+      }
+    }
+  }
+
+  // "wrong email", "missing email" and "unknown number" are deliberately
+  // indistinguishable — probing for valid order numbers gains no information.
+  const notFound = rawNumber.length > 0 && !order;
 
   return (
     <div className="container-page flex justify-center py-12">
       <div className="w-full max-w-2xl rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-10">
         <h1 className="font-display text-3xl font-bold">Track Your Order</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Enter the order number from your confirmation email to see live status and shipment history.
+          Enter the order number from your confirmation page plus the email you used at checkout to see live status
+          and shipment history.
         </p>
 
         <form action="/track-order" method="get" className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -99,9 +126,23 @@ export default async function TrackOrderPage({
           <input
             id="order-number"
             name="number"
-            defaultValue={raw}
+            defaultValue={rawNumber}
             placeholder="ORD-2026-001"
             autoComplete="off"
+            required
+            className="h-11 flex-1 rounded-lg border border-input bg-card px-4 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:border-primary"
+          />
+          <label htmlFor="order-email" className="sr-only">
+            Email used at checkout
+          </label>
+          <input
+            id="order-email"
+            name="email"
+            type="email"
+            defaultValue={rawEmail}
+            placeholder="Email used at checkout"
+            autoComplete="email"
+            required
             className="h-11 flex-1 rounded-lg border border-input bg-card px-4 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:border-primary"
           />
           <button
@@ -112,13 +153,13 @@ export default async function TrackOrderPage({
           </button>
         </form>
 
-        {number && !order && (
+        {notFound && (
           <div
             role="alert"
             className="mt-8 flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
           >
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
-            <p>We couldn&apos;t find an order with that number. Please check and try again.</p>
+            <p>We couldn&apos;t find an order matching that number and email. Please check both and try again.</p>
           </div>
         )}
 

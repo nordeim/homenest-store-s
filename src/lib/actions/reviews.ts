@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 import { firstError, reviewSchema } from "@/lib/validation";
 
 export type ReviewActionResult = { ok: true } | { ok: false; error: string };
@@ -22,7 +23,15 @@ export async function submitReviewAction(
 ): Promise<ReviewActionResult> {
   const parsed = reviewSchema.safeParse({ productId, rating, title, comment, author });
   if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+
   const { productId: pid, rating: safeRating, title: safeTitle, comment: safeComment, author: safeAuthor } = parsed.data;
+
+  // Guest-reachable write — keep the spam budget tight but human-friendly
+  // (per author-name per product per minute).
+  const limit = rateLimit(`review:${safeAuthor.toLowerCase()}:${pid}`, 5, 60_000);
+  if (!limit.ok) {
+    return { ok: false, error: "Too many reviews submitted. Please try again shortly." };
+  }
 
   try {
     const product = await db.product.findUnique({

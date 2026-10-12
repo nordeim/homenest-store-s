@@ -242,7 +242,12 @@ export default async function OrderSuccessPage({
 
       <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
         <Button asChild className="h-11 px-7">
-          <Link href={`/track-order?number=${encodeURIComponent(order.number)}`}>Track Order</Link>
+          {/* Prefill both tracking fields — the buyer just paid with this email. */}
+          <Link
+            href={`/track-order?number=${encodeURIComponent(order.number)}&email=${encodeURIComponent(order.email)}`}
+          >
+            Track Order
+          </Link>
         </Button>
         <Button variant="outline" asChild className="h-11 px-7">
           <Link href="/products">Continue Shopping</Link>

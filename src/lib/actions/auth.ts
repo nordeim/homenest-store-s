@@ -1,11 +1,13 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { createSession, destroySession, getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { scryptHash, scryptVerify } from "@/lib/password";
+import { rateLimit } from "@/lib/rate-limit";
 import { firstError, loginSchema, profileSchema, registerSchema } from "@/lib/validation";
 
 /**
@@ -17,6 +19,29 @@ import { firstError, loginSchema, profileSchema, registerSchema } from "@/lib/va
  */
 export type AuthFormState = { error: string | null };
 
+/** Uniform message for every credential failure — never reveals whether the account exists. */
+const INVALID_CREDENTIALS = "Invalid email or password.";
+
+/**
+ * Burn target for unknown accounts: verifying the submitted password against
+ * a real scrypt hash keeps the response time of "unknown email" and "wrong
+ * password" indistinguishable (anti-enumeration, anti-timing).
+ */
+let dummyHash: string | null = null;
+function burnDummyScrypt(password: string): void {
+  dummyHash ??= scryptHash("dummy-password-for-unknown-accounts");
+  scryptVerify(password, dummyHash);
+}
+
+/** Opportunistically purge expired sessions (no cron in the standalone deploy). */
+async function purgeExpiredSessions(): Promise<void> {
+  try {
+    await db.session.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+  } catch {
+    // Housekeeping only — never block a login on the purge.
+  }
+}
+
 /** Verify credentials, start a session, land on /account (or /admin). */
 export async function loginAction(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const parsed = loginSchema.safeParse({
@@ -25,13 +50,21 @@ export async function loginAction(_prev: AuthFormState, formData: FormData): Pro
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
 
+  const limit = rateLimit(`login:${parsed.data.email}`, 10, 60_000);
+  if (!limit.ok) {
+    return { error: `Too many sign-in attempts. Please try again in ${limit.retryAfterSec}s.` };
+  }
+
   const user = await db.user.findUnique({ where: { email: parsed.data.email } });
   if (!user || !user.passwordHash) {
-    return { error: "No account found with this email." };
+    burnDummyScrypt(parsed.data.password);
+    return { error: INVALID_CREDENTIALS };
   }
   if (!scryptVerify(parsed.data.password, user.passwordHash)) {
-    return { error: "Incorrect password. Please try again." };
+    return { error: INVALID_CREDENTIALS };
   }
+
+  void purgeExpiredSessions();
   await createSession(user.id);
   revalidatePath("/", "layout");
   redirect(user.role === "admin" ? "/admin" : "/account");
@@ -46,22 +79,31 @@ export async function registerAction(_prev: AuthFormState, formData: FormData): 
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
 
-  const existing = await db.user.findUnique({ where: { email: parsed.data.email } });
-  if (existing) {
-    return { error: "An account with this email already exists." };
+  const limit = rateLimit(`register:${parsed.data.email}`, 5, 60_000);
+  if (!limit.ok) {
+    return { error: `Too many registration attempts. Please try again in ${limit.retryAfterSec}s.` };
   }
 
-  const user = await db.user.create({
-    data: {
-      name: parsed.data.name,
-      email: parsed.data.email,
-      passwordHash: scryptHash(parsed.data.password),
-      role: "customer",
-    },
-  });
-  await createSession(user.id);
-  revalidatePath("/", "layout");
-  redirect("/account");
+  try {
+    const user = await db.user.create({
+      data: {
+        name: parsed.data.name,
+        email: parsed.data.email,
+        passwordHash: scryptHash(parsed.data.password),
+        role: "customer",
+      },
+    });
+    await createSession(user.id);
+    revalidatePath("/", "layout");
+    redirect("/account");
+  } catch (error) {
+    // The pre-check + create races under concurrent registrations — map the
+    // unique-constraint violation to the friendly message instead of a 500.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { error: "An account with this email already exists." };
+    }
+    throw error;
+  }
 }
 
 export async function logoutAction(): Promise<void> {

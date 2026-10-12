@@ -51,6 +51,12 @@ The proxy stamps a **per-request nonce** CSP on every response; Next applies the
 - **Admin surface is role-gated server-side**: layouts/actions check `getCurrentUser().role === "admin"`; client checks are UX only, never the gate.
 - **Toast context wraps children** in the root layout (`<Toaster>{children}</Toaster>`) — it must be an ancestor of every page, not a sibling.
 - Mobile menu contract: push-down panel (reference-matched), conditionally mounted, never `hidden`-toggled; green circular close button; active link = `bg-primary` pill.
+- **Order tracking is access-controlled**: `/track-order` requires the order number **plus the purchase email** (`trackOrderSchema` + `emailsMatch` in `src/lib/order-tracking.ts`); wrong-email/missing-email/unknown-number render the same alert. Pinned by the shopping-flow e2e spec. Never loosen this back to number-only.
+- **`AUTH_SECRET` is enforced in production**: `assertAuthSecret` (`src/lib/auth-secret.ts`) throws at module load when `NODE_ENV=production` and the secret is missing or equals the dev constant. The build copies `.env` into `standalone/` — env changes need a rebuild.
+- **Rate limiting**: in-memory fixed-window limiter (`src/lib/rate-limit.ts`) guards login/register/reviews/contact/newsletter/coupon/checkout/tracking. Keys are per-email or per-`x-forwarded-for` IP; limits are generous (humans and e2e pass). Swap internals for a shared store if you scale out.
+- **Stock is reserved atomically**: checkout decrements via conditional `updateMany({ where: { id, stock: { gte: qty } } })` and rolls back on `count === 0` — never reintroduce check-then-decrement.
+- **Zero-quantity cart lines cannot exist**: the cart PATCH deletes a line whose clamped quantity is 0 (`clampPurchaseQuantity`); checkout 409s on `quantity <= 0` lines as a backstop.
+- **Uniform auth errors**: login failures return exactly "Invalid email or password." (with a dummy scrypt burn for unknown accounts) — do not "helpfully" distinguish unknown-email from wrong-password.
 
 ## Demo accounts (seeded by `npm run db:seed`)
 
@@ -63,5 +69,6 @@ The proxy stamps a **per-request nonce** CSP on every response; Next applies the
 
 - Git: `main` only, Conventional Commits, atomic commits, never commit secrets (`.gitignore` rejects `.env`, `*.key`, `ssh-key.txt`, `db/*.db`).
 - Pushes use `docs/ssh_git_wrapper_v3.py` — see `docs/how-to-git-push-using-ssh-wrapper_SKILL.md`. The verification gate above is the only gate; it must be green first.
+- `homenest-store-s_SKILL.md` is the full engineering reference (20 sections + trap logs + playbooks); `docs/REMEDIATION_PLAN.md` records the session-2 security audit and its fixes; `scripts/capture-screenshots.mjs` regenerates `docs/screenshots/`.
 - E2E ordering: `npm run build` before `npm run test:e2e` (the suite starts the standalone server). Tests wait for hydration via `gotoHydrated()` (`tests/e2e/helpers.ts`) — keep using it for any new spec; clicks before hydration fall back to native form GET.
 - When a test fails, reproduce against the standalone server before touching code — the suite caught three real production bugs (Toaster nesting, CSP nonce hydration, toast/action races) exactly this way.

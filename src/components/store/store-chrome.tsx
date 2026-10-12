@@ -62,6 +62,9 @@ function CartDrawer() {
   const { cartDrawerOpen, setCartDrawerOpen, setCartCount } = useStore();
   const [lines, setLines] = React.useState<DrawerLine[] | null>(null);
   const loading = lines === null;
+  // Per-line pending lock — rapid +/- clicks can't race each other or the
+  // cart-summary refresh (mirrors cart-lines.tsx on the cart page).
+  const [pendingId, setPendingId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!cartDrawerOpen) return;
@@ -85,13 +88,9 @@ function CartDrawer() {
   const subtotal = resolvedLines.reduce((sum, l) => sum + l.lineTotal, 0);
 
   async function updateQty(lineId: string, quantity: number) {
-    const res = await fetch("/api/cart", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lineId, quantity }),
-    });
-    const data = (await res.json()) as { itemCount?: number };
-    if (typeof data.itemCount === "number") setCartCount(data.itemCount);
+    if (pendingId !== null) return; // one in-flight mutation per drawer
+    const prev = lines;
+    // Optimistic mirror of the server's own math (unitPrice × qty).
     setLines(
       (prev) =>
         (prev ?? []).map((l) =>
@@ -102,6 +101,22 @@ function CartDrawer() {
             : l,
         ).filter((l): l is DrawerLine => l !== null),
     );
+    setPendingId(lineId);
+    try {
+      const res = await fetch("/api/cart", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lineId, quantity }),
+      });
+      const data = (await res.json()) as { itemCount?: number; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Could not update your cart.");
+      if (typeof data.itemCount === "number") setCartCount(data.itemCount);
+    } catch {
+      // Roll back to the pre-click state; the drawer re-syncs on next open.
+      setLines(prev);
+    } finally {
+      setPendingId(null);
+    }
   }
 
   return (
@@ -160,8 +175,9 @@ function CartDrawer() {
                       <button
                         type="button"
                         onClick={() => updateQty(line.id, 0)}
+                        disabled={pendingId === line.id}
                         aria-label={`Remove ${line.name}`}
-                        className="text-muted-foreground transition-colors hover:text-destructive"
+                        className="text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -172,8 +188,9 @@ function CartDrawer() {
                         <button
                           type="button"
                           onClick={() => updateQty(line.id, Math.max(0, line.quantity - 1))}
+                          disabled={pendingId === line.id}
                           aria-label="Decrease quantity"
-                          className="h-8 w-8 text-sm"
+                          className="h-8 w-8 text-sm disabled:opacity-50"
                         >
                           −
                         </button>
@@ -181,8 +198,9 @@ function CartDrawer() {
                         <button
                           type="button"
                           onClick={() => updateQty(line.id, line.quantity + 1)}
+                          disabled={pendingId === line.id}
                           aria-label="Increase quantity"
-                          className="h-8 w-8 text-sm"
+                          className="h-8 w-8 text-sm disabled:opacity-50"
                         >
                           +
                         </button>

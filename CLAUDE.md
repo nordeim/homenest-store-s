@@ -20,7 +20,7 @@ Every change must preserve two properties:
 1. **Server-first.** React Server Components by default; `"use client"` only for interactive islands (drawers, steppers, forms with live state). Data fetching happens in Server Components via Prisma directly — no client-side data fetching for initial renders.
 2. **The server owns the money.** All monetary math is integer cents and re-derived server-side (`computeOrderMoney`) at the only place that matters: `/api/checkout`. Client-side totals are cosmetic mirrors. Never trust prices, discounts, or shipping from the client.
 3. **Zod at every boundary.** Every FormData body and JSON payload passes through `src/lib/validation.ts` before touching Prisma. SQLite has no enums — string vocabularies (order status, roles, payment methods) are validated there and nowhere else.
-4. **Progressive enhancement for auth forms.** Login/register use `useActionState` + server actions so they degrade to native POSTs; errors render inline from action state; redirects happen inside the action.
+4. **Progressive enhancement for auth forms.** Login/register use `useActionState` + server actions so they degrade to native POSTs; errors render inline from action state; redirects happen inside the action. Credential failures are uniformly "Invalid email or password." — never distinguish unknown-email from wrong-password, and the rate limiter (`src/lib/rate-limit.ts`) stays wired into every unauthenticated write.
 5. **Evidence over assertion.** A change is done when `lint && typecheck && test && build` is green and affected e2e specs pass — not when it looks right.
 
 ## Implementation Standards
@@ -75,7 +75,7 @@ Every change must preserve two properties:
 
 ## Testing Strategy
 
-- **Unit (Vitest, node env)**: `tests/unit/*.test.ts` — money, db-path contract, coupons, password hashing, validation schemas, product projection, order money math, CSP builder, formatting. Run: `npm run test`. New pure logic gets a unit test (red → green).
+- **Unit (Vitest, node env)**: `tests/unit/*.test.ts` — money, db-path contract, coupons, password hashing, validation schemas, product projection, order money math, CSP builder, formatting, rate limiter, auth-secret gate, tracking access, cart quantity clamp. Run: `npm run test`. New pure logic gets a unit test (red → green).
 - **E2E (Playwright)**: `tests/e2e/*.spec.ts` — `mobile-navigation` (the Tailwind v4 regression guard, iPhone-13 emulation on Chromium), `storefront`, `shopping-flow` (guest checkout places a real order), `auth`, `admin`. Run: `npm run build && npm run test:e2e` (the config starts the standalone server on :3100 itself; it reuses an existing healthy server).
 - **E2E conventions**: always `gotoHydrated(page, url)` before interacting (hydration race = native GET fallback); assert async cart effects via the `data-testid="cart-count"` badge before navigating; off-canvas drawers assert `not.toBeInViewport()` + `pointer-events-none`, not `toBeHidden()`.
 - Bug fixes require a regression test that fails before the fix. The three production bugs this suite caught (Toaster nesting, CSP hydration, cart-badge races) each have a pinned test.

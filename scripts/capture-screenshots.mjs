@@ -1,0 +1,144 @@
+/**
+ * Capture the documentation screenshots into docs/screenshots/.
+ *
+ * Usage: node scripts/capture-screenshots.mjs [baseUrl]
+ * Default baseUrl: http://localhost:3000 (a running production or dev server).
+ *
+ * Desktop shots at 1440x900, mobile shots at 390x844. Admin + account shots
+ * sign in with the seeded demo credentials (NEXT_PUBLIC_DEMO_MODE must not be
+ * "false" on the target server).
+ */
+import { chromium, devices } from "@playwright/test";
+import { mkdirSync } from "node:fs";
+
+const BASE = process.argv[2] ?? "http://localhost:3000";
+const OUT = new URL("../docs/screenshots/", import.meta.url).pathname;
+
+mkdirSync(OUT, { recursive: true });
+
+const desktop = { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } };
+const mobile = { ...devices["iPhone 13"], browserName: "chromium" };
+
+async function shoot(browser, device, name, mode, fn) {
+  const context = await browser.newContext({ ...device, baseURL: BASE });
+  const page = await context.newPage();
+  try {
+    await fn(page, context);
+    await page.screenshot({ path: `${OUT}${name}.png`, fullPage: mode === "full" });
+    console.log(`✓ ${name}`);
+  } catch (error) {
+    console.error(`✗ ${name}: ${error.message}`);
+  } finally {
+    await context.close();
+  }
+}
+
+async function login(page, email, password) {
+  await page.goto("/login");
+  await page.waitForSelector('html[data-hydrated="true"]');
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL(/\/(admin|account)/, { timeout: 15_000 });
+}
+
+const browser = await chromium.launch();
+
+// ---------- Public desktop pages ----------
+await shoot(browser, desktop, "01-home", "full", async (page) => {
+  await page.goto("/");
+  await page.waitForSelector('html[data-hydrated="true"]');
+});
+await shoot(browser, desktop, "02-products", "full", async (page) => {
+  await page.goto("/products");
+  await page.waitForSelector('html[data-hydrated="true"]');
+});
+await shoot(browser, desktop, "03-product-detail", "full", async (page) => {
+  await page.goto("/products");
+  await page.waitForSelector('html[data-hydrated="true"]');
+  await page.locator("article a").first().click();
+  await page.waitForLoadState("networkidle");
+});
+await shoot(browser, desktop, "04-cart", "full", async (page) => {
+  await page.goto("/products");
+  await page.waitForSelector('html[data-hydrated="true"]');
+  await page.locator("article").first().getByRole("button", { name: "Add to Cart" }).click();
+  await page.goto("/cart");
+  await page.waitForLoadState("networkidle");
+});
+await shoot(browser, desktop, "05-login", "viewport", async (page) => {
+  await page.goto("/login");
+  await page.waitForSelector('html[data-hydrated="true"]');
+});
+await shoot(browser, desktop, "06-track-order", "full", async (page) => {
+  // The protected tracking page (number + email contract).
+  await page.goto("/track-order?number=ORD-2026-001&email=demo%40homenestkitchen.com");
+  await page.waitForLoadState("networkidle");
+});
+await shoot(browser, desktop, "07-about", "full", async (page) => {
+  await page.goto("/about");
+  await page.waitForLoadState("networkidle");
+});
+await shoot(browser, desktop, "08-contact", "full", async (page) => {
+  await page.goto("/contact");
+  await page.waitForSelector('html[data-hydrated="true"]');
+});
+await shoot(browser, desktop, "09-legal", "full", async (page) => {
+  await page.goto("/legal/privacy-policy");
+  await page.waitForLoadState("networkidle");
+});
+await shoot(browser, desktop, "10-register", "viewport", async (page) => {
+  await page.goto("/register");
+  await page.waitForSelector('html[data-hydrated="true"]');
+});
+await shoot(browser, desktop, "11-checkout", "full", async (page) => {
+  await page.goto("/products");
+  await page.waitForSelector('html[data-hydrated="true"]');
+  await page.locator("article").first().getByRole("button", { name: "Add to Cart" }).click();
+  await page.goto("/checkout");
+  await page.waitForLoadState("networkidle");
+});
+
+// ---------- Authenticated desktop pages ----------
+await shoot(browser, desktop, "19-account", "full", async (page) => {
+  await login(page, "demo@homenestkitchen.com", "Demo1234!");
+  await page.waitForLoadState("networkidle");
+});
+await shoot(browser, desktop, "12-admin-dashboard", "full", async (page) => {
+  await login(page, "admin@homenestkitchen.com", "Admin123!");
+  await page.waitForLoadState("networkidle");
+});
+for (const [name, path] of [
+  ["13-admin-products", "/admin/products"],
+  ["14-admin-orders", "/admin/orders"],
+  ["15-admin-categories", "/admin/categories"],
+  ["16-admin-carousel", "/admin/carousel"],
+  ["17-admin-analytics", "/admin/analytics"],
+  ["18-admin-settings", "/admin/settings"],
+]) {
+  await shoot(browser, desktop, name, "full", async (page) => {
+    await login(page, "admin@homenestkitchen.com", "Admin123!");
+    await page.goto(path);
+    await page.waitForLoadState("networkidle");
+  });
+}
+
+// ---------- Mobile ----------
+await shoot(browser, mobile, "20-mobile-home", "viewport", async (page) => {
+  await page.goto("/");
+  await page.waitForSelector('html[data-hydrated="true"]');
+});
+await shoot(browser, mobile, "21-mobile-menu-open", "viewport", async (page) => {
+  await page.goto("/");
+  await page.waitForSelector('html[data-hydrated="true"]');
+  await page.getByTestId("mobile-menu-button").click();
+  await page.getByTestId("mobile-menu").waitFor();
+});
+await shoot(browser, mobile, "22-tracking-locked", "viewport", async (page) => {
+  // The anti-enumeration contract, visually: a number without its email.
+  await page.goto("/track-order?number=ORD-2026-001");
+  await page.waitForLoadState("networkidle");
+});
+
+await browser.close();
+console.log(`\nScreenshots written to ${OUT}`);

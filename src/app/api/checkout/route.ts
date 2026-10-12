@@ -6,6 +6,7 @@ import { findCartId, getCartSummary, type CartLine } from "@/lib/cart";
 import { applyCouponCode } from "@/lib/coupons";
 import { db } from "@/lib/db";
 import { computeOrderMoney } from "@/lib/order-money";
+import { rateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import { checkoutSchema, firstError } from "@/lib/validation";
 
@@ -68,7 +69,13 @@ type PlaceOrderArgs = {
  */
 export async function POST(request: NextRequest) {
   try {
-    const body: unknown = await request.json();
+    // Malformed payloads are a client error (400), not a 500.
+    let body: unknown = null;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    }
     const parsed = checkoutBodySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: firstError(parsed.error) }, { status: 400 });
@@ -79,12 +86,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Card details are required for card payment." }, { status: 400 });
     }
 
+    // Per-client budget (x-forwarded-for when behind a proxy, shared bucket
+    // for direct connections). Generous: blocks scripted spam, not shoppers.
+    const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "direct";
+    const limit = rateLimit(`checkout:${clientIp}`, 20, 60_000);
+    if (!limit.ok) {
+      return NextResponse.json(
+        { error: "Too many checkout attempts. Please try again shortly." },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSec ?? 60) } },
+      );
+    }
+
     const settings = await getSettings();
     const user = await getCurrentUser();
     const cartId = await findCartId(user?.id ?? null);
     const summary = await getCartSummary(cartId);
     if (!cartId || summary.lines.length === 0) {
       return NextResponse.json({ error: "Your cart is empty." }, { status: 409 });
+    }
+
+    // Defensive: a quantity-0 line must never become an order item (it would
+    // be a $0 line that still accrues shipping/tax). The cart PATCH deletes
+    // such lines — this guard backstops stale summaries and races.
+    if (summary.lines.some((line) => line.quantity <= 0)) {
+      return NextResponse.json(
+        { error: "Your cart needs attention — please update item quantities and try again." },
+        { status: 409 },
+      );
     }
 
     // ---- Re-derive ALL money server-side (the tested seam) ----
@@ -182,7 +210,9 @@ async function placeOrderTx(orderNumber: string, args: PlaceOrderArgs): Promise<
   // NOTE: cookies() can never be touched inside this transaction — the cart
   // ROW is intentionally left in place (harmless); only its items are cleared.
   return db.$transaction(async (tx) => {
-    // Fresh stock validation inside the transaction (no races).
+    // Stock reservation via CONDITIONAL atomic decrements — the guard lives in
+    // the UPDATE itself (`WHERE stock >= qty`), so two concurrent transactions
+    // can never both pass a check-then-decrement validation (oversell race).
     const orderItems: OrderItemCreate[] = [];
     for (const line of args.lines) {
       const product = await tx.product.findUnique({ where: { id: line.productId } });
@@ -225,11 +255,16 @@ async function placeOrderTx(orderNumber: string, args: PlaceOrderArgs): Promise<
       },
     });
 
+    // Atomic guard: if the stock moved below `quantity` between the read and
+    // this write, `count === 0` and the whole transaction rolls back.
     for (const item of orderItems) {
-      await tx.product.update({
-        where: { id: item.productId },
+      const reserved = await tx.product.updateMany({
+        where: { id: item.productId, stock: { gte: item.quantity } },
         data: { stock: { decrement: item.quantity } },
       });
+      if (reserved.count === 0) {
+        throw new CheckoutError(409, `Stock just ran out for "${item.nameSnapshot}" — please update your cart.`);
+      }
     }
 
     // Clear the cart's items (the cart row itself stays — cookies can't be

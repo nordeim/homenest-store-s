@@ -22,14 +22,17 @@ export default async function HomePage() {
   const [slides, categories, featured, newArrivals] = await Promise.all([
     db.carouselSlide.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
     db.category.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
+    // take: 8 — the home page renders 8 tiles per grid; don't read the world.
     db.product.findMany({
       where: { isActive: true, isFeatured: true },
       orderBy: { createdAt: "asc" },
+      take: 8,
       include: { category: { select: { name: true, slug: true } } },
     }),
     db.product.findMany({
       where: { isActive: true, isNewArrival: true },
       orderBy: { createdAt: "desc" },
+      take: 8,
       include: { category: { select: { name: true, slug: true } } },
     }),
   ]);

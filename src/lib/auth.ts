@@ -8,6 +8,11 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { db } from "./db";
+import { assertAuthSecret } from "./auth-secret";
+
+// Production gate: refuse to sign session cookies with the dev fallback.
+// Must run before any signing happens (module load) — see auth-secret.ts.
+assertAuthSecret({ NODE_ENV: process.env.NODE_ENV, AUTH_SECRET: process.env.AUTH_SECRET });
 
 export const SESSION_COOKIE = "homenest_session";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days

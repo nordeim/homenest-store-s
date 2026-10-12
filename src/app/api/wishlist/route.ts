@@ -1,17 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getOrCreateWishlist } from "@/lib/wishlist";
 
+const wishlistToggleSchema = z.object({
+  productId: z.string().min(1),
+});
+
 /** POST /api/wishlist — toggle a product in the caller's wishlist. */
 export async function POST(request: NextRequest) {
   try {
-    const body: unknown = await request.json();
-    const productId = typeof (body as { productId?: unknown })?.productId === "string" ? (body as { productId: string }).productId : null;
-    if (!productId) {
+    let body: unknown = null;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    }
+    const parsed = wishlistToggleSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json({ error: "Missing productId." }, { status: 400 });
     }
+    const { productId } = parsed.data;
+
     const product = await db.product.findUnique({ where: { id: productId }, select: { id: true, isActive: true } });
     if (!product || !product.isActive) {
       return NextResponse.json({ error: "Product not found." }, { status: 404 });

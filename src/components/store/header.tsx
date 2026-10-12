@@ -30,7 +30,7 @@ export function Header({
   user: { name: string; role: string } | null;
   cartCount: number;
 }) {
-  const { setMobileNavOpen, cartDrawerOpen, setCartDrawerOpen } = useStore();
+  const { setMobileNavOpen, mobileNavOpen, cartDrawerOpen, setCartDrawerOpen } = useStore();
   const pathname = usePathname();
 
   const isActive = (href: string) =>
@@ -43,8 +43,8 @@ export function Header({
         <button
           type="button"
           className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-secondary lg:hidden"
-          aria-label="Open menu"
-          aria-expanded={false}
+          aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileNavOpen}
           aria-haspopup="dialog"
           data-testid="mobile-menu-button"
           onClick={() => setMobileNavOpen(true)}

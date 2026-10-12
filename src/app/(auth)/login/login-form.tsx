@@ -23,6 +23,13 @@ const DEMO_ACCOUNTS = [
 ] as const;
 
 /**
+ * Demo quick-fill is a reference-parity feature for evaluation builds. Deploy
+ * with NEXT_PUBLIC_DEMO_MODE="false" to hide the credentials box in a real
+ * store (see .env.example).
+ */
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE !== "false";
+
+/**
  * Sign-in form — `useActionState` + the server action: works without JS
  * (native POST fallback), pending is framework-owned (no hydration race),
  * failures render inline, and success redirects inside the action.
@@ -96,24 +103,24 @@ export function LoginForm() {
       </form>
 
       {/* Demo accounts helper — mirrors the reference SPA's quick-fill box */}
-      <div className="mt-5 rounded-xl border border-border bg-secondary/60 p-3.5">
-        <p className="text-xs font-semibold text-secondary-foreground">Demo accounts</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Explore the store with a pre-seeded account.
-        </p>
-        <div className="mt-2.5 flex flex-wrap gap-2">
-          {DEMO_ACCOUNTS.map((demo) => (
-            <button
-              key={demo.email}
-              type="button"
-              onClick={() => fillDemoAccount(demo)}
-              className="rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-accent"
-            >
-              Use {demo.label}
-            </button>
-          ))}
+      {DEMO_MODE && (
+        <div className="mt-5 rounded-xl border border-border bg-secondary/60 p-3.5">
+          <p className="text-xs font-semibold text-secondary-foreground">Demo accounts</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Explore the store with a pre-seeded account.</p>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {DEMO_ACCOUNTS.map((demo) => (
+              <button
+                key={demo.email}
+                type="button"
+                onClick={() => fillDemoAccount(demo)}
+                className="rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-accent"
+              >
+                Use {demo.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="mt-6 flex items-center gap-3" aria-hidden>
         <span className="h-px flex-1 bg-border" />
