@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Don't advertise the framework version (session-5 S5-5) — one less signal
+  // for opportunistic scanners.
+  poweredByHeader: false,
   // Hide the floating dev-tools indicator — dev-only chrome that pollutes
   // UI screenshots. No effect on production builds.
   devIndicators: false,
@@ -29,8 +32,12 @@ const nextConfig: NextConfig = {
         headers: [
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Strict-Transport-Security", value: "max-age=31536000" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
           { key: "X-Frame-Options", value: "DENY" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), payment=()",
+          },
         ],
       },
     ];

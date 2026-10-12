@@ -82,6 +82,12 @@ export async function POST(request: NextRequest) {
 /** PATCH /api/cart — set a line's quantity. */
 export async function PATCH(request: NextRequest) {
   try {
+    // Same metering as POST — the mutation surface is symmetric (session-5 S5-8).
+    const ipLimit = rateLimit(`cart:${clientIp(request.headers.get("x-forwarded-for"))}`, 60, 60_000);
+    if (!ipLimit.ok) {
+      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+    }
+
     const body = await parseJsonBody(request);
     if (body === null) return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
     const parsed = z
@@ -128,6 +134,11 @@ export async function PATCH(request: NextRequest) {
 /** DELETE /api/cart?line=<id> — remove a line. ?all=1 empties the cart. */
 export async function DELETE(request: NextRequest) {
   try {
+    const ipLimit = rateLimit(`cart:${clientIp(request.headers.get("x-forwarded-for"))}`, 60, 60_000);
+    if (!ipLimit.ok) {
+      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+    }
+
     const params = request.nextUrl.searchParams;
     const user = await getCurrentUser();
     const cartId = await findCartId(user?.id ?? null);

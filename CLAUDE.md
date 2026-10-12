@@ -33,7 +33,7 @@ Every change must preserve two properties:
 - `src/app/(storefront)/admin/` — role-gated back office
 - `src/app/api/` — REST route handlers (cart, wishlist, checkout, coupon/apply, cart-summary, addresses, contact, newsletter, search, health)
 - `src/components/store/` — storefront UI; `src/components/ui/` — shadcn-style primitives; `src/components/admin/` — reserved for admin-only shared components
-- `src/lib/` — db, auth, cart, wishlist, money, coupons, order-money, settings, products, validation, csp, db-path, format
+- `src/lib/` — db, auth, cart, cart-merge, wishlist, money, coupons, order-money, settings, products, seo (JSON-LD builders), validation, csp, db-path, format
 - `src/lib/actions/` — Server Actions (auth, admin, reviews)
 - `prisma/` — schema.prisma + seed.ts; `tests/unit/` — Vitest; `tests/e2e/` — Playwright; `db/` — SQLite file (git-ignored)
 
@@ -54,9 +54,10 @@ Every change must preserve two properties:
 - Server Actions return `{ ok: true } | { ok: false, error }` (or `AuthFormState` for useActionState forms) and `revalidatePath` the pages they mutate. Order status changes run through the workflow rules in `src/lib/order-status.ts` (cancelled/delivered are terminal; cancel restocks).
 
 ### Next.js Specifics
-- App Router with route groups; `generateMetadata` on public pages; `robots.ts` + `sitemap.ts` at the root.
-- `next/image` everywhere; images are self-hosted under `public/images/` (optimization disabled in `next.config.ts` so the standalone server needs no sharp).
+- App Router with route groups; `generateMetadata` on public pages; `robots.ts` + `sitemap.ts` at the root. JSON-LD structured data comes ONLY from `src/lib/seo.ts` builders (Product on detail pages; Organization + WebSite in the storefront layout) — data blocks, not scripts, so CSP nonces don't apply.
+- `next/image` everywhere; images are self-hosted under `public/images/` (optimization disabled in `next.config.ts` so the standalone server needs no sharp). Product image URLs are scheme-validated (`imageUrlSchema`) — external hosts need a CSP widening decision first.
 - Output is `standalone`; `npm run build` copies `.next/static` and `public` into the standalone folder; `npm run start` runs `node .next/standalone/server.js`.
+- Branded error boundaries ship: `(storefront)/error.tsx` + `global-error.tsx`; `poweredByHeader: false`; HSTS includes subdomains; `Permissions-Policy` disables camera/mic/geo/payment. App icon (`src/app/icon.svg`) + web manifest (`src/app/manifest.ts`) — keep `tests/e2e/seo-platform.spec.ts` green.
 
 ## Development Workflow
 
@@ -78,8 +79,8 @@ Every change must preserve two properties:
 
 ## Testing Strategy
 
-- **Unit (Vitest, node env)**: `tests/unit/*.test.ts` — money, db-path contract, coupons (math + lifecycle + the atomic redemption-cap filter), password hashing, validation schemas, product projection, order money math, CSP builder, formatting, rate limiter + `clientIp`, auth-secret gate, tracking access, cart quantity clamp, order-access tokens, order-status transitions, review-aggregate growth, sitemap/robots privacy. Run: `npm run test`. New pure logic gets a unit test (red → green). Tests + seed + configs are type-checked separately: `npm run typecheck:tests` (`tsconfig.tests.json`) — keep it green too.
-- **E2E (Playwright)**: `tests/e2e/*.spec.ts` — `mobile-navigation` (the Tailwind v4 regression guard, iPhone-13 emulation on Chromium), `storefront`, `shopping-flow` (guest checkout places a real order, pins the token-gated receipt + idempotent replay), `auth` (incl. the guest-cart merge at login), `admin` (incl. cancel-restocks-stock). Run: `npm run build && npm run test:e2e` (the config starts the standalone server on :3100 itself; it reuses an existing healthy server).
+- **Unit (Vitest, node env)**: `tests/unit/*.test.ts` — money, db-path contract, coupons (math + lifecycle + the atomic redemption-cap filter), password hashing, validation schemas (incl. image-url scheme), product projection, order money math, CSP builder, formatting, rate limiter + `clientIp`, auth-secret gate, tracking access, cart quantity clamp, cart-merge planner, order-access tokens, order-status transitions, review-aggregate growth, sitemap/robots privacy, SEO JSON-LD builders. Run: `npm run test`. New pure logic gets a unit test (red → green). Tests + seed + configs are type-checked separately: `npm run typecheck:tests` (`tsconfig.tests.json`) — keep it green too.
+- **E2E (Playwright)**: `tests/e2e/*.spec.ts` — `mobile-navigation` (the Tailwind v4 regression guard, iPhone-13 emulation on Chromium), `storefront`, `shopping-flow` (guest checkout places a real order, pins the token-gated receipt + idempotent replay + the no-email-promise copy), `auth` (incl. the guest-cart merge at login), `admin` (incl. cancel-restocks-stock), `seo-platform` (JSON-LD blocks, robots/sitemap, manifest/icon, security headers + no X-Powered-By). Run: `npm run build && npm run test:e2e` (the config starts the standalone server on :3100 itself; it reuses an existing healthy server).
 - **E2E conventions**: always `gotoHydrated(page, url)` before interacting (hydration race = native GET fallback); assert async cart effects via the `data-testid="cart-count"` badge before navigating; off-canvas drawers assert `not.toBeInViewport()` + `pointer-events-none`, not `toBeHidden()`.
 - Bug fixes require a regression test that fails before the fix. The three production bugs this suite caught (Toaster nesting, CSP hydration, cart-badge races) each have a pinned test.
 

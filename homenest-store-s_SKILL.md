@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.1.0
+version: 1.2.0
 last_updated: 2026-10-12
-project_state: "131 unit tests · 32 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-4)"
+project_state: "149 unit tests · 38 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-5)"
 tags:
   - nextjs16
   - react19
@@ -75,7 +75,8 @@ tiles, featured/new-arrival grids, product detail with gallery + specs +
 reviews, guest checkout with 3-step flow, order tracking timeline, About /
 Contact / legal pages), plus features the reference lacks (wishlist, coupons,
 order-status workflow with events, addresses book, full admin console,
-sitemap/robots/SEO, analytics).
+sitemap/robots/SEO with schema.org JSON-LD rich results, web manifest +
+branded error boundaries, analytics).
 
 **Design thesis.** Warm, editorial kitchenware aesthetic: cream paper
 background, terracotta-orange primary, serif display headings (Playfair via
@@ -324,8 +325,9 @@ attacker-chosen, and every attempt burns real scrypt CPU), `registerAction`
 (5/min/email plus 30/min/IP), `submitReviewAction` (5/min per
 **IP+product+author**), `/api/contact` (5/min/IP), `/api/newsletter`
 (5/min/IP), `/api/coupon/apply` (30/min/IP), `/api/checkout` (20/min/IP),
-`/track-order` lookups (30/min/IP), `/api/cart` POST + `/api/wishlist` POST
-(60/min/IP — guest-reachable row creation). Limits are deliberately generous
+`/track-order` lookups (30/min/IP), `/api/cart` POST + PATCH + DELETE and
+`/api/wishlist` POST (60/min/IP — guest-reachable writes), `/api/search`
+GET (120/min/IP — per-keystroke typeahead). Limits are deliberately generous
 so humans and the e2e suite are unaffected.
 
 ### 8.4 Order tracking access control (the HIGH-severity fix)
@@ -373,11 +375,22 @@ e2e (guess → locked shell + zero PII; 32-char token in the redirect URL).
 - **Login merges the guest cart + wishlist** (`mergeGuestCarts` in
   `src/lib/actions/auth.ts`): `getOrCreateCart`/`getOrCreateWishlist` run
   right after `createSession`, best-effort — without them a guest with a
-  full cart would see a stale cart after signing in.
+  full cart would see a stale cart after signing in. The cart merge itself
+  is planned by the pure `computeMergedQuantities` (`src/lib/cart-merge.ts`,
+  unit-pinned) and applied as **one transaction** with idempotent
+  final-quantity upserts — a retried merge can never double-count.
 - Cookies: `httpOnly`, `SameSite=Lax`, `secure` in production
   (`homenest_session`, `homenest_cart`, `homenest_wishlist` all aligned).
-- Output safety: zero `dangerouslySetInnerHTML`; carousel `ctaLink` accepts
-  only internal paths or `http(s)` URLs (`safeLinkSchema`).
+- Output safety: zero `dangerouslySetInnerHTML` except the two JSON-LD data
+  blocks (builder-owned, no user-authored HTML reaches them); carousel
+  `ctaLink` and product `images` accept only internal paths or `http(s)`
+  URLs (`safeLinkSchema` / `imageUrlSchema`) — the production CSP is
+  `img-src 'self' data:`, so anything else would silently never render.
+- Platform headers: `poweredByHeader: false` (no framework fingerprint),
+  HSTS with `includeSubDomains`, `Permissions-Policy` disabling
+  camera/microphone/geolocation/payment.
+- Error surfaces: `(storefront)/error.tsx` + `global-error.tsx` render the
+  branded error card — keep them dependency-free.
 
 ## 9. Anti-Patterns & Common Bugs
 
@@ -723,7 +736,7 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   the order transaction, order-status workflow + cancel-restock, login
   cart/wishlist merge, coupon lifecycle (`expiresAt`/`maxRedemptions`/
   `timesUsed`). 115 unit + 31 e2e green.
-- **Session 4 (this pass):** re-validation + fresh deep audit (0 HIGH /
+- **Session 4:** re-validation + fresh deep audit (0 HIGH /
   1 MEDIUM / 12 LOW + nits). Per-IP auth budgets (`clientIp()`), atomic
   coupon-cap increment (`couponRedemptionWhere`), transactional cart POST
   with the shared clamp, cart/wishlist POST limiters, six FK/hot-path
@@ -733,12 +746,30 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   a11y/nit bundle (drawer Escape + focus, carousel pause-on-hover/
   reduced-motion, header `aria-expanded`, cart-lines clamp mirror).
   131 unit + 32 e2e green.
+- **Session 5 (this pass):** re-validation (all session-4 gates green on the
+  pulled tree; visual parity + mobile nav re-verified against the LIVE
+  reference) + fresh deep audit (0 HIGH / 3 MEDIUM / 6 LOW / 4 NIT; CSRF
+  posture ADEQUATE). Executed TDD-first: **schema.org JSON-LD** (pure
+  builders in `src/lib/seo.ts` — Product blocks + canonicals on detail
+  pages, Organization + WebSite site-wide; `tests/unit/seo-ld.test.ts` +
+  the new `tests/e2e/seo-platform.spec.ts`), honest receipt copy (no email
+  is shipped — copy points at the receipt link + Track Order; pinned),
+  branded error boundaries (`(storefront)/error.tsx` + `global-error.tsx`),
+  `icon.svg` + `manifest.ts`, `poweredByHeader: false` + HSTS
+  `includeSubDomains` + `Permissions-Policy`, per-IP limiters on search GET
+  (120/min) + cart PATCH/DELETE (60/min), `imageUrlSchema` scheme rule on
+  product images, the **transactional cart merge** (pure
+  `computeMergedQuantities` planner + one `$transaction` with idempotent
+  final-quantity upserts), footer social links wired from settings, and
+  `bun.lock` untracked. 149 unit + 38 e2e green.
 - Known accepted risks (documented, deferred): analytics aggregation
   unbounded (fine at seeded volume); 404 shell prerendered without nonce
   (inert islands); cookie `secure` tied to NODE_ENV (behind-proxy
   deployments should revisit); shared-store rate limiter (mechanical swap,
   8 sites); admin coupon UI (enforcement complete, management stays
-  DB-level with create-only seeding); account/review pagination.
+  DB-level with create-only seeding); account/review pagination; real
+  email delivery (copy is honest; a mailer needs provider credentials +
+  bounce handling — an epic).
 
 ## Appendix C — Quick Reference Card
 

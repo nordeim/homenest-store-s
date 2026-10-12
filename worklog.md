@@ -108,3 +108,33 @@ Work Log:
 Stage Summary:
 - Codebase closes the last DoS-class limiter gap (per-IP auth budgets), makes the coupon cap race-free, aligns cart POST with the clamp contract, adds the FK/hot-path indexes, and fixes the review-count collapse — with the tests/seed/configs now inside the typecheck gate.
 - 131 unit + 32 e2e green; all docs aligned; deferred items re-documented with justification (analytics groupBy, 404 nonce, __Host- prefix, shared-store limiter, admin coupon UI, account/review pagination).
+
+---
+
+Task ID: 5 (session 5)
+Agent: audit + remediation agent (Super Z)
+Task: Re-validate session-4 deliverables, run a fresh deep audit (SEO/UX/error-surface focus), remediate the new findings TDD-first, refresh screenshots/docs/worklog, commit and push.
+
+Work Log:
+- Pulled 7769a01 + docs/session_4.md (repo at 1b3b312); re-ran every session-4 gate on the pulled tree: lint ✓, typecheck ✓, typecheck:tests ✓, 131/131 unit ✓, build ✓, 32/32 e2e ✓; env-shadowing convergence (hardlink, same inode) re-confirmed; .env contract intact.
+- Re-verified visual parity against the LIVE reference (logged in via agent-browser): desktop home, hero carousel, trust badges, category grid, featured products (identical names/counts/prices), footer structure — reference unchanged; mobile menu re-verified (open/navigate/close, expanded binding, push-down panel).
+- Fresh deep audit (Task 5-a read-only subagent + own verification): 0 HIGH / 3 MEDIUM (no JSON-LD anywhere; receipt copy promises an email that never ships; no error boundaries) / 6 LOW (no favicon/manifest, X-Powered-By emitted, bun.lock tracked, cart-merge un-unit-tested + non-atomic, unmetered search/cart-PATCH/DELETE, unvalidated image URLs vs CSP) / 4 NIT; CSRF posture verdict ADEQUATE (SameSite=Lax + POST/PATCH/DELETE-only mutations); all 6 session-3/4 deferrals re-validated as DEFER.
+- Wrote the session-5 remediation plan (docs/REMEDIATION_PLAN.md) and executed it TDD-first (red → green for every fix):
+  - S5-1 (MEDIUM): src/lib/seo.ts — pure buildProductJsonLd/buildOrganizationJsonLd/buildWebsiteJsonLd + 13 unit cases; Product JSON-LD + alternates.canonical on product pages; Organization + WebSite (SearchAction → /products?q=) on every storefront page; ld+json data blocks are CSP-safe (script-src does not apply).
+  - S5-2 (MEDIUM): success-page copy reworded — no email promise; points at the token-gated receipt link + Track Order; shopping-flow e2e pins "on its way"/"confirmation email" absence.
+  - S5-3 (MEDIUM): branded (storefront)/error.tsx + dependency-free global-error.tsx.
+  - S5-4 (LOW): src/app/icon.svg + src/app/manifest.ts (e2e 200-pinned).
+  - S5-5 (LOW): poweredByHeader: false (e2e-pinned absent).
+  - S5-6 (LOW): bun.lock untracked + .gitignore entry (AGENTS.md already said npm-only).
+  - S5-7 (LOW): pure computeMergedQuantities planner + 8 unit cases; guest→user cart merge + guest-cart delete + token rotation now ONE db.$transaction with idempotent final-quantity upserts (retries cannot double-count).
+  - S5-8 (LOW): per-IP limiters — /api/search GET 120/min, /api/cart PATCH + DELETE 60/min.
+  - S5-9 (LOW): imageUrlSchema (root-relative or http(s) only) on productInputSchema.images + unit cases (javascript:/data:/protocol-relative rejected).
+  - S5-10 (NIT): dead ?next=/account emission dropped; footer renders the admin-editable social links (lucide + inline Pinterest/TikTok SVGs, rel=noopener noreferrer, sr-only labels); HSTS includeSubDomains + Permissions-Policy (camera/mic/geo/payment) headers.
+- New tests/e2e/seo-platform.spec.ts pins the SEO/platform contracts (JSON-LD on home + product, canonical, robots/sitemap, manifest + icon, security headers, no X-Powered-By). Playwright quirk re-learned: script elements have no rendered text — hasText locators never match; read textContent instead.
+- Gates after: lint ✓, typecheck ✓, typecheck:tests ✓, 149/149 unit ✓, build ✓, 38/38 e2e ✓.
+- Manual verification via agent-browser + curl on the fresh standalone build: 3 ld+json blocks on product page (Organization/WebSite/Product with price 21.99 USD, InStock, aggregateRating), canonical link live, footer social links with aria-labels, reworded receipt shell, no x-powered-by, manifest 200 + icon 200 (after killing stale next-server processes — stale builds 404 the new routes), mobile menu open→navigate→close.
+- Refreshed docs/screenshots/ (23 shots from the remediated build); updated AGENTS.md (6 new invariants), CLAUDE.md, README.md (149/38 counts + SEO features), PAD (testing tables + security table + known-issue #4→Fixed, new #20), homenest-store-s_SKILL.md v1.2.0 (session-5 history + security model + state line).
+
+Stage Summary:
+- Codebase closes the last SEO gap (JSON-LD rich results + canonicals + manifest/favicon), stops promising an email that never ships, ships branded error boundaries, and hardens the remaining metering/merge surfaces — with the e2e suite now also pinning the SEO/platform contracts.
+- 149 unit + 38 e2e green; all docs aligned; deferred items re-documented with justification (analytics groupBy, 404 nonce, __Host- prefix, shared-store limiter, admin coupon UI, pagination, real mailer).

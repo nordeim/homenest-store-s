@@ -7,6 +7,8 @@ import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { discountPercent, formatMoney } from "@/lib/money";
 import { parseImages, parseSpecs, parseTags, toCardData } from "@/lib/products";
+import { buildProductJsonLd } from "@/lib/seo";
+import { getSettings } from "@/lib/settings";
 import { getCurrentUser } from "@/lib/auth";
 import { ProductCard } from "@/components/store/product-card";
 import { StarRating } from "@/components/store/star-rating";
@@ -25,6 +27,10 @@ const TRUST_POINTS = [
   { icon: RefreshCcw, text: "30-day returns" },
 ];
 
+function siteUrl(): string {
+  return (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/+$/, "");
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   const product = await db.product.findUnique({
@@ -35,17 +41,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: product.name,
     description: product.shortDescription,
+    alternates: { canonical: `${siteUrl()}/product/${id}` },
   };
 }
 
 export default async function ProductDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const [product, user] = await Promise.all([
+  const [product, user, settings] = await Promise.all([
     db.product.findUnique({
       where: { id, isActive: true },
       include: { category: { select: { name: true, slug: true } } },
     }),
     getCurrentUser(),
+    getSettings().catch(() => null),
   ]);
   if (!product) notFound();
 
@@ -64,8 +72,33 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const tags = parseTags(product.tags);
   const discount = discountPercent(product.price, product.compareAtPrice);
 
+  // schema.org/Product structured data — drives rich results (price, stock,
+  // stars). Pure builder unit-pinned in tests/unit/seo-ld.test.ts.
+  const productJsonLd = buildProductJsonLd({
+    id: product.id,
+    name: product.name,
+    shortDescription: product.shortDescription,
+    description: product.description,
+    images: product.images,
+    sku: product.sku,
+    price: product.price,
+    currency: "USD",
+    stock: product.stock,
+    rating: product.rating,
+    reviewCount: product.reviewCount,
+    categoryName: product.category.name,
+    url: `${siteUrl()}/product/${product.id}`,
+    brandName: settings?.storeName ?? "HomeNest Kitchen",
+  });
+
   return (
     <div className="container-page flex flex-col gap-14 py-6 sm:py-8">
+      <script
+        type="application/ld+json"
+        // The JSON-LD object contains only builder-shaped strings/numbers —
+        // no user-authored HTML can reach this slot.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
       <div>
         <Link
           href="/products"

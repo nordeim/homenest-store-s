@@ -11,6 +11,7 @@ import {
   reviewSchema,
   trackOrderSchema,
   carouselSlideInputSchema,
+  productInputSchema,
 } from "@/lib/validation";
 
 describe("registerSchema", () => {
@@ -169,5 +170,32 @@ describe("carouselSlideInputSchema.ctaLink", () => {
     expect(carouselSlideInputSchema.safeParse({ ...base, ctaLink: "javascript:alert(1)" }).success).toBe(false);
     expect(carouselSlideInputSchema.safeParse({ ...base, ctaLink: "data:text/html,<script>" }).success).toBe(false);
     expect(carouselSlideInputSchema.safeParse({ ...base, ctaLink: "vbscript:x" }).success).toBe(false);
+  });
+});
+
+describe("productInputSchema.images", () => {
+  const base = {
+    name: "Test Knife",
+    slug: "test-knife",
+    description: "A very good test knife for chopping test vegetables.",
+    categoryId: "cat_kitchen-tools",
+    price: 1999,
+    sku: "KN-TEST-01",
+    stock: 10,
+  };
+
+  it("accepts root-relative store paths and absolute http(s) urls", () => {
+    expect(productInputSchema.safeParse({ ...base, images: ["/images/knife-1.jpg"] }).success).toBe(true);
+    expect(productInputSchema.safeParse({ ...base, images: ["https://cdn.example.com/k.jpg?w=200"] }).success).toBe(true);
+  });
+
+  it("rejects protocol-relative, script and data urls", () => {
+    expect(productInputSchema.safeParse({ ...base, images: ["//evil.example/x.png"] }).success).toBe(false);
+    expect(productInputSchema.safeParse({ ...base, images: ["javascript:alert(1)"] }).success).toBe(false);
+    expect(productInputSchema.safeParse({ ...base, images: ["data:text/html,<script>"] }).success).toBe(false);
+  });
+
+  it("still requires at least one image", () => {
+    expect(productInputSchema.safeParse({ ...base, images: [] }).success).toBe(false);
   });
 });

@@ -8,6 +8,7 @@
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { db } from "./db";
+import { computeMergedQuantities } from "./cart-merge";
 
 export const CART_COOKIE = "homenest_cart";
 const CART_TTL_S = 60 * 60 * 24 * 60; // 60 days
@@ -54,25 +55,47 @@ export async function getOrCreateCart(userId: string | null): Promise<string> {
     // Signed in: the user's own cart wins.
     const own = await db.cart.findUnique({ where: { userId } });
     if (own) {
-      // Merge a guest cart into the user cart if one rides along.
+      // Merge a guest cart into the user cart if one rides along. The whole
+      // merge (read → planned upserts → guest-cart delete → token rotation)
+      // runs inside ONE transaction — a mid-loop failure must never leave a
+      // half-merged guest cart behind (session-5 S5-7). Quantities come from
+      // the pure planner (tests/unit/cart-merge.test.ts): per-product sums,
+      // 99 ceiling, zero-sum lines dropped — and the writes are idempotent
+      // final quantities (`update: { quantity }`, not `increment`), so a
+      // retried merge can never double-count.
       if (token && token !== own.token) {
         const guest = await db.cart.findUnique({
           where: { token },
           include: { items: true },
         });
         if (guest) {
-          for (const item of guest.items) {
-            await db.cartItem.upsert({
-              where: { cartId_productId: { cartId: own.id, productId: item.productId } },
-              create: { cartId: own.id, productId: item.productId, quantity: item.quantity },
-              update: { quantity: { increment: item.quantity } },
-            });
-          }
-          await db.cart.delete({ where: { id: guest.id } }).catch(() => undefined);
+          const ownItems = await db.cartItem.findMany({
+            where: { cartId: own.id },
+            select: { productId: true, quantity: true },
+          });
+          const plan = computeMergedQuantities(
+            ownItems.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+            guest.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+          );
+
           const newToken = randomBytes(24).toString("base64url");
+          const mergedId = await db.$transaction(async (tx) => {
+            for (const [productId, quantity] of plan) {
+              await tx.cartItem.upsert({
+                where: { cartId_productId: { cartId: own.id, productId } },
+                create: { cartId: own.id, productId, quantity },
+                update: { quantity },
+              });
+            }
+            await tx.cart.delete({ where: { id: guest.id } }).catch(() => undefined);
+            const merged = await tx.cart.update({ where: { id: own.id }, data: { token: newToken } });
+            return merged.id;
+          });
+
+          // Cookie write happens after the tx commits (cookies() is request-
+          // scoped, not transactional) — a retry re-derives the same plan.
           store.set(CART_COOKIE, newToken, { ...cookieOptions(), maxAge: CART_TTL_S });
-          const merged = await db.cart.update({ where: { id: own.id }, data: { token: newToken } });
-          return merged.id;
+          return mergedId;
         }
       }
       return own.id;

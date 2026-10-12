@@ -75,6 +75,15 @@ test.describe("shopping flow", () => {
     await gotoHydrated(page, `/checkout/success?order=${orderNumber}&token=${"0".repeat(32)}`);
     await expect(page.getByRole("heading", { name: /couldn.t find that order/i })).toBeVisible();
 
+    // COPY HONESTY CONTRACT (S5-2): no email is shipped anywhere in this
+    // codebase — the receipt copy must promise the email and then direct the
+    // buyer at the recovery surfaces that actually exist (this page's link +
+    // Track Order). Guards against someone reintroducing the false promise.
+    await gotoHydrated(page, `/checkout/success?order=${orderNumber}&token=${params.get("token")}`);
+    await expect(page.getByText(/on its way/)).toHaveCount(0);
+    await expect(page.getByText(/confirmation email/i)).toHaveCount(0);
+    await expect(page.getByText(/save this page/i)).toBeVisible();
+
     // The cart is empty again.
     await gotoHydrated(page, "/cart");
     await expect(page.getByText(/cart is empty/i)).toBeVisible();

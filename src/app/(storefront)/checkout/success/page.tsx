@@ -107,7 +107,8 @@ export default async function OrderSuccessPage({
           </span>
           <h1 className="mt-5 font-display text-2xl font-bold">We couldn&apos;t find that order</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            The order you&apos;re looking for doesn&apos;t exist. Double-check the link in your confirmation email.
+            The order you&apos;re looking for doesn&apos;t exist. Double-check the receipt link you received
+            after checkout, or track the order with its number and the purchase email.
           </p>
           <div className="mt-6 flex flex-col gap-2 sm:flex-row">
             <Button asChild>
@@ -135,8 +136,10 @@ export default async function OrderSuccessPage({
       </span>
       <h1 className="mt-6 font-display text-3xl font-bold sm:text-4xl">Thank You For Your Order!</h1>
       <p className="mt-2 max-w-md text-center text-sm text-muted-foreground">
-        Order <span className="font-semibold text-foreground">{order.number}</span> placed successfully. A
-        confirmation email is on its way to <span className="font-medium text-foreground">{order.email}</span>.
+        Order <span className="font-semibold text-foreground">{order.number}</span> placed successfully. Save
+        this page — it&apos;s your receipt. You can also follow the order any time via{" "}
+        <span className="font-medium text-foreground">Track Order</span> with this email{" "}
+        <span className="font-medium text-foreground">{order.email}</span> and the order number.
       </p>
 
       {/* Order summary card */}

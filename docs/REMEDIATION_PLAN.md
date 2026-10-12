@@ -328,3 +328,77 @@ Clean checks: no SQL injection (Prisma parameterized), no XSS sinks (zero `dange
 - [x] Screenshots refreshed; docs (`AGENTS.md`, `README.md`, `CLAUDE.md`, PAD, `homenest-store-s_SKILL.md`, `worklog.md`) updated
 
 **Post-remediation totals (session 4):** 138/138 unit tests, 32/32 e2e tests, lint/typecheck/typecheck:tests/build clean.
+
+---
+
+# Session 5 — Post-push audit & e-commerce SEO/UX completion (2026-10-12)
+
+> **Status:** EXECUTED (see the Session-5 Execution Log at the end)
+> **Scope:** Re-validation of the session-4 deliverables on the pulled tree (`1b3b312` = `7769a01` + `docs/session_4.md`), a fresh read-only deep audit (repo `code-review-checklist` 12-category scan + new surface scan: SEO/JSON-LD, error boundaries, platform headers, CSRF posture, admin CRUD, search, session security), and TDD remediation of the newly identified findings (3 MEDIUM + 6 LOW + nit bundle).
+> **Method:** unchanged — failing tests first, then the fix, then the full gate chain (`lint && typecheck && typecheck:tests && test && build && test:e2e`).
+
+## 1. Re-validation (all session-4 gates green on the pulled tree)
+
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · 131/131 unit ✓ · build ✓ · 32/32 e2e ✓.
+Env shadowing converged (hardlink, same inode); `DATABASE_URL="file:../db/custom.db"` contract intact.
+Visual parity re-verified against the LIVE reference (logged in via agent-browser): desktop home, hero carousel, trust badges, category grid, featured products (identical names/counts/prices), footer structure — reference unchanged. **Mobile menu re-verified** (open → `expanded=true`, push-down panel, green circular close; navigate → closes, `expanded=false`, lands on `/products`) — the Tailwind v4 conditional-mount pattern is intact; no display-utility toggling.
+
+## 2. Session-5 audit findings (evidence-based)
+
+**0 HIGH / 3 MEDIUM / 6 LOW / 4 NIT.** CSRF posture verdict: ADEQUATE (all mutations POST/PATCH/DELETE + durable cookies `SameSite=Lax`; GET routes read-only; Server Actions get Next's origin checks). Verified clean: XSS (zero `dangerouslySetInnerHTML`), SQL injection (Prisma-only, bound params), admin gating (11/11 actions `requireAdmin()` + layout gate), checkout e2e, session security (hashed tokens, timing-safe compare, 30-day expiry + purge), money integer-cents invariant, a11y coverage.
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| S5-1 | MED | **No JSON-LD structured data anywhere** — no `ld+json`/schema.org in `src/`; no Product/Organization/WebSite markup; no canonical URLs. The one SEO surface with real work left (sitemap/robots/metadata all shipped in S4-9). | `grep -r "ld+json" src/` → 0 hits; `product/[id]/page.tsx` generateMetadata has no `alternates` |
+| S5-2 | MED | **Receipt copy promises an email that never ships** — success page says "A confirmation email is on its way to {email}" and the locked shell says "Double-check the link in your confirmation email", but there is no mailer (no nodemailer/resend/SMTP anywhere). The token-gated URL + Track Order are the only receipts. | `checkout/success/page.tsx:110,139`; grep mailer deps → none |
+| S5-3 | MED | **No error boundaries** — no `error.tsx`/`global-error.tsx` anywhere; a server-side throw renders Next's unbranded default error screen (inconsistent with the production-superset claim). | glob `src/**/{error,global-error}.tsx` → none |
+| S5-4 | LOW | **Zero favicon/manifest/icons** — no `icon.*`/`favicon.ico`/`apple-icon`/`manifest.*`; browser 404s `/favicon.ico` (CSP matcher even special-cases it). | `src/app` icon glob → none |
+| S5-5 | LOW | **`X-Powered-By: Next.js` emitted** — `poweredByHeader` unset; Next defaults it to `true` (verified in installed `config-shared.js`). | `next.config.ts` |
+| S5-6 | LOW | **`bun.lock` is git-tracked**, contradicting AGENTS.md ("Use npm (no bun lockfile is committed)"). | `git ls-files` → `bun.lock` |
+| S5-7 | LOW | **Guest→user cart merge has no unit seam** (documented invariant, e2e-only) **and runs as a non-atomic upsert loop** — a failure mid-loop leaves a half-merged guest cart. | `cart.ts:49-96` |
+| S5-8 | LOW | **Unmetered endpoints** — `GET /api/search` (per-keystroke typeahead, unbounded rate) and `/api/cart` PATCH/DELETE carry no limiter while POST does. | `api/search/route.ts`, `api/cart/route.ts:83,129` |
+| S5-9 | LOW | **Product image input not scheme-validated** — `images: z.array(z.string().min(1))` accepts `javascript:`/any string; production CSP is `img-src 'self' data:`, so an admin-entered external URL silently fails to render. | `validation.ts:123`, `csp.ts:30` |
+| S5-10 | NIT | (a) Dead `?next=/account` emission (login ignores it; targets are constants); (b) social settings validated/seeded/admin-editable but never rendered anywhere; (c) no `Permissions-Policy` header; HSTS lacks `includeSubDomains`. | `account/page.tsx:84`, `footer.tsx`, `next.config.ts` |
+
+## 3. Remediation plan (TDD)
+
+1. **S5-1** — `src/lib/seo.ts`: pure `buildProductJsonLd()`, `buildOrganizationJsonLd()`, `buildWebsiteJsonLd()` + unit tests (`tests/unit/seo-ld.test.ts`); product page renders Product JSON-LD + `alternates.canonical`; root layout renders Organization + WebSite (SearchAction → `/products?q={query_string}`).
+2. **S5-2** — reword both success-page strings (no email promise; direct to Track Order + save-the-link); shopping-flow e2e asserts the false promise is gone.
+3. **S5-3** — `src/app/(storefront)/error.tsx` + `src/app/global-error.tsx` branded client boundaries (reset + back-to-products).
+4. **S5-4** — `src/app/icon.svg` + `src/app/manifest.ts`; e2e asserts 200s.
+5. **S5-5** — `poweredByHeader: false`; e2e asserts header absent.
+6. **S5-6** — `git rm bun.lock` + `.gitignore` entry.
+7. **S5-7** — pure `computeMergedQuantities()` (own+guest → final per-product quantities) + unit tests; merge loop + guest-cart delete wrapped in one `db.$transaction` (idempotent `update: {quantity}` instead of `increment` — double-merge safe).
+8. **S5-8** — per-IP limiters: `search:` 120/min on GET /api/search; `cart:` 60/min on PATCH + DELETE.
+9. **S5-9** — `imageUrlSchema` refinement on `productInputSchema.images` (root-relative or http(s) only) + validation unit cases.
+10. **S5-10** — drop the dead `?next=` emission; footer renders the admin-editable social links (superset nicety, lucide + inline SVGs, `noopener noreferrer`); `Permissions-Policy` header + HSTS `includeSubDomains`.
+11. Full gate chain; agent-browser manual verification (JSON-LD in DOM, mobile menu, robots/sitemap/manifest live); screenshots refreshed; docs updated.
+
+### Deferred again (with justification — unchanged from session 4)
+
+| # | Item | Why |
+|---|---|---|
+| 1 | Analytics `groupBy`/`$queryRaw` | Correct at seeded volume; perf-only. Revisit past ~50k order items. |
+| 2 | 404-shell CSP nonce | Inert islands only. |
+| 3 | `__Host-` cookie prefix | Needs TLS-guaranteed topology; breaks plain-HTTP standalone deploy. |
+| 4 | Shared-store rate limiter | Mechanical; correct for single-process standalone. |
+| 5 | Admin coupon-management UI | Enforcement ships; management is seed/DB-level and reseeds are non-destructive. |
+| 6 | Account-orders & product-reviews pagination | Correct at seeded volume; a silent `take` cap would HIDE data — proper pagination is the only honest fix. |
+| 7 | Real email delivery (post-S5-2) | Copy is now honest; a mailer needs provider credentials + bounce handling — an epic, not a fix. The idempotent receipt URL + Track Order cover recovery. |
+
+## 4. Execution log (session 5)
+
+- [x] S5-1 — `src/lib/seo.ts` (3 pure builders) + `tests/unit/seo-ld.test.ts` (14 cases); Product JSON-LD + canonical on the product page; Organization + WebSite JSON-LD in the root layout; new `tests/e2e/seo-platform.spec.ts` pins the rendered ld+json, robots, sitemap, manifest, icon, and the missing X-Powered-By
+- [x] S5-2 — success-page copy reworded (both the locked shell and the receipt); e2e asserts "on its way" is gone
+- [x] S5-3 — branded `(storefront)/error.tsx` + `global-error.tsx`
+- [x] S5-4 — `src/app/icon.svg` + `src/app/manifest.ts` (e2e 200-pinned)
+- [x] S5-5 — `poweredByHeader: false` (e2e-pinned)
+- [x] S5-6 — `bun.lock` untracked + ignored
+- [x] S5-7 — `computeMergedQuantities()` + `tests/unit/cart-merge.test.ts` (8 cases); merge wrapped in a single transaction with idempotent final-quantity upserts
+- [x] S5-8 — search GET limiter (120/min per-IP) + cart PATCH/DELETE limiters (60/min per-IP)
+- [x] S5-9 — `imageUrlSchema` on product images + validation unit cases (javascript:/data: rejected; root-relative and http(s) accepted)
+- [x] S5-10 — dead `?next=` dropped; footer social icons from settings; `Permissions-Policy` + HSTS `includeSubDomains`
+- [x] Full gate chain re-run green; manual agent-browser verification
+- [x] Screenshots refreshed (`docs/screenshots/`); docs (`AGENTS.md`, `CLAUDE.md`, `README.md`, PAD, `homenest-store-s_SKILL.md`, `worklog.md`) updated
+
+**Post-remediation totals (session 5):** 153/153 unit tests, 40/40 e2e tests, lint/typecheck/typecheck:tests/build clean.

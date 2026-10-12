@@ -81,7 +81,7 @@ export default async function AccountPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login?next=/account");
+  if (!user) redirect("/login");
 
   const { tab: tabParam } = await searchParams;
   const tab: TabId = isTabId(tabParam) ? tabParam : "profile";

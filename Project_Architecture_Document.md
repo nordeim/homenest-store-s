@@ -267,7 +267,7 @@ Component vocabulary: white cards with `border-border` + `rounded-xl` + `shadow-
 | Money integrity | Server-side re-derivation **inside the placement transaction** (`computeOrderMoney`); conditional atomic stock decrements; idempotency key resolves lost-response replays; P2002 retry for order-number collisions |
 | SQL injection | Prisma parameterized queries only; no raw string interpolation (the sole `$queryRaw` is a constant health probe) |
 | XSS | Strict CSP with per-request nonce + `strict-dynamic` (ADR-006); zero inline styles/scripts authored in the codebase; React-escaped output |
-| Clickjacking / sniffing | `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, HSTS |
+| Clickjacking / sniffing | `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, HSTS (`includeSubDomains`), `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()`; `poweredByHeader: false` (no framework fingerprint) |
 | CSRF | Server Actions and route handlers are same-origin by construction; cookies are SameSite=Lax; state-changing handlers validate content types |
 | Secrets | `.env` git-ignored; `AUTH_SECRET` required in production (insecure dev fallback documented); no keys in the repo (`*.key`, `ssh-key.txt` rejected by `.gitignore`) |
 | PII access control | `/track-order` requires number + purchase email; `/checkout/success` receipt is gated by an HMAC order-access token (`src/lib/order-access.ts`) returned by `/api/checkout` — sequential numbers alone render the same denial shell as unknown ones (no enumeration), and the page is `noindex` |
@@ -288,7 +288,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 **Two suites, one gate:** `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e` — all must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 131 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 149 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
@@ -297,7 +297,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 | `order-money.test.ts` | Checkout math: threshold, express/standard, tax rounding, negative-guard, a worked reference order |
 | `coupons.test.ts` | Percent/fixed discounts, min-subtotal, cap-at-subtotal, invalid configs; lifecycle gate (`isCouponRedeemable`: inactive/expired/cap-reached); the atomic redemption-cap filter (`couponRedemptionWhere`) |
 | `password.test.ts` | scrypt format, verify/reject, unique salts, malformed-hash safety |
-| `validation.test.ts` | Zod schemas incl. enum vocabularies and bounds |
+| `validation.test.ts` | Zod schemas incl. enum vocabularies and bounds + the image-URL scheme rule (root-relative / http(s) only; `javascript:`/`data:`/protocol-relative rejected) |
 | `products.test.ts` | JSON column parsing + card projection |
 | `csp.test.ts` | CSP builder: production vs dev directive sets |
 | `format.test.ts` | Status pills, timeline indices, slugify, dates |
@@ -309,8 +309,10 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 | `order-status.test.ts` | Transition rules (terminal states) + restock-on-cancel predicate |
 | `review-aggregate.test.ts` | Weighted-average growth, rounding, empty baseline, out-of-range rejection |
 | `seo-routes.test.ts` | Sitemap lists only public routes; robots disallows admin/account/checkout/api |
+| `seo-ld.test.ts` | JSON-LD builders: Product (cents→dollars price, stock→availability vocabulary, rating present only with reviews, images absolutized), Organization (contact + sameAs optional), WebSite (SearchAction → `/products?q=`) |
+| `cart-merge.test.ts` | Guest→user cart-merge planner: per-product sums, empty sides, zero-sum line drop, 99 ceiling, deterministic order |
 
-### 8.2 E2E (Playwright — 32 tests, `tests/e2e/`)
+### 8.2 E2E (Playwright — 38 tests, `tests/e2e/`)
 
 Two projects: `mobile-navigation` (iPhone-13 device emulation on Chromium — WebKit is not installable in the target sandbox) and `desktop-chromium` (1440×900). The config boots the standalone production build on :3100 with `/api/health` as the readiness probe (reusing an existing healthy server).
 
@@ -321,6 +323,7 @@ Two projects: `mobile-navigation` (iPhone-13 device emulation on Chromium — We
 | `shopping-flow.spec.ts` | Add-to-cart badge + mini drawer (off-viewport + inert assertions), **full guest checkout placing a real order** (`ORD-YYYY-NNN`, token-gated receipt, guess-denial without the token, cart emptied), **idempotent checkout replay** (same key → same receipt), coupon application, **malformed-JSON → 400 contract** (raw Buffer bodies; Playwright JSON-encodes string data), placed-order tracking via `/track-order` |
 | `auth.spec.ts` | Login card anatomy, demo-customer sign-in → `/account`, wrong-password + unknown-email inline errors (no redirect), short-password server rejection, `/account` gate, **guest-cart merge at login** |
 | `admin.spec.ts` | Customer blocked from `/admin` (access-denied card, no route leak), admin sign-in → dashboard KPIs, products manager (search + add affordance), orders manager, **cancel-restocks-stock via the management dialog**, carousel slides, settings values |
+| `seo-platform.spec.ts` | **SEO + platform contracts** — Organization + WebSite JSON-LD on home, Product JSON-LD on detail pages (price/stock/rating) + canonical link, robots/sitemap contents, manifest + icon resolve, security headers ship (`includeSubDomains`, `Permissions-Policy`, `nosniff`) and `X-Powered-By` does not |
 
 **E2E conventions:** `gotoHydrated(page, url)` before any interaction (the `data-hydrated` sentinel from `StoreProvider` — clicking before hydration falls back to native GET, a real bug class this suite caught); async cart effects asserted via the `data-testid="cart-count"` badge before navigating; off-canvas drawers assert `not.toBeInViewport()` + `pointer-events-none` (the always-mounted translate pattern is invisible to `toBeHidden`); DB-mutating specs tolerate re-runs (seed is idempotent, order numbers increment).
 
@@ -380,7 +383,7 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | 1 | Accepted | Demo payment only | Checkout is a labeled simulation; no processor wired. Extension point: `/api/checkout` + `computeOrderMoney` (the reference repo's Stripe pattern is the template). |
 | 2 | Accepted | `/​_not-found` prerender is script-blocked under CSP | Renders fully (links + CSS); no interactive UI exists there. Fix = `connection()` in a custom not-found layout if ever needed. |
 | 3 | Accepted | SQLite single-writer | Fine for the target scale; Postgres migration path documented (§9.2). |
-| 4 | Accepted | No email sending | Newsletter/contact persist to DB; order emails are stubbed as copy on the success page. |
+| 4 | Fixed (session 5) | No email sending | Newsletter/contact persist to DB; the success-page copy no longer promises an email that never ships — it points at the token-gated receipt link + Track Order (pinned by `shopping-flow.spec.ts`). A real mailer remains an epic (provider credentials + bounce handling). |
 | 5 | Open | OAuth ("Continue with Google") not replicated | The reference shows the button; shipping a fake OAuth flow would be worse than none. Real wiring needs provider credentials. |
 | 6 | Open | Product variants | The old SPA's type had a `variants` field; the migrated model intentionally dropped it (no reference evidence of usage). Re-add as `ProductVariant` model if required. |
 | 7 | Debt | Admin orders pagination + filtering combined state | Works (status pills + search + page); the combined-param links are verbose — refactor candidate. |
@@ -396,6 +399,7 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | 17 | Fixed (session 4) | Sitemap listed noindex/private routes; robots allowed the admin surface | Sitemap reduced to public catalog/content routes; robots disallows `/admin`, `/account`, `/checkout`, `/api`. Pinned by `tests/unit/seo-routes.test.ts`. |
 | 18 | Accepted | Account orders & product-reviews lists are unpaginated | Correct at seeded volume; a silent `take` cap would hide data — proper pagination is the only honest fix. Revisit when data grows. |
 | 19 | Accepted | Analytics aggregates order items in JS (unbounded findMany) | Correct at current volume; needs `$queryRaw GROUP BY` design past ~50k items. |
+| 20 | Fixed (session 5) | No JSON-LD structured data; no favicon/manifest; `X-Powered-By` emitted; no error boundaries | Pure JSON-LD builders (`src/lib/seo.ts`) render Product blocks + canonicals on detail pages and Organization/WebSite site-wide; `src/app/icon.svg` + `manifest.ts` added; `poweredByHeader: false`; branded `(storefront)/error.tsx` + `global-error.tsx` ship. Pinned by `tests/e2e/seo-platform.spec.ts` + `tests/unit/seo-ld.test.ts`. |
 
 ---
 

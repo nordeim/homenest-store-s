@@ -55,3 +55,4 @@ research/
 
 # vitest cache
 .vitest/
+bun.lock

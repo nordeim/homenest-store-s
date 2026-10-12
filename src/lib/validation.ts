@@ -105,6 +105,20 @@ export const contactSchema = z.object({
   message: z.string().trim().min(10, "Message must be at least 10 characters").max(4000),
 });
 
+// Product image source: root-relative store path (no protocol-relative "//")
+// or absolute http(s) URL. The production CSP is `img-src 'self' data:` —
+// any other scheme (`javascript:`, `data:`, `//host`) either never renders or
+// is an injection vector, so the boundary rejects it up-front (session-5 S5-9).
+export const imageUrlSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(500)
+  .regex(
+    /^(\/(?!\/)[^\s]*|https?:\/\/[^\s]+)$/i,
+    "Image must be an internal path (starting with /) or an http(s) URL",
+  );
+
 export const productInputSchema = z.object({
   name: z.string().trim().min(2, "Name is required").max(120),
   slug: z
@@ -120,7 +134,9 @@ export const productInputSchema = z.object({
   compareAtPrice: z.number().int().min(1).nullable().optional(),
   sku: z.string().trim().min(2).max(60),
   stock: z.number().int().min(0).max(100000),
-  images: z.array(z.string().min(1)).min(1, "At least one image is required"),
+  images: z
+    .array(imageUrlSchema)
+    .min(1, "At least one image is required"),
   tags: z.array(z.string().trim().min(1)).max(12).default([]),
   specs: z.array(z.object({ label: z.string().min(1), value: z.string().min(1) })).max(24).default([]),
   badge: z.string().trim().max(40).nullable().optional(),
