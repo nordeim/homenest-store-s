@@ -723,3 +723,63 @@ Visual parity re-verified against the LIVE reference (agent-browser): hero slide
 - [x] Screenshots refreshed; worklog updated
 
 **Post-remediation totals (session 9):** 229/229 unit tests, 50/50 e2e tests, lint/typecheck/typecheck:tests/build clean.
+
+---
+
+# Session 10 — Post-push audit & address-default/cart-line completion (2026-10-13)
+
+> **Status:** EXECUTED (see the Session-10 Execution Log at the end)
+> **Scope:** Re-validation of the session-9 deliverables on the pulled tree (`fc57d39`), a fresh read-only deep audit (repo `code-review-checklist` 12-category scan over every `src/lib` module, all API routes, all actions, every storefront/admin/auth page, components, configs, seed + schema, tests + docs), and TDD remediation of the newly identified findings (1 MEDIUM + 3 LOW + 1 NIT).
+> **Method:** unchanged — failing tests first, then the fix, then the full gate chain (`lint && typecheck && typecheck:tests && test && build && test:e2e`).
+
+## 1. Re-validation (all session-9 gates green on the pulled tree)
+
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · 229/229 unit ✓ · build ✓ · 50/50 e2e ✓ (sandbox `DATABASE_URL` shadow converged via the pre-existing symlink; health `db:up`).
+Visual parity re-verified against the LIVE reference (agent-browser): hero carousel first slide ("New Arrivals" — clicked the reference's slide-1 dot to confirm), trust badges, 8 category tiles, featured products (Damascus Steel Chef Knife Set $199.99/412, Artisan Copper Frying Pan $89.99/234) identical — reference unchanged; the clone remains the superset. **Mobile menu re-verified on the production build** (iPhone 390×844: open → `expanded=true`, push-down panel with all links incl. the signed-in admin entry; click Products → lands on `/products`, panel closed `expanded=false`) — the Tailwind v4 conditional-mount pattern is intact.
+
+## 2. Session-9 fix verification (read-only subagent + spot-checks)
+
+**8/8 WIRED · 0 PARTIAL · 0 MISSING.** Every fix verified with file:line evidence: S9-1 context `cartCount: number | null` + layout server prop (`store-provider.tsx:19,28`, `store-chrome.tsx:32`, `cart-badge.spec.ts`); S9-2 guarded transition (`order-status.ts:82-88`, `actions/admin.ts:341-367`); S9-3 `promoteAddressInTx` + scoped deleteMany (`addresses.ts:78-94`, `api/addresses/route.ts:138-147,190-193`); S9-4 bounded dashboard chart (`admin/page.tsx:65-75`, `analytics.ts:89-105`); S9-5 indexes (`schema.prisma:41,167`); S9-6 cart-summary meter; S9-7 search clamp; S9-8 bulk plan helpers (`cart-bulk.ts:19-36`).
+
+## 3. Session-10 audit findings (evidence-based)
+
+**1 MEDIUM / 3 LOW / 1 NIT. 0 HIGH** — the ninth pass found no security holes or user-reachable data-corruption paths. Verified clean again: integer-cents money end-to-end, checkout critical path (in-tx snapshots + coupon re-validation + atomic stock + ownership-bound idempotency), guarded order transitions, scrypt auth + uniform errors, IDOR scoping, rate-limiter grid, Zod boundaries, CSP nonce + security headers, SQL-aggregated dashboards, type strictness, SEO/noindex privacy, seed policy, a11y.
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| S10-1 | MED | **Deleting the default address strands the account with zero defaults — checkout prefill silently dies and nothing re-promotes.** DELETE removes the row without checking whether it was `isDefault`; POST only defaults when `count === 0`; so after the delete the user's remaining addresses are all `isDefault: false`, `checkout/page.tsx`'s `findFirst({ isDefault: true })` returns null, and a newly saved address still gets `isDefault: false`. This is the exact "stranded zero defaults" state the S9-3 promote-first rationale exists to prevent — reintroduced through the DELETE front door. Untested: `addresses-default.spec.ts` never deletes the default. | `api/addresses/route.ts:186-193` (deleteMany, no re-promotion), `:80` (`isDefault: count === 0`); `(storefront)/checkout/page.tsx:31` |
+| S10-2 | LOW | **PATCH `/api/cart` can 500 (P2025) on a concurrently deleted line** — the exact race class S8-4 fixed for the wishlist and S9-3 for addresses. The line is read once (`:103`), then bare `cartItem.delete` (`:111,118`) and `cartItem.update` (`:120`) throw P2025 into the outer catch → 500 "Something went wrong." The sibling DELETE already uses scoped `deleteMany`; the per-island pending locks don't span tabs. | `api/cart/route.ts:103,111,118,120,129-131` |
+| S10-3 | LOW | **Address-book cap is enforced OUTSIDE the POST transaction.** `assertAddressCap(db, …)` runs pre-tx; the in-tx `count` only decides `isDefault: count === 0` and never re-checks the cap, so two concurrent POSTs at 19/20 both pass the pre-check and mint 21+ rows (bounded overshoot per burst — the friendly-409 contract can be exceeded under concurrency). | `api/addresses/route.ts:47-51` (pre-tx cap), `:57-86` (tx without cap re-check) |
+| S10-4 | LOW | **The guest→user wishlist merge bypasses `MAX_WISHLIST_ITEMS`.** The login merge upserts every guest item unconditionally (no cap check), so a user at 100 items whose guest wishlist holds more distinct products ends over cap, and the page's `take: MAX_WISHLIST_ITEMS` makes the overflow permanently invisible in the UI. The module's own comment ("the cap is enforced on the only write path that creates items") is now false — the merge is a second create path. | `lib/wishlist.ts:67-77` (unbounded upsert loop), `:16-19` (comment), `wishlist/page.tsx:31` (`take`) |
+| S10-5 | NIT | **Bulk add-all's `skipped` count misses the sold-out branch.** `skipped = wanted.size - products.length` counts only gone/inactive products; a line skipped at plan time (`clamped === 0` on an active, in-stock-check product) is `continue`d silently — a wishlist with 2 addable + 1 sold-out items returns `{added: 2, skipped: 0}` and the UI's "of 3" arithmetic explains nothing. The route docstring promises skipped lines are "reported". | `api/cart/bulk/route.ts:52` (skipped math), `:66` (silent continue), `:19-21` (docstring) |
+
+### Deferred (with justification — carried unchanged)
+
+| # | Item | Why |
+|---|---|---|
+| 1 | Cart-drawer focus trap (S8-7) | Carried — dedicated a11y pass (unchanged rationale). |
+| 2 | Login limiter lockout tradeoff (S8-8) | Carried — needs an abuse-model decision. |
+| 3 | Checkout P2002 recovery loop integration test | Carried — pure helpers unit-pinned (S7-2/S8-3); epic-grade testing investment with the lowest marginal risk. |
+| 4 | 404-shell CSP nonce, `__Host-` prefix, shared-store limiter, admin coupon UI, real mailer, wishlist filled-state, radiogroup roving focus, address content dedup | Carried unchanged from sessions 5–9. |
+
+## 4. Remediation plan (TDD)
+
+1. **S10-1** — new `reassignDefaultAfterDeleteInTx(client, userId, deletedWasDefault)` in `src/lib/addresses.ts` (structural client extending `AddressPromotingClient` with a scoped `findFirst`): when the deleted row WAS the default, pick the newest remaining address (`findFirst({ where: { userId }, orderBy: { createdAt: "desc" } })`) and promote it via the existing race-safe `promoteAddressInTx`; no remaining rows → no-op. The DELETE route selects `isDefault` in its pre-read, wraps delete + reassign in ONE `$transaction`, and keeps `count === 0` → 404 (S9-3 pattern). RED first: fake-client cases — default deleted → newest promoted (findFirst + promote order), default deleted with no remainder → no promotion call, non-default deleted → no findFirst call.
+2. **S10-2** — PATCH `/api/cart` swaps the three bare single-row writes for scoped conditional writes with `count === 0` → 404 "Cart line not found." (the S9-3/S8-4 pattern applied directly at the call sites — no new pure logic beyond the existing `clampPurchaseQuantity`): explicit-0 delete → `deleteMany({ where: { id: line.id, cartId } })`, clamp-to-0 delete → same, quantity update → `updateMany({ where: { id: line.id, cartId }, data: { quantity: qty } })`. Regression coverage via the existing cart e2e specs (shopping-flow, cart-badge) + manual double-tab check.
+3. **S10-3** — move the cap INSIDE the POST transaction: `assertAddressCap(tx, user.id)` as the first statement of the `$transaction` body (the structural client accepts the tx), `AddressCapError` propagates out of the tx and the route's catch maps it to the friendly 409 (replacing the pre-tx check). RED pin: `assertAddressCap` unit cases (under-cap passes, at-cap throws `AddressCapError` with the actionable message) — the route wiring is a call-site move verified by the existing `addresses-cap` e2e.
+4. **S10-4** — new pure `planWishlistMerge(existingProductIds: ReadonlySet<number>, guestItems: ReadonlyArray<{ productId: number }>, cap)` in `src/lib/wishlist.ts`: keep guest order, skip products already in the user's wishlist (`update: {}` semantics), dedupe repeated guest productIds, and TRUNCATE at the remaining capacity (`cap − existingCount`) so the merge can never push the user over `MAX_WISHLIST_ITEMS`. The merge tx upserts only `plan.toAdd`. RED first: empty guest, all-new (order kept), already-owned skipped, guest-internal duplicates deduped, cap truncation (full wishlist → 0 additions; near-cap → partial additions), skipped accounting. Fix the stale `wishlist.ts` header comment (S10-4 doc drift) to name BOTH create paths.
+5. **S10-5** — the bulk tx returns `{ added, soldOut }`; the route reports `skipped: goneInactive + soldOut` so the response always accounts for every requested line; docstring updated to say sold-out lines are reported too.
+6. **DOC** — AGENTS.md (address-default reassignment invariant, cap-inside-tx note, wishlist merge cap, cart PATCH scoped writes), CLAUDE.md (modules + unit/e2e coverage), README (test-count badges), PAD (§8 tables + known-issues ledger), SKILL.md v1.7.0 (project_state + Appendix B session-10), `docs/session_13.md` (run-11 narrative), worklog entry.
+
+## 5. Execution log (session 10)
+
+- [x] RED — `tests/unit/session10-hardening.test.ts` written first (12 cases: `reassignDefaultAfterDeleteInTx` ×3, `assertAddressCap` ×2, `planWishlistMerge` ×6, bulk skipped accounting ×1 via `planBulkUpsertQuantity` composition) — collection failed on the missing module with the existing 229 green
+- [x] GREEN — `addresses.ts` += `reassignDefaultAfterDeleteInTx`; DELETE route tx (delete + reassign, 404 on lost race); POST cap moved inside the tx (AddressCapError → 409 from the catch)
+- [x] GREEN — `wishlist.ts` += `planWishlistMerge` (cap-truncating merge plan); merge tx upserts only the plan; stale header comment fixed
+- [x] GREEN — cart PATCH scoped writes ×3 (deleteMany/updateMany + `count === 0` → 404)
+- [x] GREEN — bulk route reports sold-out skips (`skipped = goneInactive + soldOut`; docstring aligned)
+- [x] Full gate chain green: lint ✓ · typecheck ✓ · typecheck:tests ✓ · **241/241 unit** ✓ · build ✓ · **50/50 e2e** ✓
+- [x] Manual verification (agent-browser, fresh standalone build): default-address delete → next-newest auto-promoted (account card badge + checkout prefill survive); mobile menu open/navigate/close re-verified; add-all toast arithmetic sane
+- [x] Screenshots refreshed (24 shots incl. the new account address state); docs sweep; worklog updated
+
+**Post-remediation totals (session 10):** 241/241 unit tests, 50/50 e2e tests, lint/typecheck/typecheck:tests/build clean.

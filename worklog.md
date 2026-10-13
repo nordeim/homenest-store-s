@@ -57,3 +57,21 @@ Stage Summary:
 - Session-9 remediation complete and pushed: remote main advanced 49af9ca → this commit (fast-forward, main only, no new branches). All user checklist items satisfied.
 - Codebase state: 229 unit + 50 e2e green; race-condition/observability hardening (session 9); docs fully aligned.
 - Post-push addendum: wrapper default remote is stale (task-management.git) — documented in the push skill; --remote git@github.com:nordeim/homenest-store-s.git is mandatory (verified session 9).
+
+---
+Task ID: 11 (session 11 — homenest-store-s)
+Agent: audit + remediation agent (Super Z)
+Task: Full audit/remediation cycle on homenest-store-s — refresh workspace, review docs (session_11/12, REMEDIATION_PLAN, worklog), re-validate gates, live-reference parity + mobile menu, fresh deep audit (session 10), TDD remediation, docs/screenshots, commit + SSH push to main.
+
+Work Log:
+- git pull → fc57d39 (= 6e7c11a + docs/session_12.md + trimmed worklog); reviewed all project docs + session logs + the uploaded coding_agent_prompt.md; gates re-validated green (229/229 unit, 50/50 e2e); sandbox DATABASE_URL shadow converged via the pre-existing symlink.
+- Live reference parity + mobile menu verified via agent-browser (the reference's first carousel slide confirmed as "New Arrivals" by clicking its slide dot — matches the clone exactly; Tailwind v4 conditional-mount intact).
+- Fresh deep audit (read-only subagent 11-a + own file:line verification): session-9 fixes 8/8 WIRED / 0 PARTIAL / 0 MISSING; new findings 1 MEDIUM / 3 LOW / 1 NIT, 0 HIGH.
+- TDD remediation S10-1..S10-5 (plan appended to docs/REMEDIATION_PLAN.md; RED confirmed at 229 + 9 new-file failures): reassignDefaultAfterDeleteInTx (deleting the DEFAULT address re-promotes the newest remaining row in the same tx — checkout prefill can no longer silently die), scoped conditional cart-PATCH writes (count 0 → 404, the S8-4/S9-3 race pattern), address cap moved INSIDE the POST tx (AddressCapError → friendly 409), planWishlistMerge (cap-truncating, dedupe, already-owned skip — the login merge can never exceed MAX_WISHLIST_ITEMS), bulk add-all reports gone/inactive AND sold-out skips.
+- Final gates: lint/typecheck/typecheck:tests ✓ · 240/240 unit ✓ · build ✓ · 50/50 e2e ✓; manual agent-browser + curl verification (delete default → next-newest auto-promoted → checkout prefills the promoted address, live end-to-end; demo data restored; mobile menu open/navigate/close); 23 screenshots refreshed.
+- Docs aligned: AGENTS.md (4 invariants extended), CLAUDE.md, README.md (241/50), PAD (§8 tables, known issues #37–40), SKILL.md v1.7.0, docs/session_13.md (run narrative), worklog.md.
+
+Stage Summary:
+- Session-10 remediation complete and pushed: remote main advanced fc57d39 → this commit (fast-forward, main only, no new branches). All user checklist items satisfied.
+- Codebase state: 240 unit + 50 e2e green; address-default/cart-line integrity hardening (session 10); docs fully aligned.
+- Carried deferrals unchanged: drawer focus trap (S8-7), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, real payment/email epics.

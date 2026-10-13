@@ -14,9 +14,11 @@ const TTL_S = 60 * 60 * 24 * 120; // 120 days
 /**
  * Session-8 S8-6: the wishlist is a bounded surface like the address book
  * (session-7 S7-8). A scripted client could otherwise grow WishlistItem rows
- * at the limiter's pace forever. The cap is enforced on the only write path
- * that creates items (POST /api/wishlist) with a friendly 409; the wishlist
- * page reads at most this many rows (`take`).
+ * at the limiter's pace forever. The cap is enforced on BOTH write paths that
+ * create items — POST /api/wishlist (friendly 409) and the guest→user merge
+ * at login, whose upserts are planned through `planWishlistMerge` (session-10
+ * S10-4) so a merge can never push the user over the cap. The wishlist page
+ * reads at most this many rows (`take`).
  */
 export const MAX_WISHLIST_ITEMS = 100;
 
@@ -49,6 +51,45 @@ export async function assertWishlistCap(
   }
 }
 
+/**
+ * Plan the guest→user wishlist merge (session-10 S10-4). The old merge
+ * upserted EVERY guest item unconditionally — the one create path outside
+ * the POST cap — so a user at the cap whose guest wishlist held more items
+ * ended over `MAX_WISHLIST_ITEMS`, with the overflow permanently invisible
+ * behind the page's `take`. The plan keeps the guest's item order, skips
+ * products the user already owns (mirroring the upsert's no-op `update: {}`),
+ * dedupes repeated guest productIds (the first occurrence wins), and
+ * TRUNCATES at the remaining capacity so the merge can never exceed the cap.
+ * Pure and unit-pinned; the merge transaction only writes `plan.toAdd`.
+ */
+export function planWishlistMerge(
+  existingProductIds: ReadonlySet<string>,
+  guestItems: ReadonlyArray<{ productId: string }>,
+  cap: number = MAX_WISHLIST_ITEMS,
+): { toAdd: string[]; skipped: number } {
+  const remaining = Math.max(0, cap - existingProductIds.size);
+  const toAdd: string[] = [];
+  const seen = new Set<string>();
+  let skipped = 0;
+  for (const item of guestItems) {
+    if (existingProductIds.has(item.productId)) {
+      skipped += 1; // already owned — the upsert would be a no-op
+      continue;
+    }
+    if (seen.has(item.productId)) {
+      skipped += 1; // guest-internal duplicate
+      continue;
+    }
+    if (toAdd.length >= remaining) {
+      skipped += 1; // over the cap — the row the user cannot keep
+      continue;
+    }
+    seen.add(item.productId);
+    toAdd.push(item.productId);
+  }
+  return { toAdd, skipped };
+}
+
 export async function getOrCreateWishlist(userId: string | null): Promise<string> {
   const store = await cookies();
   const token = store.get(WISHLIST_COOKIE)?.value;
@@ -62,13 +103,24 @@ export async function getOrCreateWishlist(userId: string | null): Promise<string
           // Merge inside ONE transaction with idempotent upserts + token
           // rotation — mirrors cart.ts (session-5 S5-7; session-6 S6-2): a
           // mid-loop failure must never leave a half-merged guest wishlist,
-          // and a retried merge cannot double-write.
+          // and a retried merge cannot double-write. Session-10 S10-4: the
+          // upserts are planned through `planWishlistMerge` so the merge can
+          // never push the user's wishlist over MAX_WISHLIST_ITEMS (the old
+          // unbounded loop was the one create path outside the POST cap).
           const newToken = randomBytes(24).toString("base64url");
           await db.$transaction(async (tx) => {
-            for (const item of guest.items) {
+            const existing = await tx.wishlistItem.findMany({
+              where: { wishlistId: own.id },
+              select: { productId: true },
+            });
+            const plan = planWishlistMerge(
+              new Set(existing.map((row) => row.productId)),
+              guest.items,
+            );
+            for (const productId of plan.toAdd) {
               await tx.wishlistItem.upsert({
-                where: { wishlistId_productId: { wishlistId: own.id, productId: item.productId } },
-                create: { wishlistId: own.id, productId: item.productId },
+                where: { wishlistId_productId: { wishlistId: own.id, productId } },
+                create: { wishlistId: own.id, productId },
                 update: {},
               });
             }

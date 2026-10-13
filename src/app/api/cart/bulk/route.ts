@@ -16,8 +16,10 @@ import { cartBulkSchema, firstError } from "@/lib/validation";
  * Each line routes through the SAME clamp (stock ceiling + 99 cap) and the
  * same read+upsert pattern as POST /api/cart, all inside ONE transaction —
  * a mid-list failure rolls the whole batch back rather than leaving a
- * half-added wishlist. Lines for products that are gone/inactive are skipped
- * and reported; only an unexpected error 500s.
+ * half-added wishlist. Lines that cannot land are skipped AND reported:
+ * gone/inactive products (filtered in the pre-read) and lines sold out
+ * under the click (clamped to 0 at plan time, session-10 S10-5) both count
+ * toward `skipped`. Only an unexpected error 500s.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -56,6 +58,7 @@ export async function POST(request: NextRequest) {
 
     const added = await db.$transaction(async (tx) => {
       let count = 0;
+      let soldOut = 0;
       for (const [productId, quantity] of wanted) {
         const stock = stockById.get(productId);
         if (stock === undefined) continue; // gone/inactive — reported as skipped
@@ -63,7 +66,13 @@ export async function POST(request: NextRequest) {
           where: { cartId_productId: { cartId, productId } },
         });
         const clamped = planBulkUpsertQuantity(existing?.quantity ?? 0, quantity, stock);
-        if (clamped === 0) continue; // sold out under the click
+        if (clamped === 0) {
+          // Sold out under the click (session-10 S10-5): the line was
+          // requested, cannot land, and MUST be reported — the UI's
+          // "added N of M" arithmetic only adds up when every skip is counted.
+          soldOut += 1;
+          continue;
+        }
         await tx.cartItem.upsert({
           where: { cartId_productId: { cartId, productId } },
           create: { cartId, productId, quantity: clamped },
@@ -71,11 +80,15 @@ export async function POST(request: NextRequest) {
         });
         count += 1;
       }
-      return count;
+      return { added: count, soldOut };
     });
 
     const summary = await getCartSummary(cartId);
-    return NextResponse.json({ itemCount: summary.itemCount, added, skipped: Math.max(skipped, 0) });
+    return NextResponse.json({
+      itemCount: summary.itemCount,
+      added: added.added,
+      skipped: Math.max(skipped + added.soldOut, 0),
+    });
   } catch {
     return NextResponse.json({ error: "Something went wrong." }, { status: 500 });
   }

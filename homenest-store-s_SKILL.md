@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.6.0
+version: 1.7.0
 last_updated: 2026-10-14
-project_state: "229 unit tests · 50 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-9)"
+project_state: "241 unit tests · 50 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-10)"
 tags:
   - nextjs16
   - react19
@@ -876,6 +876,36 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   pinned) + the carried a11y/abuse-model items.
 - 229 unit + 50 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/
   README/PAD/DEPLOYMENT aligned.
+
+### Session 10 — address-default/cart-line completion (2026-10-13, v1.7.0)
+
+- Re-validated session-9 on the pulled tree (`fc57d39`): all gates green
+  (229 unit / 50 e2e), visual parity + mobile menu re-verified against the
+  LIVE reference (the reference's first carousel slide confirmed as
+  "New Arrivals" by clicking its slide dot — identical to the clone;
+  reference unchanged, clone remains the superset).
+- Fresh deep audit (read-only subagent + own file:line verification):
+  session-9 fixes 8/8 WIRED / 0 PARTIAL / 0 MISSING; new findings
+  1 MEDIUM / 3 LOW / 1 NIT · 0 HIGH.
+- TDD fixes (S10-1..S10-5): deleting the DEFAULT address re-promotes the
+  newest remaining row in the SAME delete transaction
+  (`reassignDefaultAfterDeleteInTx`, S10-1 — the old DELETE stranded the
+  book at zero defaults and checkout prefill silently died; live-verified:
+  delete default → next-newest auto-promoted → checkout prefill renders
+  the promoted address); cart PATCH writes are scoped conditional writes
+  with `count === 0` → 404 (S10-2 — a line deleted by a concurrent tab
+  surfaces as "not found", never a P2025 500); the address-book cap check
+  moved INSIDE the create transaction (S10-3 — `assertAddressCap(tx, …)`
+  first statement, `AddressCapError` → friendly 409 from the catch, so
+  concurrent POSTs at cap − 1 cannot overshoot); the guest→user wishlist
+  merge plans its upserts through pure `planWishlistMerge`
+  (S10-4 — order kept, already-owned skip, guest dedupe, cap truncation;
+  the old loop was the one create path outside the POST cap and could
+  strand overflow permanently invisible behind the page's `take`); the
+  bulk add-all reports BOTH skip reasons (S10-5 — `skipped =
+  goneInactive + soldOut` so the "added N of M" toast arithmetic adds up).
+- 241 unit + 50 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/
+  README/PAD/SKILL aligned; run narrative at `docs/session_13.md`.
 
 ## Appendix C — Quick Reference Card
 

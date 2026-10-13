@@ -11,8 +11,9 @@ import { useToast } from "@/components/ui/toaster";
 /**
  * AddAllToCartButton — adds every wishlist product to the cart with ONE
  * request to /api/cart/bulk (session-8 S8-6), then routes to /cart. Skipped
- * lines (gone/inactive products) are reported in a summary toast instead of
- * blocking.
+ * lines (gone/inactive products AND lines sold out under the click — both
+ * counted in the response since session-10 S10-5) are reported in a summary
+ * toast instead of blocking.
  */
 export function AddAllToCartButton({ productIds }: { productIds: string[] }) {
   const [pending, setPending] = React.useState(false);

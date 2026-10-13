@@ -107,17 +107,34 @@ export async function PATCH(request: NextRequest) {
 
     const requested = parsed.data.quantity;
     let finalQuantity = 0; // deletion (explicit 0 or clamp-to-0) is the fallback
+    // Session-10 S10-2: every write is a scoped conditional write
+    // (`{ id, cartId }`) whose `count === 0` maps to the same 404 — a line
+    // deleted by a concurrent tab/window between the read above and this
+    // write surfaces as "not found" instead of a P2025 500 (the S8-4
+    // wishlist / S9-3 addresses race pattern, applied to the cart).
     if (requested === 0) {
-      await db.cartItem.delete({ where: { id: line.id } });
+      const gone = await db.cartItem.deleteMany({ where: { id: line.id, cartId } });
+      if (gone.count === 0) {
+        return NextResponse.json({ error: "Cart line not found." }, { status: 404 });
+      }
     } else {
       const product = await db.product.findUnique({ where: { id: line.productId } });
       const qty = clampPurchaseQuantity(requested, product?.stock ?? null);
       if (qty === 0) {
         // Out of stock (or product gone) — the line is not purchasable, so it
         // must not survive as a quantity-0 ghost that checkout can "buy".
-        await db.cartItem.delete({ where: { id: line.id } });
+        const gone = await db.cartItem.deleteMany({ where: { id: line.id, cartId } });
+        if (gone.count === 0) {
+          return NextResponse.json({ error: "Cart line not found." }, { status: 404 });
+        }
       } else {
-        await db.cartItem.update({ where: { id: line.id }, data: { quantity: qty } });
+        const updated = await db.cartItem.updateMany({
+          where: { id: line.id, cartId },
+          data: { quantity: qty },
+        });
+        if (updated.count === 0) {
+          return NextResponse.json({ error: "Cart line not found." }, { status: 404 });
+        }
         finalQuantity = qty;
       }
     }

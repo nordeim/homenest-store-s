@@ -92,3 +92,41 @@ export async function promoteAddressInTx(
     data: { isDefault: false },
   });
 }
+
+/**
+ * Minimal shape of `db` / a transaction client that
+ * `reassignDefaultAfterDeleteInTx` touches — the promote client plus the
+ * scoped newest-row lookup.
+ */
+export interface AddressReassigningClient extends AddressPromotingClient {
+  address: AddressPromotingClient["address"] & {
+    findFirst: (args: {
+      where: { userId: string };
+      orderBy: { createdAt: "desc" };
+      select: { id: true };
+    }) => Promise<{ id: string } | null>;
+  };
+}
+
+/**
+ * After a DELETE removes the user's DEFAULT address, the remaining rows are
+ * all `isDefault: false` — checkout's `findFirst({ isDefault: true })` would
+ * return null and prefill would silently die (session-10 S10-1). This helper
+ * re-promotes the NEWEST remaining address inside the caller's delete
+ * transaction, so the single-default invariant survives the delete path with
+ * zero stranded states. A non-default delete (or a book left empty) no-ops.
+ */
+export async function reassignDefaultAfterDeleteInTx(
+  client: AddressReassigningClient,
+  userId: string,
+  deletedWasDefault: boolean,
+): Promise<void> {
+  if (!deletedWasDefault) return;
+  const newest = await client.address.findFirst({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (!newest) return;
+  await promoteAddressInTx(client, userId, newest.id);
+}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { AddressCapError, AddressGoneError, assertAddressCap, promoteAddressInTx } from "@/lib/addresses";
+import { AddressCapError, AddressGoneError, assertAddressCap, promoteAddressInTx, reassignDefaultAfterDeleteInTx } from "@/lib/addresses";
 import { getCurrentUser } from "@/lib/auth";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
@@ -41,22 +41,13 @@ export async function POST(request: NextRequest) {
 
     // Session-7 S7-8: the address book is a bounded surface — the cap is
     // enforced on the direct write path with a friendly, actionable 409.
-    try {
-      await assertAddressCap(db, user.id);
-    } catch (error) {
-      if (error instanceof AddressCapError) {
-        return NextResponse.json({ error: error.message }, { status: 409 });
-      }
-      throw error;
-    }
-
-    // Session-8 S8-1: the account write path participates in the same
-    // single-default invariant as checkout's saveAddress — the FIRST saved
-    // address becomes the default so checkout prefill ("check out in
-    // seconds on every future order") actually fires. The count + create +
-    // default-unset pass run inside ONE transaction (SQLite serializes
-    // writes, so two concurrent first-saves cannot both win the count).
+    // Session-10 S10-3: the check runs INSIDE the create transaction, so two
+    // concurrent POSTs at (cap − 1) can no longer both pass a pre-tx read and
+    // overshoot the cap — the in-tx count is the authoritative gate, and the
+    // S8-1 single-default invariant (first address auto-defaults, count +
+    // create + unset pass in ONE transaction) is unchanged.
     const address = await db.$transaction(async (tx) => {
+      await assertAddressCap(tx, user.id);
       const count = await tx.address.count({ where: { userId: user.id } });
       const created = await tx.address.create({
         data: {
@@ -86,7 +77,12 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ ok: true, id: address.id });
-  } catch {
+  } catch (error) {
+    if (error instanceof AddressCapError) {
+      // The in-tx cap gate (S10-3) rejects the full book with the same
+      // friendly, actionable 409 the pre-tx check used to return.
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }
@@ -178,7 +174,7 @@ export async function DELETE(request: NextRequest) {
 
     const existing = await db.address.findFirst({
       where: { id, userId: user.id },
-      select: { id: true },
+      select: { id: true, isDefault: true },
     });
     if (!existing) {
       return NextResponse.json({ error: "Address not found." }, { status: 404 });
@@ -186,13 +182,24 @@ export async function DELETE(request: NextRequest) {
 
     // Scoped deleteMany (session-9 S9-3, the S8-4 wishlist pattern): a
     // concurrent double-delete reports count === 0 as a 404 instead of
-    // surfacing P2025 as a 500.
-    const deleted = await db.address.deleteMany({ where: { id: existing.id, userId: user.id } });
-    if (deleted.count === 0) {
+    // surfacing P2025 as a 500. Session-10 S10-1: when the deleted row was
+    // the DEFAULT, the newest remaining address is re-promoted inside the
+    // SAME transaction — otherwise the book strands at zero defaults,
+    // checkout prefill silently dies, and nothing ever re-promotes.
+    await db.$transaction(async (tx) => {
+      const deleted = await tx.address.deleteMany({ where: { id: existing.id, userId: user.id } });
+      if (deleted.count === 0) {
+        // Lost the delete race — nothing to reassign; the pre-read row was
+        // already gone, which is the same 404 the scoped write used to map.
+        throw new AddressGoneError();
+      }
+      await reassignDefaultAfterDeleteInTx(tx, user.id, existing.isDefault);
+    });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    if (error instanceof AddressGoneError) {
       return NextResponse.json({ error: "Address not found." }, { status: 404 });
     }
-    return NextResponse.json({ ok: true });
-  } catch {
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }
