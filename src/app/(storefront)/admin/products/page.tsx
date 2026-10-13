@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
+import { clampSearchTerm } from "@/lib/validation";
 import { parseImages, parseSpecs, parseTags } from "@/lib/products";
 import { cn } from "@/lib/utils";
 
@@ -64,7 +65,7 @@ export default async function AdminProductsPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const params = await searchParams;
-  const q = firstParam(params.q).trim();
+  const q = clampSearchTerm(firstParam(params.q));
   const page = Math.max(1, Number.parseInt(firstParam(params.page) || "1", 10) || 1);
 
   const where = { name: q ? { contains: q } : undefined };

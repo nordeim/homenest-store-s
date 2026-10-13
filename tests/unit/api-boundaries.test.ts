@@ -1,5 +1,6 @@
 // Session-14 S14-2 / C1-C3 — API boundary mappings for the health, newsletter,
-// contact, and checkout route handlers.
+// contact, and checkout route handlers. Session-15 S15-3/C1: Retry-After
+// response-contract assertions + the order-number exhaustion pin.
 //
 // The route handlers are import-safe in the Vitest node env (verified
 // empirically before these tests were written — the session-12 convention).
@@ -13,9 +14,23 @@ import { NextRequest } from "next/server";
 vi.mock("@/lib/db", () => ({
   db: {
     $queryRaw: vi.fn(),
+    $transaction: vi.fn(),
     newsletterSubscriber: { upsert: vi.fn().mockResolvedValue({}) },
     contactMessage: { create: vi.fn().mockResolvedValue({}) },
+    cart: { findUnique: vi.fn() },
+    storeSetting: { findMany: vi.fn().mockResolvedValue([]) },
+    order: { count: vi.fn(), findUnique: vi.fn() },
   },
+}));
+
+// The checkout flow reads cookies (session + cart token) before the retry
+// loop; outside a Next request context `cookies()` throws, so the store is
+// mocked: a guest session (no session cookie) carrying a guest CART token so
+// the exhaustion test reaches the order-allocation loop with a non-empty cart.
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({
+    get: (name: string) => (name === "homenest_cart" ? { value: "guest-token" } : undefined),
+  })),
 }));
 
 import { GET as healthGET } from "@/app/api/health/route";
@@ -103,6 +118,8 @@ describe("POST /api/newsletter (C2)", () => {
       post("/api/newsletter", JSON.stringify({ email: "subscriber@example.com" }), "203.0.113.13"),
     );
     expect(sixth.status).toBe(429);
+    // S15-3: the 429 contract includes Retry-After on EVERY metered route.
+    expect(sixth.headers.get("retry-after")).toBeTruthy();
   });
 });
 
@@ -119,6 +136,7 @@ describe("POST /api/contact (C2)", () => {
     }
     const sixth = await contactPOST(post("/api/contact", body, "203.0.113.21"));
     expect(sixth.status).toBe(429);
+    expect(sixth.headers.get("retry-after")).toBeTruthy();
     await expect(sixth.json()).resolves.toEqual({
       error: "Too many messages sent. Please try again shortly.",
     });
@@ -141,7 +159,71 @@ describe("POST /api/checkout (C3)", () => {
     await expect(twentyFirst.json()).resolves.toEqual({
       error: "Too many checkout attempts. Please try again shortly.",
     });
-    // Every in-budget attempt consumed exactly one limiter slot.
+    // Every in-budget attempt consumed exactly one limiter slot — the array
+    // is built by this loop, so a bare toHaveLength would be vacuous (S15-1):
+    // a limiter misconfigured to 10/min would 429 attempts 11-20 and still
+    // pass. Every recorded status must be a real 200/4xx from the handler.
     expect(statuses).toHaveLength(20);
+    expect(statuses.every((s) => s !== 429)).toBe(true);
+  });
+});
+
+describe("POST /api/checkout — order-number allocation exhaustion (C1)", () => {
+  it("retries five sequential P2002s on the NUMBER, never entering the replay branch, then 500s", async () => {
+    // Guest with a non-empty cart, settings from defaults, and an order
+    // allocation that collides five times: db.$transaction rejects with a
+    // P2002 whose target is the NUMBER field (not the idempotency key).
+    // placeOrderWithRetry must retry with the next suffix each attempt,
+    // never consult the replay branch (order.findUnique), and surface the
+    // exhaustion as the generic 500 — the raw engine error never escapes.
+    vi.mocked(db.cart.findUnique).mockResolvedValue({
+      id: "cart-1",
+      userId: null,
+      token: "guest-token",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      items: [
+        {
+          id: "item-1",
+          cartId: "cart-1",
+          productId: "p1",
+          quantity: 2,
+          createdAt: new Date(),
+          product: {
+            id: "p1",
+            name: "Test Product",
+            slug: "test-product",
+            images: JSON.stringify(["/images/product-damascus-knife-set.png"]),
+            price: 1000,
+            stock: 10,
+            isActive: true,
+          },
+        },
+      ],
+    } as never);
+    vi.mocked(db.order.count).mockResolvedValue(0);
+    const numberCollision = Object.assign(new Error("Unique constraint failed"), {
+      code: "P2002",
+      meta: { target: ["number"] },
+    });
+    vi.mocked(db.$transaction).mockRejectedValue(numberCollision);
+
+    // A unique RIGHTMOST x-forwarded-for hop: the C3 limiter test above
+    // exhausts the shared checkout bucket (its helper appends a constant
+    // proxy hop), so this request must arrive from its own IP to meet the
+    // 20/min budget with room to spare.
+    const res = await checkoutPOST(
+      post("/api/checkout", checkoutBody(77), "203.0.113.41", { "x-forwarded-for": "203.0.113.41" }),
+    );
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      error: "Something went wrong placing your order.",
+    });
+    // Five allocation attempts, each re-reading the counter for the next suffix.
+    expect(db.order.count).toHaveBeenCalledTimes(5);
+    // The P2002 on the NUMBER must NOT route into the idempotency recovery
+    // branch (session-8 S8-3 discrimination) — replayAuthorized is never consulted.
+    expect(db.order.findUnique).not.toHaveBeenCalled();
   });
 });

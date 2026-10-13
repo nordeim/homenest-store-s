@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     // client that ignores cookies would mint a Wishlist row per request).
     const ipLimit = rateLimit(`wishlist:${clientIp(request.headers)}`, 60, 60_000);
     if (!ipLimit.ok) {
-      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429, headers: { "Retry-After": String(ipLimit.retryAfterSec ?? 60) } });
     }
 
     const product = await db.product.findUnique({ where: { id: productId }, select: { id: true, isActive: true } });

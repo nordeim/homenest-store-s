@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     if (!limit.ok) {
       return NextResponse.json<CouponApplyResponse>(
         { ok: false, error: "Too many attempts. Please try again shortly." },
-        { status: 429 },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSec ?? 60) } },
       );
     }
 

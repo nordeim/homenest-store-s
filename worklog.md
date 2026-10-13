@@ -170,3 +170,24 @@ Stage Summary:
 - Session-14 remediation complete and pushed: remote main advanced 42a188a → this commit (fast-forward, main only, no new branches). All user checklist items satisfied.
 - Codebase state: 287 unit + 62 e2e green; toast-timer hygiene + boundary pins + e2e determinism guard (session 14); docs fully aligned.
 - Carried deferrals unchanged: drawer OPEN-state focus trap (S8-7), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, checkout saveAddress at-cap skip-save integration pin, real payment/email epics, admin coupon UI.
+
+---
+Task ID: 16 (session 16 — homenest-store-s)
+Agent: audit + remediation agent (Super Z)
+Task: Full audit/remediation cycle on homenest-store-s — refresh workspace (fresh clone; workspace reset), review docs (session_21/22, REMEDIATION_PLAN, worklog, core docs), re-validate gates, live-reference parity + mobile menu, fresh deep audit (session 15), TDD remediation, docs/screenshots, commit + SSH push to main.
+
+Work Log:
+- Workspace had been reset — fresh-cloned https://github.com/nordeim/homenest-store-s.git at 0701b44 (= 4f19bf1 + the operator-committed docs/session_22.md). Reviewed all core docs + session logs + the uploaded coding_agent_prompt.md; skills/ excluded from all checking/testing/compilation per the operator contract.
+- Environment converged: sandbox DATABASE_URL shadow neutralized via the symlink /home/z/my-project/db → <repo>/db; .env carries the file:../db/custom.db contract + AUTH_SECRET; db/custom.db pushed + seeded at the repo root.
+- Gates re-validated on the pulled tree: lint/typecheck/typecheck:tests ✓ · 287/287 unit ✓ · build ✓ · 62/62 e2e ✓.
+- Live-reference parity re-verified via agent-browser (logged in with the operator credentials): reference unchanged (same nav/hero/8 categories, Damascus-first order); clone mobile menu re-verified end-to-end on the production build (open → 7-link panel → navigate → auto-close/unmount); /products Damascus-first; zero console errors.
+- Fresh deep audit (read-only subagent 16-a + own file:line verification): session-14 fixes 5/5 WIRED; older-fix spot-checks 5/5 WIRED; new findings 0 CRITICAL / 0 HIGH / 0 MEDIUM / 2 LOW / 3 NIT / 0 doc-drift (S15-1 vacuous checkout in-budget assertion; S15-2 DATA-coupled cardinality pins; S15-3 Retry-After on only 4/14 metered 429s; S15-4 uncapped admin search; S15-5 per-read MediaQueryList).
+- TDD remediation (plan appended to docs/REMEDIATION_PLAN.md; RED confirmed before any implementation): newsletter/contact 429 pins failed on the missing header; clampSearchTerm pins failed on the missing export; C1 went through three honest iterations (shared limiter bucket → unique rightmost XFF hop; empty-cookie 409 → guest homenest_cart cookie mock) before landing green: 5× P2002 on the NUMBER → 500 with order.count called 5× and the replay branch (order.findUnique) never consulted.
+- GREEN: S15-3 Retry-After ×10 sites (no headerless 429 remains in src/app/api); S15-4 pure clampSearchTerm (validation.ts) consumed by /products + admin products + admin orders + /api/search; S15-2 restore harness also re-activates deactivated seed products (live-verified with no residue) + storefront e2e pins the count FORMAT while the exact seed constants moved to the new tests/unit/seed-catalog.test.ts (Playwright's CJS transform rejects the seed's import.meta — documented); S15-5 module-level cached MediaQueryList in hero-carousel.tsx.
+- Final gates: lint/typecheck/typecheck:tests ✓ · 299/299 unit ✓ · build ✓ · 62/62 e2e ✓; manual verification (newsletter 429 → retry-after: 60 live; 150-char /api/search query → clean empty results; admin search 150-char → clean empty state; sitemap/robots; mobile menu; zero console errors); 23 screenshots refreshed.
+- Docs aligned: AGENTS.md (every-429-carries-Retry-After invariant + restore-harness isActive scope + seed-catalog pin pointer), CLAUDE.md (unit + e2e coverage lists), README.md (badge 299/62), PAD (§8.1 rows + known-issues #61–66), SKILL.md v1.12.0 (project_state + Appendix B Session-15 entry), DEPLOYMENT.md (Retry-After runbook note), .env.example unchanged, docs/session_23.md, worklog.
+
+Stage Summary:
+- Session-15 remediation complete and pushed: remote main advanced 0701b44 → this commit (fast-forward, main only, no new branches). All user checklist items satisfied.
+- Codebase state: 299 unit + 62 e2e green; uniform Retry-After 429 contract + search-clamp hardening + e2e determinism (session 15); docs fully aligned.
+- Carried deferrals unchanged: drawer OPEN-state focus trap (S8-7), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, checkout saveAddress at-cap skip-save integration pin, review action two-tier gate pin, admin coupon-management UI, real mailer/payment epics.

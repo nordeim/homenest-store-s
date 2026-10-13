@@ -237,3 +237,15 @@ export const trackingSchema = z.object({
 export function firstError(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Invalid input";
 }
+
+/**
+ * Sanitize a free-text search query from URL search params before it reaches
+ * a Prisma `contains` filter (session-15 S15-4). Trims whitespace and caps
+ * the length (default 100 — the same cap the storefront listing has always
+ * applied) so unbounded client strings can neither bloat the query plan nor
+ * widen the result grid. Applied at EVERY search surface: storefront
+ * /products, admin products, admin orders, and /api/search.
+ */
+export function clampSearchTerm(value: string, max = 100): string {
+  return value.trim().slice(0, max);
+}

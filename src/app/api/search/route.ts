@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 
 import { parseImages } from "@/lib/products";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { clampSearchTerm } from "@/lib/validation";
 
 /** GET /api/search?q=… — typeahead search over active products. */
 export async function GET(request: NextRequest) {
@@ -11,13 +12,13 @@ export async function GET(request: NextRequest) {
     // a scripted client can't hammer the catalog for free (session-5 S5-8).
     const ipLimit = rateLimit(`search:${clientIp(request.headers)}`, 120, 60_000);
     if (!ipLimit.ok) {
-      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429, headers: { "Retry-After": String(ipLimit.retryAfterSec ?? 60) } });
     }
 
-    let q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
-    // Same 100-char cap the /products page applies (session-9 S9-7) — an
+    // Same 100-char cap every search surface applies via clampSearchTerm
+    // (session-9 S9-7; single-sourced in validation.ts since S15-4) — an
     // oversized term feeds three LIKE clauses for nothing.
-    if (q.length > 100) q = q.slice(0, 100);
+    const q = clampSearchTerm(request.nextUrl.searchParams.get("q") ?? "");
     if (q.length < 2) return NextResponse.json({ results: [] });
 
     const products = await db.product.findMany({

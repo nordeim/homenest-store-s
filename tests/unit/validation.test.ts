@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   addressSchema,
+  clampSearchTerm,
   cartMutateSchema,
   checkoutSchema,
   contactSchema,
@@ -261,5 +262,22 @@ describe("productInputSchema.specs/tags bounds (session-6)", () => {
     const long = "x".repeat(41);
     expect(productInputSchema.safeParse(productBase({ tags: ["knife", long] })).success).toBe(false);
     expect(productInputSchema.safeParse(productBase({ tags: ["knife"] })).success).toBe(true);
+  });
+});
+
+describe("clampSearchTerm (S15-4)", () => {
+  it("trims whitespace and caps the query at 100 characters", () => {
+    expect(clampSearchTerm("  whisk  ")).toBe("whisk");
+    expect(clampSearchTerm("x".repeat(250))).toBe("x".repeat(100));
+    expect(clampSearchTerm("x".repeat(100))).toHaveLength(100);
+  });
+
+  it("returns an empty string for blank input and keeps non-ASCII intact", () => {
+    expect(clampSearchTerm("   ")).toBe("");
+    expect(clampSearchTerm("日本語の包丁")).toBe("日本語の包丁");
+  });
+
+  it("honors a custom cap", () => {
+    expect(clampSearchTerm("abcdefghij", 4)).toBe("abcd");
   });
 });

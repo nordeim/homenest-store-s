@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     // request (DB-growth spam).
     const ipLimit = rateLimit(`cart:${clientIp(request.headers)}`, 60, 60_000);
     if (!ipLimit.ok) {
-      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429, headers: { "Retry-After": String(ipLimit.retryAfterSec ?? 60) } });
     }
 
     const product = await db.product.findUnique({ where: { id: productId } });
@@ -85,7 +85,7 @@ export async function PATCH(request: NextRequest) {
     // Same metering as POST — the mutation surface is symmetric (session-5 S5-8).
     const ipLimit = rateLimit(`cart:${clientIp(request.headers)}`, 60, 60_000);
     if (!ipLimit.ok) {
-      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429, headers: { "Retry-After": String(ipLimit.retryAfterSec ?? 60) } });
     }
 
     const body = await parseJsonBody(request);
@@ -153,7 +153,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const ipLimit = rateLimit(`cart:${clientIp(request.headers)}`, 60, 60_000);
     if (!ipLimit.ok) {
-      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429, headers: { "Retry-After": String(ipLimit.retryAfterSec ?? 60) } });
     }
 
     const params = request.nextUrl.searchParams;

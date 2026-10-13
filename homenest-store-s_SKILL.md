@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.11.0
+version: 1.12.0
 last_updated: 2026-10-13
-project_state: "287 unit tests · 62 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-14)"
+project_state: "299 unit tests · 62 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-15)"
 tags:
   - nextjs16
   - react19
@@ -1048,6 +1048,38 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
 - 287 unit + 62 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/
   README/PAD/SKILL/DEPLOYMENT aligned; run narrative at
   `docs/session_21.md`.
+
+
+### Session 15 — rate-limit response hygiene + robustness pins (2026-10-13, v1.12.0)
+
+- Re-validated session-14 on the pulled tree (`0701b44`): all gates green
+  (287 unit / 62 e2e), live-reference parity re-verified (logged in; the
+  reference is unchanged — same nav/hero/categories, Damascus-first order;
+  mobile menu open → 7-link panel → navigate → auto-close on the production
+  build).
+- Fresh deep audit (read-only subagent 16-a + own file:line verification):
+  session-14 fixes 5/5 WIRED; older-fix spot-checks 5/5 WIRED; new findings
+  **0 CRITICAL / 0 HIGH / 0 MEDIUM / 2 LOW / 3 NIT / 0 doc-drift**.
+- Fixes (TDD — RED first): **S15-1** the checkout 429 pin's in-budget
+  assertion was vacuous (`toHaveLength` on the loop's own array) — now
+  `every(s => s !== 429)`; **S15-3** every one of the 14 metered 429
+  responses now carries `Retry-After` (10 sites added; newsletter/contact
+  boundary pins assert it); **S15-4** `clampSearchTerm` (pure, in
+  validation.ts, unit-pinned) caps every search surface at 100 chars —
+  admin products/orders previously fed unbounded `contains` terms;
+  **S15-5** the hero carousel caches its MediaQueryList at module level
+  (getSnapshot no longer constructs one per read); **S15-2** the restore
+  harness also re-activates deactivated seed products, and the storefront
+  e2e cardinality pins assert the count FORMAT + seeded slugs while the
+  exact seed constants (16 / Damascus-first / 3 cookware / 8 categories)
+  moved to `tests/unit/seed-catalog.test.ts` — Playwright cannot import the
+  seed (its CJS transform rejects `import.meta`).
+- Coverage pins: the order-number allocation-exhaustion pin (five mocked
+  P2002s on the NUMBER → 500 with the replay branch never consulted —
+  mocked `next/headers` cookies) and the sitemap DB-failure fallback +
+  product-URL pins (mocked `db.product.findMany`).
+- 299 unit + 62 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/README/
+  PAD/SKILL/DEPLOYMENT aligned; run narrative at `docs/session_23.md`.
 
 
 ## Appendix C — Quick Reference Card

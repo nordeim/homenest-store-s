@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     
     const limit = rateLimit(`newsletter:${clientIp(request.headers)}`, 5, 60_000);
     if (!limit.ok) {
-      return NextResponse.json({ error: "Too many attempts. Please try again shortly." }, { status: 429 });
+      return NextResponse.json({ error: "Too many attempts. Please try again shortly." }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSec ?? 60) } });
     }
 
     await db.newsletterSubscriber.upsert({

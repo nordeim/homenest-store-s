@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     // budget — the bulk path does up to 100 writes per call.
     const limit = rateLimit(`cart-bulk:${clientIp(request.headers)}`, 10, 60_000);
     if (!limit.ok) {
-      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSec ?? 60) } });
     }
 
     let body: unknown = null;

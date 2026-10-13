@@ -26,6 +26,15 @@ export type Slide = {
   ctaLink: string;
 };
 
+// S15-5: lazily-created, module-level MediaQueryList cache. Only ever called
+// on the client (subscribe + getSnapshot); the module never touches
+// `window.matchMedia` during SSR.
+let cachedReducedMotionQuery: MediaQueryList | null = null;
+function reducedMotionQuery(): MediaQueryList {
+  cachedReducedMotionQuery ??= window.matchMedia("(prefers-reduced-motion: reduce)");
+  return cachedReducedMotionQuery;
+}
+
 export function HeroCarousel({ slides, autoRotateMs = 6000 }: { slides: Slide[]; autoRotateMs?: number }) {
   const [active, setActive] = React.useState(0);
   const count = slides.length;
@@ -33,14 +42,19 @@ export function HeroCarousel({ slides, autoRotateMs = 6000 }: { slides: Slide[];
   // OS for reduced motion. Purely behavioral — no visual change in captures.
   // `useSyncExternalStore` subscribes to the media query the React-idiomatic
   // way (no set-state-in-effect; SSR snapshot is `false`).
+  // S15-5: the MediaQueryList is cached at module level — getSnapshot runs on
+  // every render, and `window.matchMedia(...)` constructs a fresh MQL per
+  // call. The cache is lazy (client-only; the SSR snapshot below never
+  // touches it) and the MQL is live, so `.matches` always reflects the OS
+  // setting at read time.
   const [paused, setPaused] = React.useState(false);
   const reducedMotion = React.useSyncExternalStore(
     React.useCallback((onStoreChange: () => void) => {
-      const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+      const query = reducedMotionQuery();
       query.addEventListener("change", onStoreChange);
       return () => query.removeEventListener("change", onStoreChange);
     }, []),
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => reducedMotionQuery().matches,
     () => false,
   );
 

@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   try {
     const limit = rateLimit(`cart-summary:${clientIp(request.headers)}`, 120, 60_000);
     if (!limit.ok) {
-      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+      return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSec ?? 60) } });
     }
 
     const user = await getCurrentUser();

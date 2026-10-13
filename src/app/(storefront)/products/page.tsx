@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, PackageSearch, Search } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { clampSearchTerm } from "@/lib/validation";
 import { db } from "@/lib/db";
 import { siteBaseUrl } from "@/lib/seo";
 import { SORT_OPTIONS, queryProducts } from "@/lib/products";
@@ -62,7 +63,7 @@ function paginationPages(current: number, total: number): (number | "ellipsis")[
 
 export default async function ProductsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const sp = await searchParams;
-  const q = firstParam(sp.q).trim().slice(0, 100);
+  const q = clampSearchTerm(firstParam(sp.q));
   const category = firstParam(sp.category).trim();
   const sortRaw = firstParam(sp.sort).trim();
   const sortValues: readonly string[] = SORT_OPTIONS.map((o) => o.value);

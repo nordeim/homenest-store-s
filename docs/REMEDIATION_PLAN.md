@@ -1072,3 +1072,64 @@ Visual parity re-verified against the LIVE reference (agent-browser, logged in):
 - [x] Screenshots refreshed; docs sweep; worklog updated
 
 **Post-remediation totals (session 14):** see the session-14 run narrative (`docs/session_21.md`) for the final counts.
+
+# Session 15 — Post-push audit & rate-limit response hygiene (2026-10-13)
+
+> **Status:** EXECUTED (see the Session-15 Execution Log at the end)
+> **Scope:** Re-validation of the session-14 deliverables on the pulled tree (`0701b44` = `4f19bf1` + `docs/session_22.md`), a **live-reference parity re-verification** (agent-browser, logged in with the operator credentials), a fresh read-only deep audit (repo `code-review-checklist` 12-category scan; `skills/` excluded), and TDD remediation of the new findings.
+> **Method:** unchanged — failing tests first, then the fix, then the full gate chain (`lint && typecheck && typecheck:tests && test && build && test:e2e`).
+
+## 1. Re-validation (all session-14 gates green on the pulled tree)
+
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · **287/287 unit** ✓ · build ✓ · **62/62 e2e** ✓ (sandbox `DATABASE_URL` shadow converged via the documented symlink `/home/z/my-project/db → <repo>/db`; `.env` carries the `file:../db/custom.db` contract; `db/custom.db` freshly pushed + seeded).
+
+Live-reference parity re-verified against the LIVE reference (agent-browser, logged in): reference unchanged — same nav anatomy, same hero slides ("New Arrivals" / "Elevate Your Kitchen" / "Sale Up to 40% Off"), same 8 category tiles, same featured set and authored order (Damascus Steel Chef Knife Set first on Featured AND New Arrivals; reference mobile panel = 5 main links). Clone re-verified on the production build: desktop parity holds; **mobile menu open → 7-link panel → navigate → auto-close/unmount** (Tailwind v4 conditional-mount intact); `/products` renders Damascus-first; login → `/account` with profile/orders/addresses; zero console errors.
+
+## 2. Session-14 fix verification (read-only subagent 16-a + spot-checks)
+
+**5/5 WIRED · 0 PARTIAL · 0 MISSING** (S14-1 timer registry with file:line evidence at `toaster.tsx:27,29-36,42-46,51-57`; S14-3 `aria-label` at `toast-primitives.tsx:69`; S14-2/C1-C3 boundary pins; S14-4 restore harness at `playwright.config.ts:47` + `restore-demo-stock.ts:23,29-30,59-62` + import-safe seed with `PRODUCTS` export; C4 profile+Sign Out e2e). Older-fix spot-checks **5/5 WIRED** (S13-3 drawer inert, S13-1 demo-credential server boundary, S13-4 review tx fold, S12-4 token-before-DB-read, S9-1 cart-badge server fallback).
+
+## 3. Session-15 audit findings (evidence-based)
+
+**0 CRITICAL / 0 HIGH / 0 MEDIUM / 2 LOW / 3 NIT / 0 doc-drift** — every count re-verified (287 unit · 62 e2e · 18 models · 16 products · the full AGENTS.md limiter grid · the 13 admin-island catch blocks). All findings personally re-verified with file:line evidence before planning.
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| S15-1 | LOW | **The checkout 429 pin's in-budget assertion is vacuous.** The loop's recorded statuses are asserted only via `toHaveLength(20)` — an array built by the loop itself — so a limiter misconfigured to 10/min (attempts 11–20 → 429) would still pass. The comment "every in-budget attempt consumed exactly one limiter slot" is not actually proven. | `tests/unit/api-boundaries.test.ts:133-146` |
+| S15-2 | LOW | **The storefront e2e cardinality pins are DATA-coupled with no restore guard** (the residual of the S14-4 class): `/16 products found/` and `/3 products found/` pin absolute counts against the persistent demo DB. The restore harness tops stock only; a deactivated seed product (or an admin-created extra) permanently breaks the pins. | `tests/e2e/storefront.spec.ts:45,63`; `scripts/restore-demo-stock.ts` |
+| S15-3 | NIT | **`Retry-After` ships on only 4 of 14 rate-limited 429 responses.** Checkout (1 site) + addresses (3 sites) set the header; newsletter, contact, coupon, cart ×3, bulk, cart-summary, search, wishlist (10 sites) omit it even though `rateLimit()` always returns `retryAfterSec`. Legal without it, but the contract should be uniform. | `api/addresses/route.ts:25,112,170`, `api/checkout/route.ts:114` vs `api/newsletter/route.ts:23`, `api/contact/route.ts:27`, `api/coupon/apply/route.ts:45`, `api/cart/route.ts:36,88,156`, `api/cart/bulk/route.ts:30`, `api/cart-summary/route.ts:17`, `api/search/route.ts:14`, `api/wishlist/route.ts:33`; `rate-limit.ts:51` |
+| S15-4 | NIT | **The admin search inputs feed Prisma `contains` without the 100-char cap the storefront applies.** `/products` caps `q` at 100; admin products + orders do not (parameterized, admin-gated — grid consistency only). | `admin/products/page.tsx:67`, `admin/orders/page.tsx:89` vs `products/page.tsx:65`, `api/search/route.ts:20` |
+| S15-5 | NIT | **The hero carousel constructs a fresh `MediaQueryList` on every `getSnapshot` read** (`window.matchMedia(...)` per call). Correct but wasteful; cache the query. | `hero-carousel.tsx:43` |
+
+### Doc drift this session: none
+
+### Coverage pins added this session (from the audit's gap list)
+
+| # | Gap | Pin |
+|---|---|---|
+| C1 | **Order-number allocation exhaustion** (5 sequential P2002s on the NUMBER → `CheckoutError(500)`) unpinned | Unit (mocked `db`): `db.order.count` → 0, `db.$transaction` rejects with a P2002 whose target is `number` ×5 → the route answers 500 and the P2002-on-NUMBER never enters the idempotency replay branch |
+| C2 | **Sitemap DB-failure fallback** (static-routes-only emission) unpinned | Unit (mocked `db`): `db.product.findMany` rejects → exactly `STATIC_ROUTES.length` entries; resolves with 2 mocked products → static + 2 product URLs |
+
+**Accepted / carried deferrals (unchanged):** checkout `saveAddress` at-cap skip-save integration pin (needs the deferred address-cap + checkout harness family), review action two-tier gate pin (actions are not import-safe in Vitest — `next/cache`), route-level 429 wiring pins beyond the S14-2 representatives + this session's header assertions (limiter math is unit-pinned), drawer OPEN-state focus trap (S8-7), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration test, checkout coupon-cap concurrency harness, review two-tier budgets e2e, 404-shell CSP nonce, `__Host-` prefix, shared-store limiter, admin coupon-management UI, real mailer/payment epics.
+
+## 4. Remediation plan (TDD)
+
+1. **S15-1** — `tests/unit/api-boundaries.test.ts`: the checkout pin asserts `expect(statuses.every((s) => s !== 429)).toBe(true)` — the in-budget claim becomes real (kept alongside `toHaveLength(20)`).
+2. **S15-3** — all ten headerless 429 sites gain `headers: { "Retry-After": String(limit.retryAfterSec ?? 60) }` (matching the checkout/addresses shape exactly); the newsletter + contact boundary pins assert the header (RED first). One-line-per-site, no behavior change beyond the header.
+3. **S15-4** — pure `clampSearchTerm(value: string, max = 100)` in `src/lib/validation.ts` (unit-pinned: trims, caps at max, returns "" for empty); consumed by `/products` (replacing the inline slice), `admin/products`, `admin/orders`.
+4. **S15-2** — `scripts/restore-demo-stock.ts` also restores each seed product's `isActive` to its seed value (extending the S14-4 harness to the second drift vector); the storefront cardinality pins derive their expected counts from the seed-owned `PRODUCTS` constant (imported in the spec — import-safe per the S14-4 guard) instead of hard-coded literals.
+5. **S15-5** — `hero-carousel.tsx`: a module-level lazily-cached `MediaQueryList` (client-only construction; SSR snapshot stays `false`); subscribe + getSnapshot share it.
+6. **C1** — `tests/unit/api-boundaries.test.ts`: mocked-`db` exhaustion pin (above).
+7. **C2** — `tests/unit/seo-routes.test.ts`: sitemap fallback + product-URL pins (mocked `db`).
+8. **DOC** — AGENTS.md (a new rate-limit response invariant + the restore-harness scope note), CLAUDE.md (coverage lists), README (badge counts + limiter row), PAD (§8 tables + known-issues ledger), SKILL.md v1.12.0 (project_state + Appendix B), DEPLOYMENT.md (limiter header note), `.env.example` unchanged, `docs/session_23.md` (run-16 narrative), worklog entries, screenshots refreshed.
+
+## 5. Execution log (session 15)
+
+- [x] RED — `tests/unit/api-boundaries.test.ts`: newsletter/contact 429 pins now assert `retry-after` (failed against the headerless routes); checkout in-budget assertion strengthened (green — the limiter is correctly configured; the assertion now makes the claim real); C1 exhaustion pin added (failed only against a broken-retry hypothesis — green against the correct route, which IS the pin)
+- [x] RED — `tests/unit/seo-routes.test.ts`: sitemap fallback + product pins (green on arrival — coverage pins of existing correct behavior)
+- [x] RED — validation clamp pins (`tests/unit/validation.test.ts`) failed on the missing `clampSearchTerm` export; e2e storefront pins rewritten to seed-derived constants (green)
+- [x] GREEN — S15-3 headers ×10 sites; S15-4 helper + 3 consumers; S15-2 restore-script isActive + seed-derived spec constants; S15-5 cached MQL
+- [x] Full gate chain re-run green; manual agent-browser verification (429 header live via curl, mobile menu re-check, catalog order)
+- [x] Screenshots refreshed; docs sweep; worklog updated
+
+**Post-remediation totals (session 15):** see the session-15 run narrative (`docs/session_23.md`) for the final counts.

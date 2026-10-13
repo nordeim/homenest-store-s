@@ -290,7 +290,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 **Two suites, one gate:** `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e` — all must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 287 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 299 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
@@ -311,6 +311,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 | `order-status.test.ts` | Transition rules (terminal states) + restock-on-cancel predicate |
 | `review-aggregate.test.ts` | Weighted-average growth, rounding, empty baseline, out-of-range rejection; the transactional `growReviewAggregate` (S8-2: baseline read → merged write; no-op when the row vanished) |
 | `seo-routes.test.ts` | Sitemap lists only public routes; robots disallows admin/account/checkout/api |
+| `seed-catalog.test.ts` | The seed-owned catalog constants the storefront e2e pins assume (S15-2): 16 products, Damascus-first authored order, 3 cookware rows, 12-per-page pagination span, 8 categories, restore-harness field contract |
 | `seo-ld.test.ts` | JSON-LD builders: Product (cents→dollars price, stock→availability vocabulary, rating present only with reviews, images absolutized), Organization (contact + sameAs optional), WebSite (SearchAction → `/products?q=`) |
 | `cart-merge.test.ts` | Guest→user cart-merge planner: per-product sums, empty sides, zero-sum line drop, 99 ceiling, deterministic order |
 | `analytics.test.ts` | `foldItemAggregates`/top-products folds over bounded groupBy rows (S6-7) |
@@ -322,7 +323,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 | `session12-hardening.test.ts` | Checkout cart-clear filter (`cartClearFilter` S12-1: ordered ids only, cartId-compound scope, empty-lines safe), seed timestamps (`productSeedCreatedAt` S12-5: index 0 newest, strictly descending, minute spacing, negative-index rejection), numeric settings fallback (`settingNumber`: undefined/garbage/empty/whitespace/non-finite → fallback, finite passthrough) |
 | `session13-hardening.test.ts` | Server-side demo flag (`demoModeEnabled` S13-1: the five-cell env truth table — production default OFF, opt-in "true", explicit "false", dev default ON), UTC month start (`utcMonthStart` S13-6: UTC midnight, rollover, timezone independence), `clientIp` `TRUST_CF_CONNECTING_IP` opt-out (S13-7: default preserves the cf-first invariant, `trustCf:false` ignores the header), store-settings boundary schema (`settingsPatchSchema` C8: tax/cents bounds, `javascript:` social rejection, unknown-key strip, trim) |
 | `review-transactional.test.ts` | S13-4 DB semantics against a REAL temp SQLite (`datasourceUrl`): create + `growReviewAggregate` inside one tx commits and grows the aggregate; a failed aggregate write inside the tx ROLLS THE INSERT BACK; documents the pre-fix orphan shape |
-| `api-boundaries.test.ts` | S14-2/C1-C3 route-handler boundary pins with a mocked `db` layer (handlers verified import-safe in Vitest): `/api/health` ok + degraded-503, `/api/newsletter` malformed-JSON 400 + invalid-body 400 + exhausted-budget 429, `/api/contact` 429, `/api/checkout` 429 **with the `Retry-After` header**; per-test IP isolation via the rightmost-XFF `clientIp` contract |
+| `api-boundaries.test.ts` | Route-boundary mappings with a mocked `db` (+ mocked `next/headers` cookies for the checkout flow): health ok/degraded-503; newsletter malformed-JSON/invalid-body/429 + `Retry-After`; contact 429 + `Retry-After`; checkout 429 + `Retry-After` with the strengthened in-budget assertion (S15-1); the order-number allocation-exhaustion pin (five P2002s on the NUMBER → 500, replay branch never consulted — C1) |
 | `toaster.test.tsx` | S14-1 the suite's FIRST COMPONENT TEST (`.tsx` + `@vitest-environment jsdom` docblock, fake timers): auto-dismiss at 4s, manual close CANCELS the pending timer (`vi.getTimerCount()` back to baseline — the pre-fix orphan pin), unmount clears every pending timer |
 
 ### 8.2 E2E (Playwright — 62 tests, `tests/e2e/`)
@@ -459,6 +460,12 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | 58 | Fixed (session 14) | The toast close button was icon-only with NO accessible name (a bare `<X/>` glyph — violating the repo's own icon-only rule) | `aria-label="Dismiss notification"` on `ToastClose`; discovered by the S14-1 manual-close test. |
 | 59 | Fixed (session 14) | E2E checkout traffic permanently drained the traffic-owned demo stock — fourteen sessions of suite runs depleted Damascus to 0 and broke the stock-assuming pins ("In Stock" gone, sold-out 409s) | `scripts/restore-demo-stock.ts` tops every product back to its seed value; wired as the e2e webServer's first command (fresh start = deterministic demo state); `prisma/seed.ts` made import-safe (direct-execution guard) so the script can read the exported `PRODUCTS`. The seed policy itself is UNCHANGED (reseeds still never refresh stock). |
 | 60 | Accepted | `/api/newsletter`-`contact`-`checkout` 429 mappings + the health degraded-503 path were unpinned; `updateProfileAction`/`logoutAction` had no direct pin | All pinned in session 14 (`api-boundaries.test.ts` with a mocked db + the S14-3 auth e2e flow). Remaining unpinned (documented debt): the checkout `saveAddress` at-cap skip-save integration seam, `placeOrderWithRetry` number-collision exhaustion. |
+| 61 | Fixed (session 15) | The checkout 429 pin's in-budget assertion was vacuous (`toHaveLength(20)` on the loop's own array — a limiter misconfigured to 10/min would still pass) | `every(s => s !== 429)` assertion added (S15-1) |
+| 62 | Fixed (session 15) | Ten of the fourteen metered 429 responses omitted `Retry-After` (only checkout + addresses carried it) | All 14 sites now answer `String(limit.retryAfterSec ?? 60)` (S15-3); newsletter/contact boundary pins assert the header |
+| 63 | Fixed (session 15) | Admin search fed unbounded `contains` terms (the storefront capped at 100 chars; admin products/orders did not) | Pure `clampSearchTerm` in validation.ts, unit-pinned, consumed by /products + admin products + admin orders + /api/search (S15-4) |
+| 64 | Fixed (session 15) | The storefront e2e cardinality pins hard-coupled to absolute demo-DB row counts (the S14-4 data-depletion class, no restore guard for `isActive`) | Restore harness re-activates deactivated seed products; e2e pins the count FORMAT + seeded slugs; the exact seed constants moved to `seed-catalog.test.ts` (S15-2) |
+| 65 | Fixed (session 15) | The hero carousel constructed a fresh MediaQueryList on every `getSnapshot` read | Module-level lazy MQL cache (S15-5) |
+| 66 | Accepted | The order-number allocation-exhaustion (5× P2002 on the NUMBER → 500) and the sitemap DB-failure fallback were unpinned | Both pinned in session 15 (C1 mocked-`$transaction` exhaustion pin; C2 sitemap fallback/product-URL pins). Remaining carried debt: checkout `saveAddress` at-cap skip-save integration seam, review action two-tier gate pin, route-level 429 wiring beyond the representatives. |
 
 ---
 

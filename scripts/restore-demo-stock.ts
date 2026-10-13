@@ -1,17 +1,23 @@
 /**
- * restore-demo-stock — S14-4 (session 14) e2e determinism guard.
+ * restore-demo-state — S14-4 (session 14) + S15-2 (session 15) e2e determinism
+ * guard.
  *
- * The demo DB's stock is TRAFFIC-OWNED by the seed policy (S7-3: reseeds
- * refresh catalog content, never price/stock/rating/...) — so every e2e
- * checkout decrements it permanently. Fourteen sessions of suite runs
- * drained `Damascus Steel Chef Knife Set` to 0 and the storefront/S10-2
- * pins (which assume the seeded "In Stock" state) started failing — a
- * data-depletion failure mode, not a code regression.
+ * The demo DB's stock AND active-catalog state are TRAFFIC-OWNED by the seed
+ * policy (S7-3: reseeds refresh catalog content, never price/stock/rating/...)
+ * — so every e2e checkout decrements stock permanently, and an admin session
+ * that deactivates a seed product shifts the catalog cardinality. Fourteen
+ * sessions of suite runs drained `Damascus Steel Chef Knife Set` to 0 and the
+ * storefront/S10-2 pins (which assume the seeded "In Stock" state) started
+ * failing — a data-depletion failure mode, not a code regression. S15-2
+ * extends the same guard to the second drift vector: a deactivated seed
+ * product would break the storefront cardinality pins.
  *
- * This script tops every product's stock back to its SEED value before the
- * e2e webServer starts. It is a TEST-DATA restore (the session-7 live-verify
- * convention: "data restored to seed values afterwards"), not a policy
- * change: `prisma/seed.ts` still never touches stock.
+ * This script restores every seed product's stock AND isActive flag back to
+ * their SEED values before the e2e webServer starts. It is a TEST-DATA
+ * restore (the session-7 live-verify convention: "data restored to seed
+ * values afterwards"), not a policy change: `prisma/seed.ts` still never
+ * touches stock. Admin-CREATED products (non-seed rows) are deliberately
+ * left alone — the restore never deletes operator-owned data.
  *
  * Wired into playwright.config.ts's webServer.command (a fresh server start
  * restores first; a reused healthy server keeps its state — documented in
@@ -35,18 +41,31 @@ async function main() {
     let restored = 0;
     let alreadyAtSeed = 0;
     for (const product of PRODUCTS) {
+      // Seed products ship active (the seed type carries no isActive — the
+      // create defaults it) — the restore pins that invariant.
+      const seedActive = true;
       const current = await db.product.findUnique({
         where: { slug: product.slug },
-        select: { stock: true },
+        select: { stock: true, isActive: true },
       });
       if (!current) continue; // catalog row absent — the seed owns creation
-      if (current.stock === product.stock) {
+      if (current.stock === product.stock && current.isActive === seedActive) {
         alreadyAtSeed += 1;
         continue;
       }
-      await db.product.update({ where: { slug: product.slug }, data: { stock: product.stock } });
+      await db.product.update({
+        where: { slug: product.slug },
+        data: {
+          ...(current.stock === product.stock ? {} : { stock: product.stock }),
+          ...(current.isActive === seedActive ? {} : { isActive: seedActive }),
+        },
+      });
       restored += 1;
-      console.log(`restored ${product.slug}: ${current.stock} → ${product.stock}`);
+      console.log(
+        `restored ${product.slug}:` +
+          (current.stock === product.stock ? "" : ` stock ${current.stock} → ${product.stock}`) +
+          (current.isActive === seedActive ? "" : ` isActive ${current.isActive} → ${seedActive}`),
+      );
     }
     console.log(
       `restore-demo-stock: ${restored} restored, ${alreadyAtSeed} already at seed, ${PRODUCTS.length} catalog entries`,

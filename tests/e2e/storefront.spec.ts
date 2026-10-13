@@ -1,6 +1,15 @@
 import { expect, test } from "@playwright/test";
 import { gotoHydrated } from "./helpers";
 
+// S15-2: the storefront cardinality pins must not hard-couple to the demo
+// DB's exact row counts (the S14-4 data-depletion class — a deactivated seed
+// product or an admin-created extra permanently breaks an absolute pin).
+// The e2e layer therefore pins the count FORMAT + the seeded slugs/order;
+// the exact seed-owned values (16 products, 3 cookware, Damascus-first) are
+// pinned where the seed constant can actually be imported —
+// tests/unit/seed-catalog.test.ts — and the restore-demo-stock harness
+// (which now also restores isActive) keeps the live DB aligned with them.
+
 /**
  * Storefront parity smoke — the reference site's visible anatomy:
  * hero carousel, trust badges, 8 category tiles, featured + new arrivals
@@ -42,7 +51,7 @@ test.describe("storefront", () => {
     await gotoHydrated(page, "/products");
 
     await expect(page.getByRole("heading", { name: "All Products" })).toBeVisible();
-    await expect(page.getByText(/16 products found/)).toBeVisible();
+    await expect(page.getByText(/^\d+ products found$/)).toBeVisible();
 
     // Page 1 (newest-first) opens with the reference's authored order — the
     // seed backdates rows so Damascus-first is both the reference's observable
@@ -60,7 +69,7 @@ test.describe("storefront", () => {
     await page.getByRole("combobox").first().click();
     await page.getByRole("option", { name: "Cookware" }).click();
     await expect(page).toHaveURL(/category=cookware/);
-    await expect(page.getByText(/3 products found/)).toBeVisible();
+    await expect(page.getByText(/^\d+ products found$/)).toBeVisible();
     await expect(page.getByRole("heading", { name: "Artisan Copper Frying Pan" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Professional Stand Mixer" })).toBeHidden();
   });

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { db } from "@/lib/db";
-import { ORDER_STATUSES } from "@/lib/validation";
+import { ORDER_STATUSES, clampSearchTerm } from "@/lib/validation";
 import { formatDate, orderStatusBadgeClass } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -86,7 +86,7 @@ export default async function AdminOrdersPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const params = await searchParams;
-  const q = firstParam(params.q).trim();
+  const q = clampSearchTerm(firstParam(params.q));
   const statusRaw = firstParam(params.status);
   const status: string = (ORDER_STATUSES as readonly string[]).includes(statusRaw) ? statusRaw : "all";
   const page = Math.max(1, Number.parseInt(firstParam(params.page) || "1", 10) || 1);
