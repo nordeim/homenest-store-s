@@ -129,4 +129,39 @@ test.describe("auth", () => {
     await deviceA.close();
     await deviceB.close();
   });
+
+  test("guest wishlist merges into the account at registration (S10-4 wiring)", async ({ page }) => {
+    // Guest hearts two products, then registers a fresh account. The merge tx
+    // plans through planWishlistMerge (dedupe + cap truncation) and upserts
+    // only plan.toAdd — this pins the WIRING end-to-end (the pure plan is
+    // unit-pinned in session10-hardening.test.ts).
+    await gotoHydrated(page, "/products");
+    const hearts = page.getByRole("button", { name: /to wishlist$/ });
+    const firstProduct = ((await hearts.nth(0).getAttribute("aria-label")) ?? "").replace(
+      /^Add (.*) to wishlist$/,
+      "$1",
+    );
+    await hearts.nth(0).click();
+    await expect(page.getByText("Added to wishlist").first()).toBeVisible({ timeout: 10_000 });
+    const secondProduct = ((await hearts.nth(1).getAttribute("aria-label")) ?? "").replace(
+      /^Add (.*) to wishlist$/,
+      "$1",
+    );
+    await hearts.nth(1).click();
+    await expect(page.getByText("Added to wishlist").first()).toBeVisible({ timeout: 10_000 });
+
+    const email = `s12-wishlist-${Date.now()}-${Math.floor(Math.random() * 1000)}@example.com`;
+    await gotoHydrated(page, "/register");
+    await page.getByLabel("Name").fill("S12 Wishlist Merge");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill("MergeCheck1!");
+    await page.getByRole("button", { name: /Create account/i }).click();
+    await expect(page).toHaveURL(/\/account/, { timeout: 10_000 });
+
+    // Both guest hearts survive into the account wishlist.
+    await gotoHydrated(page, "/wishlist");
+    await expect(page.getByText(/2 saved items?/)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("link", { name: firstProduct }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: secondProduct }).first()).toBeVisible();
+  });
 });

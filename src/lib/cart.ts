@@ -32,6 +32,18 @@ export type CartSummary = {
   subtotal: number; // cents
 };
 
+/**
+ * The delete filter checkout uses to clear the cart (session-12 S12-1): ONLY
+ * the lines that were snapshotted into the order — never the whole cart. A
+ * line added by a concurrent tab between the pre-tx summary read and the
+ * in-tx delete survives checkout instead of silently vanishing (unordered,
+ * unrestocked, invisible to the receipt). The cartId stays in the compound
+ * filter so a stray id can never touch another cart's rows.
+ */
+export function cartClearFilter(cartId: string, lines: readonly CartLine[]): { cartId: string; id: { in: string[] } } {
+  return { cartId, id: { in: lines.map((line) => line.id) } };
+}
+
 function parseImages(json: string): string[] {
   try {
     const parsed: unknown = JSON.parse(json);

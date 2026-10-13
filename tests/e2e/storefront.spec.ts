@@ -44,15 +44,17 @@ test.describe("storefront", () => {
     await expect(page.getByRole("heading", { name: "All Products" })).toBeVisible();
     await expect(page.getByText(/16 products found/)).toBeVisible();
 
-    // Page 1 (newest-first) carries the superset extras + latest reference items.
-    await expect(page.getByRole("heading", { name: "Copper Measuring Spoon Set" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Dried Eucalyptus Kitchen Bundle" })).toBeVisible();
-
-    // Pagination reaches the reference catalog on page 2 (last 4 seeded).
-    await page.getByRole("link", { name: "Page 2" }).click();
-    await expect(page).toHaveURL(/page=2/);
+    // Page 1 (newest-first) opens with the reference's authored order — the
+    // seed backdates rows so Damascus-first is both the reference's observable
+    // default order AND the store's newest-first sort (session-12 S12-5).
     await expect(page.getByRole("heading", { name: "Damascus Steel Chef Knife Set" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Artisan Copper Frying Pan" })).toBeVisible();
+
+    // Pagination reaches the superset tail on page 2 (last 4 seeded).
+    await page.getByRole("link", { name: "Page 2" }).click();
+    await expect(page).toHaveURL(/page=2/);
+    await expect(page.getByRole("heading", { name: "Copper Measuring Spoon Set" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Dried Eucalyptus Kitchen Bundle" })).toBeVisible();
 
     // Category filter narrows results.
     await page.getByRole("combobox").first().click();

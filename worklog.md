@@ -94,3 +94,23 @@ Stage Summary:
 - Session-11 remediation complete and pushed: remote main advanced 520c1fc → this commit (fast-forward, main only, no new branches). All user checklist items satisfied.
 - Codebase state: 246 unit + 51 e2e green; anti-spam/heart-state/tracking hardening (session 11); docs fully aligned.
 - Carried deferrals unchanged: drawer focus trap (S8-7), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, real payment/email epics, admin coupon UI. Wishlist filled-heart state CLOSED this session.
+
+---
+Task ID: 13 (session 13 — homenest-store-s)
+Agent: audit + remediation agent (Super Z)
+Task: Full audit/remediation cycle on homenest-store-s — refresh workspace, review docs (session_15/16, REMEDIATION_PLAN, worklog), re-validate gates, live-reference parity + mobile menu, fresh deep audit (session 12), TDD remediation, docs/screenshots, commit + SSH push to main.
+
+Work Log:
+- Fresh clone → 2d3af58 (= 5058902 + the run-12 session logs); reviewed all project docs + session logs + the uploaded coding_agent_prompt.md; sandbox DATABASE_URL shadow converged via the pre-existing symlink; .env recreated from .env.example with a fresh AUTH_SECRET.
+- Gates re-validated: lint/typecheck/typecheck:tests ✓ · 246/246 unit ✓ · build ✓ · 51/51 e2e ✓.
+- Live reference parity verified via agent-browser (logged in with the operator credentials): reference unchanged, clone remains the superset; mobile menu re-verified (open → panel → navigate → auto-close). NEW parity finding: the reference's /products "Newest" + home "New Arrivals" render its catalog in authored order (Damascus first) while the clone rendered its seed order REVERSED on those two surfaces (home Featured matched via asc) — three surfaces disagreeing.
+- Fresh deep audit (read-only subagent + own file:line verification): session-11 fixes 6/6 WIRED / 0 PARTIAL / 0 MISSING; new findings 0 CRITICAL / 0 HIGH / 3 LOW / 1 NIT, plus one reported NIT REJECTED on verification (the "mangled accent class" is a valid compiled arbitrary utility — accent-color:#d96e26 in the built CSS).
+- TDD remediation S12-1/2/4/5 (plan appended to docs/REMEDIATION_PLAN.md; RED confirmed at 246 + 11 new-file failures): cartClearFilter (checkout deletes ONLY the ordered lines — a concurrent add no longer vanishes), demo quick-fill OFF by default in production builds (opt-in NEXT_PUBLIC_DEMO_MODE="true"; verified live both ways), success-page token verified BEFORE the DB read, productSeedCreatedAt backdating (create-only; seed order = the reference's authored order = the newest-first consumers' order; home featured asc→desc; fresh DB reseeded).
+- Coverage pins: settingNumber extracted pure (empty/corrupt setting = missing, never zero), contact-newsletter.spec.ts (6 cases — the two previously-uncovered capture surfaces), cart-PATCH/DELETE lost-line 404/200 pin (S10-2), guest-wishlist → registration merge e2e (S10-4 wiring); storefront page-split assertions rewritten (they had pinned the reversed order).
+- Final gates: lint/typecheck/typecheck:tests ✓ · 257/257 unit ✓ · build ✓ · 59/59 e2e ✓; manual agent-browser + curl verification (products page 1 + home sections match the reference exactly; demo box hidden/present per flag; mobile menu open/navigate/close); 23 screenshots refreshed.
+- Docs aligned: AGENTS.md (4 new invariants), CLAUDE.md, README.md (257/59 + order parity + demo row), PAD (§8 tables, known issues #47–50), SKILL.md v1.9.0, DEPLOYMENT.md (demo default + seeded-credentials advice), docs/session_17.md (run narrative), worklog.md.
+
+Stage Summary:
+- Session-12 remediation complete and pushed: remote main advanced 2d3af58 → this commit (fast-forward, main only, no new branches). All user checklist items satisfied.
+- Codebase state: 257 unit + 59 e2e green; catalog-order parity + demo-hygiene + checkout-sweep integrity (session 12); docs fully aligned.
+- Carried deferrals unchanged: drawer focus trap (S8-7), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, real payment/email epics, admin coupon UI.

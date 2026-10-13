@@ -31,9 +31,12 @@ export default async function HomePage() {
     db.carouselSlide.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
     db.category.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
     // take: 8 — the home page renders 8 tiles per grid; don't read the world.
+    // Session-12 S12-5: desc (not asc) — the seed backdates rows so the
+    // reference's authored order IS the newest-first order; featured renders
+    // Damascus-first either way, and admin-featured products sort as newest.
     db.product.findMany({
       where: { isActive: true, isFeatured: true },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
       take: 8,
       include: { category: { select: { name: true, slug: true } } },
     }),

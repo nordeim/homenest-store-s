@@ -23,11 +23,15 @@ const DEMO_ACCOUNTS = [
 ] as const;
 
 /**
- * Demo quick-fill is a reference-parity feature for evaluation builds. Deploy
- * with NEXT_PUBLIC_DEMO_MODE="false" to hide the credentials box in a real
- * store (see .env.example).
+ * Demo quick-fill is an evaluation affordance for development builds. Session-12
+ * S12-2: a production build ships with the box OFF by default (the box names
+ * the seeded ADMIN credentials) and operators opt in for evaluation deploys
+ * with NEXT_PUBLIC_DEMO_MODE="true"; in dev the box stays on unless explicitly
+ * disabled. See .env.example and docs/DEPLOYMENT.md.
  */
-const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE !== "false";
+const DEMO_MODE =
+  process.env.NEXT_PUBLIC_DEMO_MODE === "true" ||
+  (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEMO_MODE !== "false");
 
 /**
  * Sign-in form — `useActionState` + the server action: works without JS

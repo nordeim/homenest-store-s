@@ -1,5 +1,20 @@
 import { db } from "@/lib/db";
 
+/**
+ * Parse a numeric setting row (session-12 C3): a missing row (undefined) or a
+ * non-finite/garbage/empty value falls back to the documented default — an
+ * empty or corrupt setting means "missing", never "zero" (a silent 0% tax or
+ * free shipping from a wiped row would corrupt checkout money math). Pure,
+ * unit-pinned in tests/unit/session12-hardening.test.ts.
+ */
+export function settingNumber(raw: string | undefined, fallback: number): number {
+  if (raw === undefined) return fallback;
+  const trimmed = raw.trim();
+  if (trimmed === "") return fallback;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 /** Typed view over the StoreSetting key/value table. */
 export type StoreSettings = {
   storeName: string;
@@ -37,11 +52,7 @@ const DEFAULTS: StoreSettings = {
 export async function getSettings(): Promise<StoreSettings> {
   const rows = await db.storeSetting.findMany();
   const map = new Map(rows.map((r) => [r.key, r.value]));
-  const num = (key: keyof StoreSettings, fallback: number) => {
-    const raw = map.get(key);
-    const parsed = raw === undefined ? NaN : Number(raw);
-    return Number.isFinite(parsed) ? parsed : fallback;
-  };
+  const num = (key: keyof StoreSettings, fallback: number) => settingNumber(map.get(key), fallback);
   const str = (key: keyof StoreSettings, fallback: string) => map.get(key) ?? fallback;
   return {
     storeName: str("storeName", DEFAULTS.storeName),

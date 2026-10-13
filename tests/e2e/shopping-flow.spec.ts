@@ -224,4 +224,32 @@ test.describe("shopping flow", () => {
     // The stepper shows all four labels; the current step (Pending) is active.
     await expect(page.getByText("Pending", { exact: true }).first()).toBeVisible();
   });
+
+  test("cart PATCH/DELETE on a line that is gone returns 404, never a 500 (S10-2 pin)", async ({
+    request,
+  }) => {
+    // Seed a real guest cart (cookie jar on `request`), then poke a line id
+    // that can never exist. The scoped conditional writes must map the lost
+    // race to the same friendly 404 a concurrent delete produces.
+    const search = await request.get("/api/search?q=knife");
+    expect(search.ok()).toBeTruthy();
+    const { results } = (await search.json()) as { results: Array<{ id: string }> };
+    const add = await request.post("/api/cart", {
+      data: { productId: results[0]!.id, quantity: 1 },
+    });
+    expect(add.ok()).toBeTruthy();
+
+    const patch = await request.patch("/api/cart", { data: { lineId: "no-such-line", quantity: 2 } });
+    expect(patch.status()).toBe(404);
+    const patchBody = (await patch.json()) as { error?: string };
+    expect(patchBody.error).toBeTruthy();
+
+    // DELETE is idempotent by design (a double-click delete never 404s) — it
+    // must still not 500 on the same lost-line input.
+    const del = await request.delete("/api/cart?line=no-such-line");
+    expect(del.status()).toBe(200);
+
+    // Cleanup so parallel workers never see this cart.
+    await request.delete("/api/cart?all=1");
+  });
 });

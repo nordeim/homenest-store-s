@@ -10,7 +10,7 @@
  */
 import { PrismaClient } from "@prisma/client";
 import { scryptHash } from "../src/lib/password";
-import { productSeedUpdate } from "../src/lib/seed-policy";
+import { productSeedCreatedAt, productSeedUpdate } from "../src/lib/seed-policy";
 
 const prisma = new PrismaClient();
 
@@ -610,7 +610,10 @@ async function main() {
 
   // ---- Products ----
   let createdProducts = 0;
-  for (const p of PRODUCTS) {
+  // Session-12 S12-5: create rows with BACKDATED timestamps (productSeedCreatedAt)
+  // so the seed-list order = the reference's authored order = the `createdAt: desc`
+  // consumers' newest-first order (products "Newest", home New Arrivals).
+  for (const [index, p] of PRODUCTS.entries()) {
     const categoryId = categoryIds.get(p.category);
     if (!categoryId) throw new Error(`Unknown category ${p.category} for ${p.slug}`);
     const data = {
@@ -639,7 +642,7 @@ async function main() {
       // (seed-policy.ts). price/stock/rating/reviewCount/badge/featured are
       // admin- or traffic-owned — a reseed must never reset them.
       update: productSeedUpdate(data),
-      create: data,
+      create: { ...data, createdAt: productSeedCreatedAt(index) },
     });
     createdProducts += 1;
 

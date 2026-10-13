@@ -5,8 +5,8 @@
  * Default baseUrl: http://localhost:3000 (a running production or dev server).
  *
  * Desktop shots at 1440x900, mobile shots at 390x844. Admin + account shots
- * sign in with the seeded demo credentials (NEXT_PUBLIC_DEMO_MODE must not be
- * "false" on the target server).
+ * sign in with the seeded demo credentials (the login page's quick-fill box
+ * is irrelevant here — the script fills the form fields directly).
  */
 import { chromium, devices } from "@playwright/test";
 import { mkdirSync } from "node:fs";

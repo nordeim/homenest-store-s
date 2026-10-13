@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.8.0
+version: 1.9.0
 last_updated: 2026-10-14
-project_state: "246 unit tests · 51 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-11)"
+project_state: "257 unit tests · 59 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-12)"
 tags:
   - nextjs16
   - react19
@@ -940,6 +940,49 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   pre-create check stays as fast-fail UX).
 - 246 unit + 51 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/
   README/PAD/SKILL aligned; run narrative at `docs/session_15.md`.
+
+### Session 12 — parity-order/demo-hygiene completion (2026-10-13, v1.9.0)
+
+- Re-validated session-11 on the pulled tree (`2d3af58`): all gates green
+  (246 unit / 51 e2e), live-reference parity + mobile menu re-verified
+  (logged in with the operator credentials; account/order surfaces covered
+  by the clone's superset).
+- **New parity finding from the live comparison**: the reference's
+  `/products` default "Newest" view and home "New Arrivals" both render its
+  catalog in authored order (Damascus Steel Chef Knife Set first); the
+  clone rendered the REVERSE of its seed order on both surfaces (relying on
+  auto-`now()` seed timestamps) while home "Featured" (`createdAt: asc`)
+  matched — three surfaces disagreeing with each other.
+- Fresh deep audit (read-only subagent + own file:line verification):
+  session-11 fixes 6/6 WIRED; new findings 0 CRITICAL / 0 HIGH / 3 LOW /
+  1 NIT, with one reported NIT ("mangled accent class") REJECTED on
+  verification — the built CSS contains the compiled
+  `accent-color:#d96e26` rule, proving the arbitrary utility is valid
+  (a text-mangling artifact, not a code defect — verify against build
+  output before trusting "dead utility" claims).
+- TDD fixes: **S12-1** the checkout sweep deletes through
+  `cartClearFilter` — only the ordered line ids (a bare `{ cartId }`
+  deleteMany silently ate a line a concurrent tab added between the
+  summary read and the sweep); **S12-2** the demo-credentials quick-fill
+  (which names the seeded ADMIN account) is OFF by default in production
+  builds (opt-in `NEXT_PUBLIC_DEMO_MODE="true"`, dev unchanged — verified
+  live both ways on the built server); **S12-4** `/checkout/success`
+  verifies the deterministic order-access token BEFORE any DB read (no
+  query-weight differential to probe order existence with);
+  **S12-5** `productSeedCreatedAt(index)` backdates seed rows one minute
+  apart (create-only — reseeds never rewrite them) and home featured
+  flipped to `desc`, so all three surfaces render the reference's authored
+  order while admin-created products correctly sort as the newest.
+- Coverage pins: `settingNumber` extracted pure (an empty/corrupt numeric
+  setting is "missing", never "zero"); new `contact-newsletter.spec.ts`
+  (the two previously-uncovered capture surfaces: UI success states + the
+  400 boundary incl. malformed JSON); cart-PATCH/DELETE lost-line 404/200
+  pin (S10-2); guest-wishlist → registration merge e2e (S10-4 wiring).
+  The storefront spec's page-split assertions were REWRITTEN — they had
+  institutionalized the reversed order (a test pinning the bug).
+- 257 unit + 59 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/
+  README/PAD/SKILL/DEPLOYMENT aligned; run narrative at
+  `docs/session_17.md`.
 
 ## Appendix C — Quick Reference Card
 

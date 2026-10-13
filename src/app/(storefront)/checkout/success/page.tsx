@@ -85,7 +85,16 @@ export default async function OrderSuccessPage({
 }) {
   const { order: orderParam, token: tokenParam } = await searchParams;
   const orderNumber = orderParam?.trim().toUpperCase() ?? "";
-  const order = orderNumber
+
+  // Session-12 S12-4: verify the capability token BEFORE any database read.
+  // The token is a deterministic HMAC of the claimed number, so an invalid
+  // pair short-circuits to the denial shell without touching the DB — a valid
+  // number with a guessed token costs exactly what an unknown number costs
+  // (no query-weight or timing differential to probe existence with). The
+  // observable contract is unchanged: any invalid combination renders the
+  // SAME shell, and a valid pair still renders the full receipt.
+  const tokenValid = orderNumber !== "" && verifyOrderAccessToken(orderNumber, tokenParam ?? "");
+  const order = tokenValid
     ? await db.order.findUnique({
         where: { number: orderNumber },
         include: { items: true, events: { orderBy: { createdAt: "asc" } } },
@@ -98,7 +107,7 @@ export default async function OrderSuccessPage({
   // combination (missing/bad token, unknown number) renders the SAME shell:
   // an attacker cannot even observe whether a number exists (anti-enumeration).
   // Lost the link? /track-order recovers it with number + purchase email.
-  if (!order || !verifyOrderAccessToken(order.number, tokenParam ?? "")) {
+  if (!order) {
     return (
       <div className="container-page flex justify-center py-16 sm:py-24">
         <div className="flex w-full max-w-md flex-col items-center rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center shadow-sm">

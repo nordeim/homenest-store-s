@@ -847,3 +847,73 @@ Visual parity re-verified against the LIVE reference (agent-browser): same nav a
 - [x] Screenshots refreshed; docs sweep; worklog updated
 
 **Post-remediation totals (session 11):** see the session-11 run narrative (`docs/session_15.md`) for the final counts.
+
+# Session 12 — Post-push audit & parity-order/demo-hygiene completion (2026-10-13)
+
+> **Status:** EXECUTED (see the Session-12 Execution Log at the end)
+> **Scope:** Re-validation of the session-11 deliverables on the pulled tree (`2d3af58` = `5058902` + the run-12 session logs), a **live-reference parity re-verification** (agent-browser, logged in with the operator credentials), a fresh read-only deep audit (repo `code-review-checklist` 12-category scan over `src/`, `prisma/`, `tests/`, root configs — `skills/` excluded), and TDD remediation of the newly identified findings (2 LOW + 2 NIT) plus **one LOW visual-parity finding** discovered during the live comparison, plus five test-coverage pins.
+> **Method:** unchanged — failing tests first, then the fix, then the full gate chain (`lint && typecheck && typecheck:tests && test && build && test:e2e`).
+
+## 1. Re-validation (all session-11 gates green on the pulled tree)
+
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · **246/246 unit** ✓ · build ✓ · **51/51 e2e** ✓ (sandbox `DATABASE_URL` shadow converged via the pre-existing symlink `/home/z/my-project/db → <repo>/db`; `.env` recreated from `.env.example` with a fresh `AUTH_SECRET`; `db/custom.db` seeded at the repo root; health `db:up`).
+
+Visual parity re-verified against the LIVE reference (agent-browser, logged in): same nav anatomy, same hero slides, same trust badges, same 8 category tiles, same featured set (Damascus/Copper Pan/Ceramic Dinner Set/Dutch Oven/Mixing Bowl/Stand Mixer — 6 products exactly), same login-page copy ("Welcome to HomeNest Kitchen" / "Sign in to continue"; the reference's "Continue with Google" remains a deliberate divergence — a dead OAuth button would be fake UI, the clone ships credential auth + demo quick-fill instead), account page covered by the clone's superset. **Mobile menu re-verified** (iPhone 390×844: open → `expanded=true` → `navigation "Mobile"` with all links → navigate to `/products` → auto-close) — the Tailwind v4 conditional-mount pattern is intact.
+
+**NEW parity finding from the live comparison (S12-5):** the reference's `/products` default "Newest" view and its home "New Arrivals" section both render its catalog in authored order — Damascus Steel Chef Knife Set first. The clone renders the REVERSE of its seed order (Dried Eucalyptus Kitchen Bundle first) on both surfaces, because the seed relies on `@default(now())` timestamps (last-inserted = newest) while the reference's observable behavior treats its authored order as newest-first. Home "Featured Products" matches (the query is `createdAt: asc`, Damascus-first), so the three surfaces disagree with each other too.
+
+## 2. Session-11 fix verification (read-only subagent + spot-checks)
+
+**6/6 WIRED · 0 PARTIAL · 0 MISSING.** (a) `reviewRateLimitKeys` (`rate-limit.ts:89-98`) consumed by `submitReviewAction` (`actions/reviews.ts:42-45`, per-IP 20/min first, per-author 5/min second); (b) filled hearts through `ProductCard` on home/products/product-related/wishlist (`getWishlistIds()` callers verified, `initialInWishlist` threaded, `fill-primary` + `aria-pressed` + honest label flip); (c) `applyCarrierTracking` guarded write wrapped by `setTrackingAction` (`order-tracking.ts:59-77`, `admin.ts:396-403`); (d) login mailto from `settings.contactEmail` (`(auth)/login/page.tsx:20-21` → `login-form.tsx:74`); (e) address POST create-then-verify under the write lock (`api/addresses/route.ts:79-81`); (f) `planWishlistMerge` consumed by the login merge tx (`wishlist.ts:112-129`, reached from `auth.ts:71,105,138`).
+
+## 3. Session-12 audit findings (evidence-based)
+
+**0 CRITICAL / 0 HIGH / 3 LOW / 1 NIT (1 further reported NIT rejected on verification)** — the eleventh pass re-confirmed clean: money integrity (integer cents, in-tx re-derivation, atomic coupon redemption), checkout critical path, race/TOCTOU discipline on every guarded write, authn/authz (scrypt, HMAC sessions, admin double-gating), injection (no raw SQL with user input; the one `$queryRaw` is a parameterized template), rate-limiter grid, React hygiene, SEO/noindex/JSON-LD, a11y, typed error mapping, seed policy, configs.
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| S12-1 | LOW | **Checkout clears the cart by `cartId`, not by the ordered line ids — a narrow TOCTOU can silently delete an item the shopper just added but that is not being ordered.** A concurrent cart POST committing between the pre-tx summary read and the in-tx `deleteMany({ where: { cartId } })` lands a line absent from `args.lines`; the final sweep removes it — never ordered, never restocked, invisible to the receipt. Window is milliseconds on SQLite's single-writer model; the fix is one scoped filter. | `src/app/api/checkout/route.ts:134,366` |
+| S12-2 | LOW | **The demo-credentials quick-fill (including the ADMIN account) ships ON by default in production builds** — `DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE !== "false"` is default-on everywhere, and the seed pins `Admin123!`; a default deploy advertises admin credentials on its login page. Fix direction: production default OFF (opt-in via `NEXT_PUBLIC_DEMO_MODE="true"`), dev behavior unchanged; document the seeded-account hygiene step in DEPLOYMENT.md. (The reference login shows no credentials — hiding the box in production also tightens visual parity.) | `src/app/(auth)/login/login-form.tsx:30`; `prisma/seed.ts:553-563`; `docs/DEPLOYMENT.md:52,103-105` |
+| ~~S12-3~~ | — | **REJECTED ON VERIFICATION (false positive).** The reported "mangled class `accent-sl(24_70%_50%)]` ×3" does not exist in the file — the source carries the valid arbitrary utility `accent-[hsl(24_70%_50%)]`, and the built CSS contains the compiled rule (`accent-color:#d96e26` = the terracotta primary). The audit subagent's report (and an initial grep in this console) mangled `-[h` in transit. The admin checkboxes already render the correct accent — no change made. | `product-dialog.tsx:407,416,425` + built CSS `accent-color:#d96e26` |
+| S12-4 | NIT | **The order-success page runs the (items+events-inclusive) order lookup BEFORE the token check**, so a valid order number costs a heavier query than an invalid guess — a faint timing/query-weight differential against the "existence is not observable" contract. The token is a deterministic HMAC of the claimed number (`orderAccessToken`), so the verification can run BEFORE any DB read; behavior is preserved (same shells) and the existing shopping-flow e2e pins both outcomes. | `src/app/(storefront)/checkout/success/page.tsx:88-101`; `src/lib/order-access.ts:27-32` |
+| S12-5 | LOW | **The default catalog order is the REVERSE of the reference's observable order on two surfaces** — `/products` default "Newest" (`createdAt: desc` over auto-`now()` seed timestamps → last-seeded superset products first) and home "New Arrivals" (`createdAt: desc`, take 8 → Stand Mixer first, reference shows Damascus first). Home "Featured" (`asc`) matches. Fix: the seed assigns explicit, deterministic `createdAt` timestamps DESCENDING along the seed list (Damascus newest — create-only, `productSeedUpdate` untouched so reseeds never rewrite them), and the home featured query flips to `desc` so its order is preserved. After the fix all three surfaces render the reference's authored order first, admin-created products (real `now()` timestamps) correctly sort as the newest, and the superset products follow on page 2. | `prisma/seed.ts:626-648` (create without `createdAt`); `src/lib/products.ts:100`; `src/app/(storefront)/page.tsx:36,42`; live reference /products + home sections (measured this session) |
+
+### Coverage pins added this session (from the audit's gap list)
+
+| # | Gap | Pin |
+|---|---|---|
+| C1 | Checkout cart-clear filter (S12-1 vehicle) | Unit: `cartClearFilter` — ordered ids only, cartId-scoped, empty-lines safe |
+| C2 | Seed timestamp helper (S12-5 vehicle) | Unit: `productSeedCreatedAt` — index 0 newest, strictly descending, distinct spacing |
+| C3 | `getSettings()` numeric fallback seam unextracted | Extract pure `settingNumber(raw, fallback)`; unit-pin undefined/NaN/garbage → fallback, finite passthrough |
+| C4 | Cart-PATCH scoped-write 404 (S10-2) unpinned | E2E: PATCH a deleted/nonexistent line id → 404 JSON (never a 500) |
+| C5 | `/api/contact` + `/api/newsletter` have zero route-level coverage | E2E: contact success + inline validation error; newsletter subscribe success |
+| C6 | Guest→user wishlist merge wiring has no e2e | E2E: guest hearts two products → registers → wishlist page lists both |
+
+### Accepted / deferred (with justification)
+
+- **Review two-tier budgets not e2e'd** — an honest 6-submit case would permanently skew the monotonic demo rating/reviewCount aggregates (each accepted review grows them; recompute is deliberately forbidden). The key shape is unit-pinned (`reviewRateLimitKeys`); the budgets are two reviewed literals in the action. Accepted.
+- **Address POST create-then-verify `>` branch** unreachable in e2e without concurrency (the pre-create fast-fail fires first) — the pre-create gate is e2e-pinned; the post-create count is defense-in-depth under SQLite's write lock. Accepted.
+- **Carousel reorder tx** is a thin zod-guarded wrapper — admin-only, accepted unpinned.
+- **Carried deferrals unchanged**: drawer focus trap (S8-7), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration test, 404-shell CSP nonce, `__Host-` prefix, shared-store limiter, admin coupon-management UI, real mailer, radiogroup roving focus, address content dedup.
+
+## 4. Remediation plan (TDD)
+
+1. **S12-1** — new pure `cartClearFilter(cartId, lines)` in `src/lib/cart.ts` returning `{ cartId, id: { in: orderedIds } }`; `placeOrderTx` deletes through it. Unit tests red-first (ordered ids only / cartId scope / empty lines → `in: []`).
+2. **S12-2** — `DEMO_MODE = NEXT_PUBLIC_DEMO_MODE === "true" || (NODE_ENV !== "production" && NEXT_PUBLIC_DEMO_MODE !== "false")`; `.env.example` comment rewritten (production default hidden, set `"true"` for evaluation builds); `docs/DEPLOYMENT.md` rows updated (+ keep the change-seeded-passwords advice); the stale screenshots-script comment updated. Verified by building and curling the login HTML (box absent; present with the flag) — e2e unaffected (specs fill credentials directly).
+3. ~~S12-3~~ — REJECTED on verification (see the findings table): the class is valid and compiled; no change.
+4. **S12-4** — success page verifies the deterministic token BEFORE the DB read (`tokenValid ? findUnique : null`); denial shell unchanged.
+5. **S12-5** — new pure `productSeedCreatedAt(index, now?)` in `seed-policy.ts` (index 0 = newest, 60s spacing); seed `create` gains `createdAt: productSeedCreatedAt(index)`; home featured `orderBy` asc→desc; fresh DB (`rm db/custom.db && npm run db:setup`); live agent-browser parity verification of `/products` page 1 + home sections against the reference.
+6. **C3/C4/C5/C6** — the coverage pins above (unit RED-first for C3; e2e cases red-first where the behavior is already fixed — they pin, not drive).
+7. **DOC** — AGENTS.md (demo-mode invariant + seed-order invariant), CLAUDE.md (modules + coverage list), README (order-parity note + test counts), PAD (§8 tables + known-issues ledger), SKILL.md v1.9.0 (project_state + Appendix B), DEPLOYMENT.md, `docs/session_17.md` (run-13 narrative), worklog entry, screenshots refreshed.
+
+## 5. Execution log (session 12)
+
+- [x] RED — `tests/unit/session12-hardening.test.ts` written first (`cartClearFilter` ×3, `productSeedCreatedAt` ×4, `settingNumber` ×4) — failed on the missing exports with the existing 246 green
+- [x] GREEN — `cart.ts` += `cartClearFilter`; `placeOrderTx` deletes the ordered lines only
+- [x] GREEN — `seed-policy.ts` += `productSeedCreatedAt`; seed create wired; home featured `desc`; fresh DB reseeded
+- [x] GREEN — demo-mode production default OFF (+ `.env.example`, DEPLOYMENT.md, screenshots comment); success page token-before-query. S12-3 REJECTED on verification (built CSS proves the arbitrary accent class compiles) — no code change.
+- [x] GREEN — e2e pins: cart-PATCH 404, contact + newsletter flows, guest-wishlist → register merge
+- [x] Full gate chain re-run green; manual agent-browser verification (products order + home sections vs reference, login demo box absent in production build, admin checkboxes accent, mobile menu)
+- [x] Screenshots refreshed; docs sweep; worklog updated
+
+**Post-remediation totals (session 12):** see the session-12 run narrative (`docs/session_17.md`) for the final counts.

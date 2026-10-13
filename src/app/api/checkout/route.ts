@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth";
 import { assertAddressCap, AddressCapError } from "@/lib/addresses";
-import { findCartId, getCartSummary, readCartToken, type CartLine } from "@/lib/cart";
+import { cartClearFilter, findCartId, getCartSummary, readCartToken, type CartLine } from "@/lib/cart";
 import { applyCouponCode, couponDiscount, couponRedemptionWhere, isCouponRedeemable } from "@/lib/coupons";
 import { db } from "@/lib/db";
 import { computeOrderMoney } from "@/lib/order-money";
@@ -361,9 +361,11 @@ async function placeOrderTx(orderNumber: string, args: PlaceOrderArgs): Promise<
       }
     }
 
-    // Clear the cart's items (the cart row itself stays — cookies can't be
-    // set inside a transaction, and an empty cart is harmless).
-    await tx.cartItem.deleteMany({ where: { cartId: args.cartId } });
+    // Clear ONLY the ordered lines (session-12 S12-1 — cartClearFilter): the
+    // cart row itself stays (cookies can't be set inside a transaction), and a
+    // line a concurrent tab added after the summary read survives checkout
+    // instead of silently vanishing (unordered, unrestocked, off the receipt).
+    await tx.cartItem.deleteMany({ where: cartClearFilter(args.cartId, args.lines) });
 
     if (args.saveAddress && args.userId) {
       // Session-7 S7-8: the save is best-effort relative to the ORDER — at the
