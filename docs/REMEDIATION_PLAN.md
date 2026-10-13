@@ -1255,3 +1255,132 @@ Live-reference parity re-verified against the LIVE reference (agent-browser): re
 - [x] GREEN — S17-1 guarded delete + `isForeignKeyViolation`; S17-2 `MAX_CART_QUANTITY` single-sourcing
 - [x] Full gate chain re-run green; manual verification
 - [x] Screenshots refreshed; docs sweep; worklog updated
+
+# Session 18 — Post-push audit & checkout-address/bookkeeping completion (2026-10-13)
+
+> Executed by run 19 (`docs/session_29.md` is this run's narrative; the run/plan
+> numbering drift is documented). Tree audited: `14d0bbb` (= `6c0d708` + the
+> operator-committed `docs/session_28.md` raw log).
+
+## 1. Re-validation (all session-17 gates green on the fresh clone)
+
+Fresh clone at `14d0bbb` (workspace reset). Environment: this sandbox
+re-exports `DATABASE_URL=file:/home/z/my-project/db/custom.db` on shell
+recycle and **symlink creation is blocked** (prior sessions' convergence
+mechanism) — converged instead with a **hard link**
+`/home/z/my-project/db/custom.db` → `<repo>/db/custom.db` (one inode; the
+shadow-absent path was verified schema-anchored via a move-the-shadow-dir
+probe: `db:seed` succeeded with the shadow path relocated, so the CLI/seed
+contract holds and the earlier "Unable to open" failures were purely the
+absolute-shadow passthrough). `.env` carries the `file:../db/custom.db`
+contract + a dev `AUTH_SECRET`; `db/custom.db` pushed + seeded at the repo
+root (16 products / 8 categories / 3 coupons / 2 users verified). Gates:
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · **324/324 unit** ✓ · build ✓ ·
+**63/63 e2e** ✓ (one first-run auth S14-3 flake passed on the full-suite
+re-run; the demo profile name was verified unpolluted — not the known DATA
+mode; treated as environment flake, no code change).
+
+## 2. Session-17 fix verification (read-only subagent 19-a + spot-checks)
+
+Subagent 19-a executed the `code-review-checklist` 12-category scan over
+`src/`, `prisma/`, `scripts/`, `tests/` and root configs (`skills/`
+excluded); every finding was personally re-verified with file:line evidence
+before planning. **Session-16 fixes 4/4 WIRED; session-17 fixes 3/3 WIRED;
+older-fix spot-checks 7/7 WIRED** (incl. 14/14 Retry-After sites and 4/4
+`clampSearchTerm` consumers). Static counts re-verified: 324 unit tests in
+34 files · 63 e2e in 12 specs · 11/11 admin actions `requireAdmin`'d · 14
+metered sites · 13 admin catch blocks · 18 models. Docs verified
+drift-free (README badge, limiter grid, catch-block count all TRUE).
+
+## 3. Session-18 audit findings (evidence-based)
+
+**Result: 0 CRITICAL / 0 HIGH / 0 MEDIUM / 1 LOW / 2 NIT / 1
+Informational / 0 doc-drift** — the sixth consecutive session without a
+CRITICAL/HIGH/MEDIUM.
+
+- **S18-1 (Low)** — `src/app/api/checkout/route.ts:370-401`: checkout's
+  in-tx `saveAddress` still gates the address-book cap with the PRE-create
+  `assertAddressCap` only. Two sibling create paths were hardened with the
+  authoritative post-create gate (S11-6 addresses POST, S16-1 wishlist
+  POST — "on SQLite the write lock lands at the first WRITE"), but the
+  third create path was left behind, and unlike S17-3 the residual race is
+  UNRECORDED. Two concurrent checkouts by the same signed-in user at
+  exactly cap−1 both pass the assert, serialize on the write lock, and land
+  21 rows. **Benign and bounded** (+1 per concurrent at-cap−1 pair;
+  subsequent saves self-skip; single-default invariant survives — the unset
+  precedes each create so the last create wins the default), BUT the
+  obvious "same shape as S16-1" fix (throw `AddressCapError` after the
+  create) is WRONG here: the throw would roll back the ENTIRE checkout
+  transaction — order, stock, coupon — violating the S7-8 "at cap the
+  order still places" invariant. Prisma interactive transactions have no
+  savepoints; the only true fix moves the save OUT of the order tx (crash
+  semantics change on the most critical path) or needs a
+  compensating-write dance. **Decision: fix the TESTABILITY + record the
+  debt** — extract the block to `saveCheckoutAddressInTx` in
+  `src/lib/addresses.ts` (the S11-6 module pattern; no behavior change) and
+  pin its contract in unit tests, recording the residual race explicitly.
+- **S18-2 (NIT)** — `src/app/(storefront)/cart/cart-lines.tsx:157` (page
+  "+" disabled at stock only) and `src/components/store/store-chrome.tsx:299`
+  (drawer "+" has no ceiling guard): a line at quantity 99 with stock > 99
+  leaves "+" enabled → PATCH 100 → `cartLinePatchSchema` 400s with Zod's
+  DEFAULT English message ("Number must be less than or equal to 99")
+  surfaced in the error toast — not store copy. Server clamp correct; the
+  invariant (AGENTS.md) names only the purchase-panel stepper. Fix the two
+  display surfaces + give the three cart schemas friendly `.max` messages.
+- **S18-3 (NIT)** — `package.json`: `axe-core` + `@testing-library/user-event`
+  declared/installed but imported by zero files. Remove both (the a11y
+  surface is already pinned by aria-pins across the e2e specs; wiring a new
+  axe scan would be a speculative feature, the anti-slop call is removal).
+- **S18-4 (Informational)** — two carried coverage gaps: (a) checkout
+  saveAddress at-cap **skip-save** unpinned (carried since session 7 — the
+  route module was un-importable in Vitest) → **CLOSED this session** by
+  the S18-1 extraction (the lib function is pure and testable); (b) the
+  `/track-order` page-level limiter (30/min) is unpinned → carried with
+  justification: the limiter logic is unit-pinned (`rate-limit.ts`), the
+  route-level 429 contract is pinned (`api-boundaries.test.ts`), and the
+  page wiring renders friendly UI errors — an e2e pin would need 30
+  requests per run for a wiring fact.
+
+## 4. Remediation plan (TDD)
+
+1. **S18-1** — new exported `saveCheckoutAddressInTx(tx, userId, address)`
+   in `src/lib/addresses.ts` returning `"saved" | "at-cap"` (the
+   pre-create `assertAddressCap` fast-fail → unset defaults → create →
+   `AddressCapError` → `"at-cap"`; unknown errors rethrow). The checkout tx
+   consumes it (call-site catch replaced by the return-value check — the
+   order-still-places semantics are now structurally impossible to break
+   with a throw). Record the residual bounded race in AGENTS.md (S17-3
+   style) + here. **S18-4a closes with the same test file.**
+2. **S18-2** — cart-lines "+" disabled at `Math.min(line.stock,
+   MAX_CART_QUANTITY)`; drawer "+" disabled at `MAX_CART_QUANTITY` (the
+   drawer has no stock data — the server clamp remains the stock guard);
+   `cartMutateSchema` / `cartBulkSchema` per-line / `cartLinePatchSchema`
+   `.max(MAX_CART_QUANTITY, "Quantity is limited to 99 per item.")` (the
+   message interpolates the shared constant).
+3. **C8 (coverage pins)** — `tests/unit/session18-hardening.test.ts`:
+   `saveCheckoutAddressInTx` outcome pins (at-cap → `"at-cap"` with NO
+   writes; under-cap → unset-then-create ordering with `isDefault: true`;
+   unknown-error rethrow; the route's `"at-cap"` → skip-save mapping) and
+   the friendly-max-message pins (the three schemas reject 100 with the
+   store copy, not the Zod default).
+4. **S18-3** — `npm uninstall axe-core @testing-library/user-event`
+   (lockfile via the package manager, never hand-edited).
+5. **DOC** — AGENTS.md (checkout saveAddress extraction + recorded race +
+   the friendly-max/stepper-ceiling invariant), CLAUDE.md (lib list +
+   coverage lists), README (badge counts if the total changes), PAD (§8.1
+   + known-issues), SKILL.md v1.15.0 (project_state + Appendix B
+   Session-18 entry), DEPLOYMENT.md (no expected drift), `.env.example`
+   (unchanged), `docs/session_29.md` (run narrative), worklog,
+   screenshots refreshed.
+
+## 5. Execution log (session 18)
+
+- [x] RED — `tests/unit/session18-hardening.test.ts` fails on the missing
+      `saveCheckoutAddressInTx` export
+- [x] RED — the friendly-max-message pins fail on the Zod default messages
+- [x] GREEN — S18-1 extraction wired into the checkout tx (return-value
+      mapping, no behavior change)
+- [x] GREEN — S18-2 stepper ceilings + schema messages
+- [x] S18-3 — unused devDependencies removed via npm
+- [x] Full gate chain re-run green; manual verification (agent-browser)
+- [x] Screenshots refreshed; docs sweep; worklog updated

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth";
-import { assertAddressCap, AddressCapError } from "@/lib/addresses";
+import { saveCheckoutAddressInTx } from "@/lib/addresses";
 import { cartClearFilter, findCartId, getCartSummary, readCartToken, type CartLine } from "@/lib/cart";
 import { applyCouponCode, couponDiscount, couponRedemptionWhere, isCouponRedeemable } from "@/lib/coupons";
 import { db } from "@/lib/db";
@@ -373,31 +373,13 @@ async function placeOrderTx(orderNumber: string, args: PlaceOrderArgs): Promise<
       // shippingAddressJson) and only the bookkeeping save is skipped. When it
       // DOES save, previous defaults are unset in the same transaction so
       // `findFirst({ isDefault: true })` stays deterministic (the latest save).
-      try {
-        await assertAddressCap(tx, args.userId);
-        await tx.address.updateMany({
-          where: { userId: args.userId, isDefault: true },
-          data: { isDefault: false },
-        });
-        await tx.address.create({
-          data: {
-            userId: args.userId,
-            label: args.address.label || "Home",
-            fullName: args.address.fullName,
-            phone: args.address.phone,
-            line1: args.address.line1,
-            line2: args.address.line2 ? args.address.line2 : null,
-            city: args.address.city,
-            state: args.address.state,
-            postalCode: args.address.postalCode,
-            country: args.address.country,
-            isDefault: true,
-          },
-        });
-      } catch (error) {
-        if (!(error instanceof AddressCapError)) throw error;
-        // At cap: keep the order, skip the address-book save.
-      }
+      // Session-18 S18-1: the block is the lib-level `saveCheckoutAddressInTx`
+      // (unit-pinned contract); the cap gate stays the PRE-create fast-fail —
+      // deliberately NOT the S11-6/S16-1 post-create throw, which here would
+      // roll back the whole order transaction (no savepoints in Prisma
+      // interactive transactions). The residual bounded race is recorded in
+      // AGENTS.md (the S17-3 accepted-debt pattern).
+      await saveCheckoutAddressInTx(tx, args.userId, args.address);
     }
 
     return order.number;

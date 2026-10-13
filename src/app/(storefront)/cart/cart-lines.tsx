@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Minus, Plus, Trash2 } from "lucide-react";
 
 import type { CartLine } from "@/lib/cart";
+import { MAX_CART_QUANTITY } from "@/lib/cart-quantity";
 import { formatMoney } from "@/lib/money";
 import { useStore } from "@/components/store/store-provider";
 import { useToast } from "@/components/ui/toaster";
@@ -154,7 +155,9 @@ export function CartLines({ initialLines }: { initialLines: CartLine[] }) {
                   <button
                     type="button"
                     onClick={() => void updateQuantity(line, line.quantity + 1)}
-                    disabled={pendingId !== null || busy || line.quantity >= line.stock}
+                    disabled={
+                      pendingId !== null || busy || line.quantity >= Math.min(line.stock, MAX_CART_QUANTITY)
+                    }
                     aria-label={`Increase quantity of ${line.name}`}
                     className="inline-flex h-9 w-9 items-center justify-center text-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
                   >

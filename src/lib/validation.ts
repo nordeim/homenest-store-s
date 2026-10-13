@@ -65,7 +65,7 @@ export const addressDefaultSchema = z.object({
 
 export const cartMutateSchema = z.object({
   productId: z.string().min(1),
-  quantity: z.number().int().min(1).max(MAX_CART_QUANTITY),
+  quantity: z.number().int().min(1).max(MAX_CART_QUANTITY, `Quantity is limited to ${MAX_CART_QUANTITY} per item.`),
 });
 
 /**
@@ -79,7 +79,7 @@ export const cartBulkSchema = z.object({
     .array(
       z.object({
         productId: z.string().min(1),
-        quantity: z.number().int().min(1).max(MAX_CART_QUANTITY),
+        quantity: z.number().int().min(1).max(MAX_CART_QUANTITY, `Quantity is limited to ${MAX_CART_QUANTITY} per item.`),
       }),
     )
     .min(1, "No items to add.")
@@ -99,7 +99,7 @@ export const wishlistToggleSchema = z.object({
 
 export const cartLinePatchSchema = z.object({
   lineId: z.string().min(1),
-  quantity: z.number().int().min(0).max(MAX_CART_QUANTITY),
+  quantity: z.number().int().min(0).max(MAX_CART_QUANTITY, `Quantity is limited to ${MAX_CART_QUANTITY} per item.`),
 });
 
 /** Mirrors the 40-char coupon cap of `checkoutSchema.couponCode`. */

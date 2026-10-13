@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.14.0
+version: 1.15.0
 last_updated: 2026-10-13
-project_state: "324 unit tests · 63 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-17)"
+project_state: "334 unit tests · 63 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-18)"
 tags:
   - nextjs16
   - react19
@@ -1157,6 +1157,52 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   pattern). Doc-drift D-1: the session-16 execution-log checkboxes flipped.
 - 324 unit + 63 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/README/
   PAD/SKILL/DEPLOYMENT aligned; run narrative at `docs/session_27.md`.
+
+
+### Session 18 — checkout-address extraction + ceiling UX completion (2026-10-13, v1.15.0)
+
+- Re-validated session-17 on a fresh clone (`14d0bbb` = `6c0d708` + operator
+  `session_28.md`): all gates green (324 unit / 63 e2e). Environment: this
+  sandbox re-exports a shadow `DATABASE_URL` on shell recycle and BLOCKS
+  symlink creation — converged with a hard link
+  `/home/z/my-project/db/custom.db` → `<repo>/db/custom.db` (one inode);
+  the shadow-absent path verified schema-anchored via a move-the-shadow-dir
+  probe (seed succeeded with the shadow relocated — the CLI/seed contract
+  holds; the earlier "Unable to open" errors were the absolute-shadow
+  passthrough hitting a path that didn't exist yet).
+- Fresh deep audit (read-only subagent 19-a + own file:line verification):
+  session-16 fixes **4/4 WIRED**; session-17 fixes **3/3 WIRED**; older-fix
+  spot-checks **7/7 WIRED** (incl. 14/14 Retry-After + 4/4 clampSearchTerm);
+  new findings **0 CRITICAL / 0 HIGH / 0 MEDIUM / 1 LOW / 2 NIT /
+  1 Informational / 0 doc-drift** — the sixth consecutive session without a
+  CRITICAL/HIGH/MEDIUM.
+- Fixes (TDD — RED first, 9 failed / 1 coverage pin): **S18-1 (Low)** the
+  checkout in-tx saveAddress block extracted to `saveCheckoutAddressInTx`
+  (`src/lib/addresses.ts`, the S11-6 lib pattern) returning
+  `"saved" | "at-cap"` — at cap the order STILL PLACES (S7-8). The cap gate
+  deliberately STAYS the PRE-create fast-fail (the OPPOSITE of the S11-6/
+  S16-1 create paths): a post-create `AddressCapError` throw here would
+  roll back the ENTIRE order transaction and Prisma interactive
+  transactions have no savepoints; the residual bounded race recorded as
+  accepted debt (the S17-3 pattern). The carried S18-4a "saveAddress
+  at-cap skip-save integration pin" (deferred since session 7) closes with
+  the same test file. **S18-2 (NIT)** cart-page "+" disables at
+  `min(stock, MAX_CART_QUANTITY)`, drawer "+" at 99 (the stock-less drawer
+  keeps the server clamp as its stock guard), and the three cart schemas
+  carry the interpolated "Quantity is limited to 99 per item." store copy
+  (was Zod's default English message in the error toast). **S18-3 (NIT)**
+  unused `axe-core` + `@testing-library/user-event` devDeps removed via npm.
+- Live verification (agent-browser, fresh production build): reference
+  unchanged (nav anatomy, hero slides, 8 categories, Damascus-first, mobile
+  panel = 5 links + close); clone mobile menu open → 7-link panel + search →
+  navigate → auto-close/unmount; /products Damascus-first; sitemap.xml = 25
+  public URLs (no private surfaces) + robots disallows + JSON-LD intact;
+  demo login → /account; a full signed-in checkout with "Save this address"
+  placed ORD-2026-013 and the address book grew 1 → 2 (the "saved" outcome);
+  zero console errors on a fresh session.
+- 334 unit + 63 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/README/
+  PAD/SKILL aligned; DEPLOYMENT.md drift-free; `.env.example` unchanged
+  (no new env vars); run narrative at `docs/session_29.md`.
 
 
 ## Appendix C — Quick Reference Card

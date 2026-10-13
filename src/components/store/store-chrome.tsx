@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ShoppingBag, X } from "lucide-react";
 import Image from "next/image";
 
+import { MAX_CART_QUANTITY } from "@/lib/cart-quantity";
 import { formatMoney } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { useStore } from "./store-provider";
@@ -298,7 +299,11 @@ function CartDrawer() {
                         <button
                           type="button"
                           onClick={() => updateQty(line.id, line.quantity + 1)}
-                          disabled={pendingId === line.id}
+                          // The drawer carries no stock data (the server clamp
+                          // remains the stock guard), but the 99 ceiling is
+                          // client-known — pre-disable so the click can never
+                          // surface the schema's 400 (session-18 S18-2).
+                          disabled={pendingId === line.id || line.quantity >= MAX_CART_QUANTITY}
                           aria-label="Increase quantity"
                           className="h-8 w-8 text-sm disabled:opacity-50"
                         >

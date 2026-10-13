@@ -290,7 +290,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 **Two suites, one gate:** `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e` — all must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 324 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 334 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
@@ -330,6 +330,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 | `hero-carousel.test.tsx` | S16-4/C5 (jsdom + fake timers + per-test `vi.resetModules()`): exactly ONE MediaQueryList construction across mount + auto-rotate re-renders + prop rerender (the S15-5 regression guard); auto-rotation advances the active slide; `prefers-reduced-motion` freezes it |
 
 | `session17-hardening.test.ts` | The S17-1 guarded category delete (`deleteCategoryIfEmpty` outcomes: in-use pre-count / deleted / not-found / the P2003-race → in-use with an unknown count / rethrow) + the `isForeignKeyViolation` duck-type truth table |
+| `session18-hardening.test.ts` | The S18-1 checkout saveAddress extraction (`saveCheckoutAddressInTx` — "saved"/"at-cap" outcomes, unset-before-create order, no-writes-at-cap, unknown-error rethrow) + the S18-2 friendly cart-ceiling messages (the three cart schemas reject over-ceiling quantities with store copy, not the Zod default) |
 | `validation.test.ts` (S17-2 addendum) | `MAX_CART_QUANTITY` is 99 and the cart schemas interpolate the shared constant |
 | `api-boundaries.test.ts` (C7 addendum) | Cart DELETE `?all=1`: no cart → `{itemCount:0}` with `deleteMany` never called; guest cart → cartId-scoped `deleteMany` + the fresh summary's `itemCount` |
 
@@ -479,6 +480,9 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | 70 | Fixed (session 17) | `deleteCategoryAction` was check-then-write: a product created between the count and the delete raised an unhandled P2003 (`Product.category` is a required Restrict FK) — the escape surfaced as the generic S13-2 toast instead of an actionable message | `deleteCategoryIfEmpty` (`src/lib/admin-categories.ts`): the pre-count stays the fast-fail UX check (exact "N products still use this category." message), the delete's P2003 maps to the same in-use outcome with an unknown count, unrelated errors rethrow (S17-1). Unit-pinned (`session17-hardening.test.ts`). The sibling `deleteProductAction` count-race is benign by design (`OrderItem.product` is optional → SetNull — S17-3, recorded not fixed). |
 | 71 | Fixed (session 17) | The cart 99-ceiling was retyped in six places (clamp, two schemas, bulk schema, stepper max, badge flip) with no shared constant — cart-merge even carried a "must stay in sync" comment | `MAX_CART_QUANTITY` exported from `src/lib/cart-quantity.ts`; every site consumes it (S17-2). Value unchanged. |
 | 72 | Accepted (session 17) | The cart DELETE `?all=1` boundary and the wishlist pre-create fast-fail branch were unpinned; the session-16 execution-log checkboxes were left unchecked in this plan | C7 cart DELETE `?all=1` boundary pins added (api-boundaries pattern); the D-1 doc drift corrected (checkboxes flipped). Remaining carried debt: wishlist pre-create fast-fail pin (behaviorally redundant behind the S16-1 tx gate), login-limiter lockout tradeoff (S8-8), checkout integration seams, review action two-tier gate pin, admin coupon-management UI, real mailer/payment epics. |
+| 73 | Fixed (session 18) | Checkout's in-tx `saveAddress` gated the address-book cap with the PRE-create check only (the S11-6/S16-1 class) and the block was route-private and untestable — the carried "saveAddress at-cap skip-save integration pin" deferral dated to session 7 | The block extracted to `saveCheckoutAddressInTx` (`src/lib/addresses.ts`, the S11-6 lib pattern) returning `"saved" \| "at-cap"` — at cap the order STILL PLACES (S7-8). The gate deliberately STAYS the pre-create fast-fail: a post-create throw (the S16-1 shape) would roll back the entire order transaction (no savepoints in Prisma interactive txs). Contract unit-pinned (`session18-hardening.test.ts`) — the S18-4a coverage gap closes with it; the residual bounded race recorded as accepted debt (the S17-3 pattern). |
+| 74 | Fixed (session 18) | The cart-page and drawer "+" steppers stayed enabled at the 99 ceiling (stock > 99 reachable), so the click PATCHed 100 and the schema 400 surfaced Zod's default English message in the error toast | Page stepper disables at `min(stock, MAX_CART_QUANTITY)`, drawer stepper at `MAX_CART_QUANTITY` (the drawer carries no stock data — the server clamp remains the stock guard); the three cart schemas carry the interpolated "Quantity is limited to 99 per item." store copy (S18-2). Unit-pinned. |
+| 75 | Fixed (session 18) | `axe-core` and `@testing-library/user-event` were declared devDependencies imported by zero files (install weight; suggested an a11y scan that was never wired) | Both removed via npm (S18-3). The a11y surface remains pinned by the aria/assertive-live/focus pins across the existing e2e specs; wiring a new axe scan would be a speculative feature. Remaining carried debt: the `/track-order` page-level limiter wiring pin (e2e-heavy for a wiring fact — the limiter logic and the route-level 429 contract are already pinned), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, review action two-tier gate pin, admin coupon-management UI, real mailer/payment epics. |
 
 ---
 
@@ -506,7 +510,7 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | `src/components/store/mobile-nav.tsx` | The Tailwind-v4-safe mobile menu |
 | `src/components/store/store-chrome.tsx` | Sticky header + mobile panel + cart drawer |
 | `prisma/schema.prisma` / `seed.ts` | 18 models / idempotent seed |
-| `tests/unit/*` · `tests/e2e/*` | 324 unit · 63 e2e (incl. the v4 guard + tracking access contract + the session-11..17 hardening pins) |
+| `tests/unit/*` · `tests/e2e/*` | 334 unit · 63 e2e (incl. the v4 guard + tracking access contract + the session-11..18 hardening pins) |
 | `playwright.config.ts` / `vitest.config.ts` | Suite wiring (standalone webServer; iPhone-13-on-Chromium project) |
 
 ---

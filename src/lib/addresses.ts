@@ -130,3 +130,101 @@ export async function reassignDefaultAfterDeleteInTx(
   if (!newest) return;
   await promoteAddressInTx(client, userId, newest.id);
 }
+
+/** The parsed checkout address fields (addressSchema's output shape). */
+export interface CheckoutAddressDraft {
+  label?: string;
+  fullName: string;
+  phone: string;
+  line1: string;
+  line2?: string | null;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
+
+/**
+ * Minimal shape of `db` / a transaction client that
+ * `saveCheckoutAddressInTx` touches — keeps the helper unit-testable with an
+ * in-memory fake (the session-18 S18-1 extraction of the checkout route's
+ * in-tx saveAddress block).
+ */
+export interface CheckoutAddressSavingClient {
+  address: {
+    count: (args: { where: { userId: string } }) => Promise<number>;
+    updateMany: (args: {
+      where: { userId: string };
+      data: { isDefault: boolean };
+    }) => Promise<{ count: number }>;
+    create: (args: {
+      data: {
+        userId: string;
+        label: string;
+        fullName: string;
+        phone: string;
+        line1: string;
+        line2: string | null;
+        city: string;
+        state: string;
+        postalCode: string;
+        country: string;
+        isDefault: boolean;
+      };
+    }) => Promise<unknown>;
+  };
+}
+
+/**
+ * The checkout tx's best-effort address-book save (session-7 S7-8), extracted
+ * from the checkout route (session-18 S18-1) so its contract is unit-pinned
+ * and shared with any future in-tx caller.
+ *
+ * Returns `"saved"` after unsetting the previous defaults and creating the
+ * new row with `isDefault: true` (so `findFirst({ isDefault: true })` stays
+ * deterministic — the latest save wins), or `"at-cap"` when the book is
+ * full: the caller KEEPS THE ORDER and skips only the bookkeeping save (the
+ * address rides on the order in shippingAddressJson regardless).
+ *
+ * The cap gate is the PRE-create `assertAddressCap` (a fast-fail), NOT a
+ * post-create throw — deliberately the OPPOSITE of the S11-6/S16-1 create
+ * paths: a post-create throw here would roll back the ENTIRE checkout
+ * transaction (order, stock, coupon), violating the order-still-places
+ * invariant, and Prisma interactive transactions have no savepoints. The
+ * residual race (two concurrent checkouts by the same user at exactly
+ * cap−1 land one extra row) is bounded and benign — recorded as accepted
+ * debt in AGENTS.md (the S17-3 pattern). Unknown errors rethrow so the
+ * caller's transaction aborts honestly (the S13-2 contract).
+ */
+export async function saveCheckoutAddressInTx(
+  client: CheckoutAddressSavingClient,
+  userId: string,
+  address: CheckoutAddressDraft,
+): Promise<"saved" | "at-cap"> {
+  try {
+    await assertAddressCap(client, userId);
+    await client.address.updateMany({
+      where: { userId },
+      data: { isDefault: false },
+    });
+    await client.address.create({
+      data: {
+        userId,
+        label: address.label || "Home",
+        fullName: address.fullName,
+        phone: address.phone,
+        line1: address.line1,
+        line2: address.line2 ? address.line2 : null,
+        city: address.city,
+        state: address.state,
+        postalCode: address.postalCode,
+        country: address.country,
+        isDefault: true,
+      },
+    });
+    return "saved";
+  } catch (error) {
+    if (error instanceof AddressCapError) return "at-cap";
+    throw error;
+  }
+}
