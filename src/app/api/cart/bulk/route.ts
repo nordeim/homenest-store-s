@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
-import { clampPurchaseQuantity } from "@/lib/cart-quantity";
 import { getOrCreateCart, getCartSummary } from "@/lib/cart";
+import { dedupeBulkWanted, planBulkUpsertQuantity } from "@/lib/cart-bulk";
 import { db } from "@/lib/db";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { cartBulkSchema, firstError } from "@/lib/validation";
@@ -39,12 +39,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: firstError(parsed.error) }, { status: 400 });
     }
 
-    // Dedupe repeated product ids (sum their quantities) so a duplicated
-    // wishlist payload cannot double-count lines.
-    const wanted = new Map<string, number>();
-    for (const item of parsed.data.items) {
-      wanted.set(item.productId, Math.min((wanted.get(item.productId) ?? 0) + item.quantity, 99));
-    }
+    // Dedupe repeated product ids (sum their quantities, 99 ceiling) so a
+    // duplicated wishlist payload cannot double-count lines — pure and
+    // unit-pinned in cart-bulk.ts (session-9 S9-8).
+    const wanted = dedupeBulkWanted(parsed.data.items);
 
     const products = await db.product.findMany({
       where: { id: { in: Array.from(wanted.keys()) }, isActive: true },
@@ -64,7 +62,7 @@ export async function POST(request: NextRequest) {
         const existing = await tx.cartItem.findUnique({
           where: { cartId_productId: { cartId, productId } },
         });
-        const clamped = clampPurchaseQuantity((existing?.quantity ?? 0) + quantity, stock);
+        const clamped = planBulkUpsertQuantity(existing?.quantity ?? 0, quantity, stock);
         if (clamped === 0) continue; // sold out under the click
         await tx.cartItem.upsert({
           where: { cartId_productId: { cartId, productId } },

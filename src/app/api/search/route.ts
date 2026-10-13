@@ -14,7 +14,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
     }
 
-    const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
+    let q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
+    // Same 100-char cap the /products page applies (session-9 S9-7) — an
+    // oversized term feeds three LIKE clauses for nothing.
+    if (q.length > 100) q = q.slice(0, 100);
     if (q.length < 2) return NextResponse.json({ results: [] });
 
     const products = await db.product.findMany({

@@ -10,7 +10,13 @@ type StoreState = {
   setMobileNavOpen: (open: boolean) => void;
   cartDrawerOpen: boolean;
   setCartDrawerOpen: (open: boolean) => void;
-  cartCount: number;
+  /**
+   * `null` means "no client-side truth yet" — the header badge falls back to
+   * the server-computed count until the first in-page mutation sets a value
+   * (session-9 S9-1). Initializing at 0 made the fallback dead code and every
+   * fresh page load rendered a badge-less cart.
+   */
+  cartCount: number | null;
   setCartCount: (count: number) => void;
 };
 
@@ -19,7 +25,7 @@ const StoreContext = React.createContext<StoreState | null>(null);
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const [cartDrawerOpen, setCartDrawerOpen] = React.useState(false);
-  const [cartCount, setCartCount] = React.useState(0);
+  const [cartCount, setCartCount] = React.useState<number | null>(null);
 
   // Lock body scroll while any overlay is open.
   React.useEffect(() => {

@@ -651,4 +651,75 @@ Visual parity re-verified against the LIVE reference (agent-browser): home hero 
 - [x] Full gate chain re-run green; manual agent-browser verification (mobile menu, checkout prefill, wishlist add-all)
 - [x] Screenshots refreshed; worklog updated
 
-**Post-remediation totals (session 8):** 210/210 unit tests, 48/48 e2e tests, lint/typecheck/typecheck:tests/build clean.
+**Post-remediation totals (session 8):** 212/212 unit tests, 48/48 e2e tests, lint/typecheck/typecheck:tests/build clean. *(Session-9 correction: this line originally said 210/210 — a stale pre-written total; the executed suite finished at 212.)*
+
+---
+
+# Session 9 — Post-push audit & badge/order-transition completion (2026-10-13)
+
+> **Status:** EXECUTED (see the Session-9 Execution Log at the end)
+> **Scope:** Re-validation of the session-8 deliverables on the pulled tree (`401ec63` = `49af9ca` + `docs/session_10.md`), a fresh read-only deep audit (repo `code-review-checklist` 12-category scan over every `src/lib` module, all API routes, all actions, every storefront/admin/auth page, components, configs, seed + schema, tests + docs), and TDD remediation of the newly identified findings (2 MEDIUM + 2 LOW + 4 NIT + 1 doc drift).
+> **Method:** unchanged — failing tests first, then the fix, then the full gate chain (`lint && typecheck && typecheck:tests && test && build && test:e2e`).
+
+## 1. Re-validation (all session-8 gates green on the pulled tree)
+
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · 212/212 unit ✓ · build ✓ · 48/48 e2e ✓ (sandbox `DATABASE_URL` shadow converged via the pre-existing symlink; health `db:up`).
+Visual parity re-verified against the LIVE reference (agent-browser): hero slides, trust badges, 8 category tiles, featured products identical — reference unchanged; the clone remains the superset. **Mobile menu re-verified on the production build** (iPhone 390×844: open → `expanded=true`, push-down panel with all 7 links; navigate → closes, `expanded=false`, lands on `/products`) — the Tailwind v4 conditional-mount pattern is intact.
+
+## 2. Session-8 fix verification (read-only subagent + spot-checks)
+
+**13/13 accounted: 11 WIRED / 2 accepted deferrals (S8-7 drawer focus trap, S8-8 limiter tradeoff) / 0 MISSING.** Every fix verified with file:line evidence (S8-1 addresses POST tx + PATCH + account control; S8-2 growReviewAggregate wired into `db.$transaction`; S8-3 prisma-errors with no private copies; S8-4 deleteMany; S8-5 carousel clamp; S8-6 cap + take + bulk endpoint + single-request Add All; S8-9 noindex ×6; S8-10 counts; S8-11 dead code/deps gone; S8-12 new specs live; S8-13 category messages).
+
+## 3. Session-9 audit findings (evidence-based)
+
+**2 MEDIUM / 2 LOW / 4 NIT + 1 doc drift.** Verified clean again: ownership/IDOR surfaces (all queries scoped by cartId/wishlistId/userId/session), integer-cents money end-to-end, transactional stock + coupon cap + cart adds + merges, Zod coverage on every route/action, spoof-resistant clientIp + limiter grid, timing-safe compares, scrypt auth + uniform errors, CSP nonce, jsonLdScript escaping, canonicals/noindex/sitemap/robots, pagination clamps, a11y labels, no dead code, no committed secrets, no `any`.
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| S9-1 | MED | **Header cart badge is always 0 on fresh page loads — the server-computed count is dead code.** `StoreProvider` initializes `cartCount` to `0` (not null), so `liveCount ?? cartCount` in StoreChrome never falls back; the storefront layout's per-request `findCartId`+`getCartSummary` result is discarded. A shopper with 3 items sees no badge on any hard load until a mutation sets it. | `store-provider.tsx:13,22`; `store-chrome.tsx:26-30`; `(storefront)/layout.tsx:20-27,57` |
+| S9-2 | MED | **`setOrderStatusAction` decides from a pre-transaction read and writes unconditionally inside the tx** — two admins who both read `pending` and submit `cancelled` both pass `canTransitionOrderStatus` and BOTH restock (stock inflated 2×); or B's stale write reopens a terminal `cancelled` order. The write needs a status guard inside the tx. | `actions/admin.ts:318-358` |
+| S9-3 | LOW | **PATCH/DELETE `/api/addresses` can 500 (P2025) on a concurrent delete** — the exact race S8-4 fixed for the wishlist; the account card renders both buttons side by side. PATCH's ownership `findFirst` and `tx.address.update` straddle the race window; DELETE is check-then-delete. | `api/addresses/route.ts:126-141,169-177` |
+| S9-4 | LOW | **Admin dashboard 14-day revenue query is unbounded** — `order.findMany` with no `take` feeding a JS fold; row count grows linearly with volume on a `force-dynamic` admin page. The analytics page was bounded in SQL in S6-7; the dashboard is the leftover. | `admin/page.tsx:58-61,73-79` |
+| S9-5 | NIT | **`Address.userId` has no index** — the only model whose per-request filtered queries (`findFirst`, `findMany`, `updateMany`, `count`) are unindexed. (Secondary: `Session.expiresAt` unindexed for the hourly sweep.) | `prisma/schema.prisma:145-160` |
+| S9-6 | NIT | **GET `/api/cart-summary` is the only unauthenticated endpoint without a rate limit** — closes the last gap in the S5-8 metering grid. | `api/cart-summary/route.ts:7-18` |
+| S9-7 | NIT | **`GET /api/search` `q` has no length cap** — the sibling `/products` page caps at 100 chars; the API is the inconsistent twin feeding three LIKE clauses. | `api/search/route.ts:17-18` |
+| S9-8 | NIT | **Session-8 logic has schema-only/happy-path coverage in places** — the bulk route's dedupe-sum/99-cap/clamp/sold-out-skip branches are unpinned at logic level (Zod + 2-item e2e only). | `api/cart/bulk/route.ts:44-77` |
+| DOC | NIT | **REMEDIATION_PLAN.md says 210/210 unit tests post-session-8; reality is 212** (stale pre-written total; README/PAD/SKILL/worklog all say 212). | `REMEDIATION_PLAN.md` session-8 totals line |
+
+## 4. Remediation plan (TDD)
+
+1. **S9-1** — context type becomes `cartCount: number | null`, initialized `null` (server AND client first render), so StoreChrome's `liveCount ?? cartCount` fallback actually fires and the server-computed prop becomes live. `setCartCount` stays `(count: number) => void` — only store-chrome reads the value. RED first: new e2e `cart-badge.spec.ts` (add item → full page reload → badge shows 1; currently shows nothing).
+2. **S9-2** — new `applyOrderStatusTransition(client, order, target, note)` in `src/lib/order-status.ts` (structural client, `growReviewAggregate` pattern): the guarded write `order.updateMany({ where: { id, status: from }, data: { status: to } })` runs FIRST; `count === 0` → `{ applied: false }` and NO event/NO restock; the event + restock are computed from the guarded winner. The action re-reads the order INSIDE the tx, applies `canTransitionOrderStatus`/no-op checks there, throws a typed conflict error on `applied: false`, and maps it to the accurate transition error message. Unit tests red-first with a fake client: guard match (event + restock), guard miss (no event/no restock), deleted-product skip, no-restock transitions.
+3. **S9-3** — new `promoteAddressInTx(client, userId, id)` in `src/lib/addresses.ts`: promote via scoped `updateMany({ where: { id, userId } })` FIRST, `count === 0` → `AddressGoneError` (tx aborts, nothing written), then unset-others `updateMany({ where: { userId, id: { not: id } } })`. The PATCH route wraps the tx and maps the error → 404. DELETE replaces `delete` with scoped `deleteMany` + `count === 0` → 404 (the S8-4 pattern). Unit tests red-first: happy promote order, gone-row abort (no unset written), user scoping.
+4. **S9-4** — new pure `buildRevenueChart(rows, now)` in `src/lib/analytics.ts`: folds SQL day-bucket rows into the 14-day chart data (UTC day keys `YYYY-MM-DD`, `en-US` labels, missing days = 0). The dashboard swaps the unbounded `findMany` for a bounded `$queryRaw` `SELECT date(placedAt/1000,'unixepoch') AS day, SUM(total) … GROUP BY day` (verified live: Prisma stores SQLite DateTime as epoch-millis INTEGER, so `date(placedAt)` alone returns NULL — the `/1000,'unixepoch'` form is required). Unit tests red-first: fold, zero-fill, label format, non-cancelled filtering stays in SQL.
+5. **S9-5** — `@@index([userId])` on Address + `@@index([expiresAt])` on Session; `npm run db:push` (SQLite add-index is non-destructive; no data loss).
+6. **S9-6** — `rateLimit("cart-summary:" + clientIp(headers), 120, 60_000)` mirroring the search GET (the route gains its `NextRequest` param).
+7. **S9-7** — clamp `q` to 100 chars after trim in `/api/search` (mirrors the `/products` page cap).
+8. **S9-8** — extract `dedupeBulkWanted(items)` + `planBulkUpsertQuantity(existing, wanted, stock)` into `src/lib/cart-bulk.ts`; the bulk route uses them; unit tests red-first pin dedupe-sum, the 99 dedupe cap, the stock clamp, and the sold-out → 0 skip branch.
+9. **DOC** — REMEDIATION_PLAN.md 210 → 212; AGENTS.md (transition guard + address race + dashboard bound + limiter grid + index notes), CLAUDE.md (modules + tests), README (badge counts unchanged; features/troubleshooting notes), PAD (§8 tables + known-issues ledger), DEPLOYMENT.md (limiter row), SKILL.md v1.6.0 (project_state + Appendix B), worklog entry, `docs/session_10.md` header note (it narrates the session-8 execution).
+
+### Deferred (with justification)
+
+| # | Item | Why |
+|---|---|---|
+| 1 | Cart-drawer focus trap (S8-7) | Carried — dedicated a11y pass (unchanged rationale). |
+| 2 | Login limiter lockout tradeoff (S8-8) | Carried — needs an abuse-model decision. |
+| 3 | Checkout P2002 recovery loop integration test | The loop's pure helpers are unit-pinned (S7-2/S8-3); a fake-db integration seam for the loop itself remains an epic-grade testing investment with the lowest marginal risk in the suite. |
+| 4 | 404-shell CSP nonce, `__Host-` prefix, shared-store limiter, admin coupon UI, real mailer, wishlist filled-state, radiogroup roving focus, address content dedup | Carried unchanged from sessions 5–8 with the same justifications. |
+
+## 5. Execution log (session 9)
+
+- [x] S9-1 — context `cartCount: number \| null` (init null) + e2e `cart-badge.spec.ts` (2 cases, red against the old build → green)
+- [x] S9-2 — `applyOrderStatusTransition` guarded write (+4 unit cases, red → green); action re-reads inside the tx, conflict → accurate error
+- [x] S9-3 — `promoteAddressInTx` + scoped `deleteMany` (+2 unit cases, red → green); routes map gone-rows → 404
+- [x] S9-4 — `buildRevenueChart` (+4 unit cases, red → green); dashboard bounded via `$queryRaw` unixepoch buckets (verified live against db/custom.db: Prisma stores SQLite DateTimes as epoch-millis INTEGERs)
+- [x] S9-5 — `@@index([userId])` on Address + `@@index([expiresAt])` on Session; `db:push`
+- [x] S9-6 — cart-summary rate limit (120/min per IP, search-mirrored)
+- [x] S9-7 — search `q` clamped to 100 chars
+- [x] S9-8 — `cart-bulk.ts` pure plan (+7 unit cases, red → green); bulk route wired
+- [x] admin.spec toast locator `.first()` — the strict-mode race (title div + aria-live wrapper) surfaced during the post-fix e2e run; the repo's established `.first()` convention applied
+- [x] DOC — REMEDIATION_PLAN 210 → 212; docs sweep (AGENTS/CLAUDE/README/PAD/DEPLOYMENT/SKILL v1.6.0, session_10.md header note, worklog)
+- [x] Full gate chain re-run green; manual agent-browser verification (badge shows 2 after a full reload — was 0 pre-fix; mobile menu open/navigate/close; admin dashboard KPIs + revenue chart render from the SQL buckets)
+- [x] Screenshots refreshed; worklog updated
+
+**Post-remediation totals (session 9):** 229/229 unit tests, 50/50 e2e tests, lint/typecheck/typecheck:tests/build clean.

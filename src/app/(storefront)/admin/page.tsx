@@ -3,6 +3,7 @@ import Link from "next/link";
 import { DollarSign, Package, ShoppingBag, TriangleAlert, Users } from "lucide-react";
 
 import { db } from "@/lib/db";
+import { buildRevenueChart, type RevenueDayRow } from "@/lib/analytics";
 import { orderStatusBadgeClass } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -33,11 +34,13 @@ export default async function AdminDashboardPage() {
   const weekStart = new Date(now);
   weekStart.setDate(weekStart.getDate() - 7);
   weekStart.setHours(0, 0, 0, 0);
+  // The chart window starts at UTC midnight 13 days ago — the SQL buckets
+  // below are UTC days, so the bound must line up with them.
   const chartStart = new Date(now);
-  chartStart.setDate(chartStart.getDate() - 13);
-  chartStart.setHours(0, 0, 0, 0);
+  chartStart.setUTCDate(chartStart.getUTCDate() - 13);
+  chartStart.setUTCHours(0, 0, 0, 0);
 
-  const [revenueAgg, orderCount, weekOrderCount, activeProducts, totalProducts, customers, recentOrders, lowStock, chartOrders] =
+  const [revenueAgg, orderCount, weekOrderCount, activeProducts, totalProducts, customers, recentOrders, lowStock, revenueBuckets] =
     await Promise.all([
       db.order.aggregate({ _sum: { total: true }, where: { status: { not: "cancelled" } } }),
       db.order.count(),
@@ -55,32 +58,21 @@ export default async function AdminDashboardPage() {
         orderBy: [{ stock: "asc" }, { name: "asc" }],
         include: { category: { select: { name: true } } },
       }),
-      db.order.findMany({
-        where: { status: { not: "cancelled" }, placedAt: { gte: chartStart } },
-        select: { placedAt: true, total: true },
-      }),
+      // Bounded in SQL (session-9 S9-4): one SUM row per UTC day instead of
+      // every order in the window. Prisma stores SQLite DateTimes as
+      // epoch-millis INTEGERs — the bare date(placedAt) form returns NULL,
+      // the /1000,'unixepoch' form is required.
+      db.$queryRaw<RevenueDayRow[]>`
+        SELECT date(placedAt / 1000, 'unixepoch') AS day, SUM(total) AS revenue
+        FROM "Order"
+        WHERE status != 'cancelled' AND placedAt >= ${chartStart}
+        GROUP BY date(placedAt / 1000, 'unixepoch')
+      `,
     ]);
 
-  // Bucket non-cancelled revenue into the last 14 calendar days (labels only —
-  // the bucket key is the UTC-independent local toDateString of each day).
-  const dayKeys: { key: string; label: string }[] = [];
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    dayKeys.push({
-      key: d.toDateString(),
-      label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    });
-  }
-  const revenueByDay = new Map<string, number>();
-  for (const order of chartOrders) {
-    const key = order.placedAt.toDateString();
-    revenueByDay.set(key, (revenueByDay.get(key) ?? 0) + order.total);
-  }
-  const chartData: RevenuePoint[] = dayKeys.map((day) => ({
-    date: day.label,
-    revenue: revenueByDay.get(day.key) ?? 0,
-  }));
+  // Fold the bounded day buckets into the fixed 14-point chart (pure,
+  // unit-pinned in tests/unit/analytics.test.ts).
+  const chartData: RevenuePoint[] = buildRevenueChart(revenueBuckets, now);
 
   const totalRevenue = revenueAgg._sum.total ?? 0;
   const archivedCount = Math.max(0, totalProducts - activeProducts);

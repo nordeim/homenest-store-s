@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { assertAddressCap, AddressCapError } from "@/lib/addresses";
+import { AddressCapError, AddressGoneError, assertAddressCap, promoteAddressInTx } from "@/lib/addresses";
 import { getCurrentUser } from "@/lib/auth";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
@@ -131,10 +131,20 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Address not found." }, { status: 404 });
     }
 
-    await db.$transaction(async (tx) => {
-      await tx.address.updateMany({ where: { userId: user.id }, data: { isDefault: false } });
-      await tx.address.update({ where: { id: existing.id }, data: { isDefault: true } });
-    });
+    // The PROMOTE is scoped and conditional and runs FIRST (session-9 S9-3):
+    // if a concurrent delete removed the row, count === 0 aborts the tx with
+    // AddressGoneError and the previous defaults are never cleared. The old
+    // unset-all-then-update order could strand a user with zero defaults.
+    try {
+      await db.$transaction(async (tx) => {
+        await promoteAddressInTx(tx, user.id, existing.id);
+      });
+    } catch (error) {
+      if (error instanceof AddressGoneError) {
+        return NextResponse.json({ error: "Address not found." }, { status: 404 });
+      }
+      throw error;
+    }
 
     return NextResponse.json({ ok: true });
   } catch {
@@ -174,7 +184,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Address not found." }, { status: 404 });
     }
 
-    await db.address.delete({ where: { id: existing.id } });
+    // Scoped deleteMany (session-9 S9-3, the S8-4 wishlist pattern): a
+    // concurrent double-delete reports count === 0 as a 404 instead of
+    // surfacing P2025 as a 500.
+    const deleted = await db.address.deleteMany({ where: { id: existing.id, userId: user.id } });
+    if (deleted.count === 0) {
+      return NextResponse.json({ error: "Address not found." }, { status: 404 });
+    }
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });

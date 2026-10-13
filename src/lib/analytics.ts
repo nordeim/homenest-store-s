@@ -54,3 +54,52 @@ export function foldItemAggregates(rows: ItemAggregate[]): ProductRollup[] {
 export function topProducts(rollups: ProductRollup[], n: number): ProductRollup[] {
   return [...rollups].sort((a, b) => b.revenue - a.revenue).slice(0, n);
 }
+
+// ---------------------------------------------------------------------------
+// Dashboard revenue chart (session-9 S9-4). The dashboard used to load EVERY
+// non-cancelled order in the 14-day window into JS to fold a per-day revenue
+// map — unbounded, growing linearly with order volume on a force-dynamic
+// admin page. Now the page aggregates in SQL
+// (`SUM(total) GROUP BY date(placedAt/1000,'unixepoch')` — Prisma stores
+// SQLite DateTimes as epoch-millis INTEGERs, so the bare date() form returns
+// NULL) and the fold below shapes the bounded result set (≤ 14 rows).
+// ---------------------------------------------------------------------------
+
+/** One SQL revenue bucket: a UTC `YYYY-MM-DD` day key and its summed cents. */
+export type RevenueDayRow = {
+  day: string;
+  /** SQLite SUM comes back as number or bigint; NULL only for an empty set. */
+  revenue: number | bigint | null;
+};
+
+/** One Recharts point for the admin dashboard's 14-day revenue chart. */
+export type RevenuePoint = {
+  /** `en-US` short date label rendered from the UTC day key (e.g. "Oct 13"). */
+  date: string;
+  /** Integer cents for that UTC day. */
+  revenue: number;
+};
+
+/**
+ * Fold SQL day buckets into the fixed 14-day chart window ending "today"
+ * (UTC). Missing days are 0-filled; duplicate-day rows are summed
+ * defensively even though GROUP BY guarantees uniqueness. Pure, so the
+ * bucket/label math is unit-pinned in tests/unit/analytics.test.ts.
+ */
+export function buildRevenueChart(rows: RevenueDayRow[], now: Date): RevenuePoint[] {
+  const byDay = new Map<string, number>();
+  for (const row of rows) {
+    const value = Number(row.revenue ?? 0);
+    byDay.set(row.day, (byDay.get(row.day) ?? 0) + value);
+  }
+  const utcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const points: RevenuePoint[] = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(utcMidnight - i * 86_400_000);
+    points.push({
+      date: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
+      revenue: byDay.get(d.toISOString().slice(0, 10)) ?? 0,
+    });
+  }
+  return points;
+}

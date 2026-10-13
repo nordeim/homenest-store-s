@@ -23,9 +23,11 @@ export function StoreChrome({
   user: { name: string; role: string } | null;
   cartCount: number;
 }) {
-  // The store's cartCount starts as null on BOTH the server and the client,
-  // so the SSR markup falls back to the server-computed prop — no hydration
-  // guard (and no set-state-on-mount effect) is needed.
+  // The store's cartCount is null on BOTH the server and the client until the
+  // first in-page mutation, so the SSR markup (and every fresh load) falls
+  // back to the server-computed prop — no hydration guard (and no
+  // set-state-on-mount effect) is needed. (Context type is `number | null`,
+  // session-9 S9-1 — initializing at 0 made this fallback dead code.)
   const { cartCount: liveCount } = useStore();
   const count = liveCount ?? cartCount;
 

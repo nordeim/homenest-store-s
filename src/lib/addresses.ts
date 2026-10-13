@@ -44,3 +44,51 @@ export async function assertAddressCap(
     throw new AddressCapError(MAX_ADDRESSES_PER_USER);
   }
 }
+
+/**
+ * Minimal shape of `db` / a transaction client that `promoteAddressInTx`
+ * touches — keeps the helper unit-testable with an in-memory fake.
+ */
+export interface AddressPromotingClient {
+  address: {
+    updateMany: (args: {
+      where: { userId: string; id: string } | { userId: string; id: { not: string } };
+      data: { isDefault: boolean };
+    }) => Promise<{ count: number }>;
+  };
+}
+
+/** Thrown when the address vanished before its promotion could win. */
+export class AddressGoneError extends Error {
+  constructor() {
+    super("Address not found.");
+    this.name = "AddressGoneError";
+  }
+}
+
+/**
+ * Promote one address to `isDefault: true` and unset the others, race-safe
+ * (session-9 S9-3). The PROMOTE runs first as a scoped conditional
+ * `updateMany`: if a concurrent delete removed the row, `count === 0` throws
+ * `AddressGoneError` and the caller's transaction aborts — the previous
+ * defaults are never cleared for a promotion that lost the race (the old
+ * unset-all-then-update order could strand a user with zero defaults).
+ * Must run inside the caller's `$transaction` so the pair is atomic.
+ */
+export async function promoteAddressInTx(
+  client: AddressPromotingClient,
+  userId: string,
+  id: string,
+): Promise<void> {
+  const promoted = await client.address.updateMany({
+    where: { id, userId },
+    data: { isDefault: true },
+  });
+  if (promoted.count === 0) {
+    throw new AddressGoneError();
+  }
+  await client.address.updateMany({
+    where: { userId, id: { not: id } },
+    data: { isDefault: false },
+  });
+}

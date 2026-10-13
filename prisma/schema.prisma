@@ -36,6 +36,9 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  // The hourly opportunistic sweep deletes by expiry (session-9 S9-5).
+  @@index([expiresAt])
 }
 
 model Category {
@@ -157,6 +160,11 @@ model Address {
   country    String   @default("United States")
   isDefault  Boolean  @default(false)
   createdAt  DateTime @default(now())
+
+  // Every address read is per-user (account book, checkout prefill, API
+  // count/find/update scopes) — the one hot filtered query with no index
+  // (session-9 S9-5).
+  @@index([userId])
 }
 
 model Order {

@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.5.0
+version: 1.6.0
 last_updated: 2026-10-14
-project_state: "212 unit tests · 48 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-8)"
+project_state: "229 unit tests · 50 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-9)"
 tags:
   - nextjs16
   - react19
@@ -843,6 +843,38 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   (S8-11); docs model count 17→18 (S8-10). Deferred: drawer focus trap
   (S8-7), login-limiter lockout tradeoff (S8-8), address dedup.
 - 212 unit + 48 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/
+  README/PAD/DEPLOYMENT aligned.
+
+### Session 9 — badge/order-transition completion (2026-10-13, v1.6.0)
+
+- Re-validated session-8 on the pulled tree (`401ec63`): all gates green
+  (212 unit / 48 e2e), visual parity + mobile menu re-verified against the
+  LIVE reference — reference unchanged, clone remains the superset.
+- Fresh deep audit (read-only subagent + own verification): session-8
+  fixes 11 WIRED / 2 accepted deferrals / 0 MISSING; new findings
+  2 MEDIUM / 2 LOW / 4 NIT + 1 doc drift.
+- TDD fixes (S9-1..S9-8): the store context's `cartCount` is
+  `number | null` initialized `null` so the header badge falls back to the
+  server-computed count on every fresh load (S9-1 — it used to initialize
+  at 0, making the fallback dead code and every hard load badge-less;
+  e2e `cart-badge.spec.ts` was red against the old build); guarded
+  `applyOrderStatusTransition` in `order-status.ts` — the status write is
+  its own guard (`updateMany` on the in-tx status), the event + restock
+  derive from the guarded winner, conflicts return the accurate error
+  (S9-2 — two admins cancelling the same order can no longer double-restock);
+  race-safe `promoteAddressInTx` promotes FIRST via a scoped conditional
+  `updateMany` and aborts on a gone row (S9-3 — no more P2025 500s, no
+  stranded zero-default books); the dashboard folds bounded
+  `SUM GROUP BY date(placedAt/1000,'unixepoch')` day buckets via pure
+  `buildRevenueChart` (S9-4 — Prisma stores SQLite DateTimes as
+  epoch-millis INTEGERs, the bare `date()` form returns NULL);
+  `@@index([userId])` on Address + `@@index([expiresAt])` on Session
+  (S9-5); `/api/cart-summary` metered 120/min (S9-6); search `q` clamped
+  to 100 chars (S9-7); bulk plan extracted to pure `cart-bulk.ts`
+  (`dedupeBulkWanted`/`planBulkUpsertQuantity`, unit-pinned) (S9-8).
+  Deferred: checkout P2002 recovery-loop integration seam (helpers already
+  pinned) + the carried a11y/abuse-model items.
+- 229 unit + 50 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/
   README/PAD/DEPLOYMENT aligned.
 
 ## Appendix C — Quick Reference Card

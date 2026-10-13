@@ -1,3 +1,5 @@
+> **编者注（run 10 / session-9 执行时添加）**：本文件是第 9 次运行（执行 session-8 整改）的收尾总结原文存档，不是叙述日志；运行序号与计划段落编号的一位漂移属预期。run 10（session-9 整改执行）的叙述日志见 `docs/session_11.md`。
+
 I'll begin executing this comprehensive remediation task. Let me first check the workspace state and the uploaded file.
 The repo already exists locally. Let me refresh it with `git pull`.
 Pull successful — a new `docs/session_8.md` was fetched, meaning a previous session's work is already pushed. Let me now review the core project documentation.

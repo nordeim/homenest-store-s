@@ -106,7 +106,9 @@ test.describe("admin back office", () => {
     await page.getByRole("button", { name: /update status/i }).click();
 
     // The action's success toast proves the restock transaction committed.
-    await expect(page.getByText(new RegExp(`Order ${orderNumber} updated`))).toBeVisible({ timeout: 10_000 });
+    // .first(): the toast title also lives inside the aria-live wrapper's
+    // text — a strict-mode race the suite has hit before (session-9).
+    await expect(page.getByText(new RegExp(`Order ${orderNumber} updated`)).first()).toBeVisible({ timeout: 10_000 });
     await expect(page.locator("tr", { hasText: orderNumber }).first()).toContainText(/cancelled/i);
   });
 

@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canTransitionOrderStatus, shouldRestockOnStatusChange } from "@/lib/order-status";
+import { applyOrderStatusTransition, canTransitionOrderStatus } from "@/lib/order-status";
 import { updateSettings } from "@/lib/settings";
 import {
   carouselSlideInputSchema,
@@ -308,6 +308,14 @@ export async function reorderSlidesAction(ids: string[]): Promise<AdminActionRes
 // Orders
 // ---------------------------------------------------------------------------
 
+/** Thrown inside the status tx when a concurrent transition won the guarded write. */
+class OrderTransitionConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OrderTransitionConflictError";
+  }
+}
+
 export async function setOrderStatusAction(input: z.input<typeof orderStatusSchema>): Promise<AdminActionResult> {
   const denied = await requireAdmin();
   if (denied) return { ok: false, error: denied };
@@ -315,48 +323,54 @@ export async function setOrderStatusAction(input: z.input<typeof orderStatusSche
   const parsed = orderStatusSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
 
+  // Fast-fail UX path: the pre-transaction read gives an instant no-op/invalid
+  // transition answer. The AUTHORITATIVE decision is re-made inside the tx
+  // below (session-9 S9-2) — two admins who both read `pending` must not both
+  // restock, and a stale write must never reopen a terminal order.
   const order = await db.order.findUnique({
     where: { id: parsed.data.orderId },
-    select: { id: true, status: true, items: { select: { productId: true, quantity: true } } },
+    select: { id: true, status: true },
   });
   if (!order) return { ok: false, error: "Order not found. Refresh the list." };
-
-  // Submitting the status that's already set is a UI no-op — succeed without
-  // writing a duplicate event (the strict transition rules stay in
-  // canTransitionOrderStatus for real changes).
   if (order.status === parsed.data.status) return { ok: true };
-
-  // Workflow rules (order-status.ts): cancelled is terminal — reopening it
-  // would double-sell stock that was already restored. Delivered is terminal.
   if (!canTransitionOrderStatus(order.status, parsed.data.status)) {
     return { ok: false, error: `An order cannot move from "${order.status}" to "${parsed.data.status}".` };
   }
 
-  const restock = shouldRestockOnStatusChange(order.status, parsed.data.status);
-  await db.$transaction(async (tx) => {
-    await tx.order.update({ where: { id: order.id }, data: { status: parsed.data.status } });
-    await tx.orderEvent.create({
-      data: {
-        orderId: order.id,
-        type: "status_changed",
-        status: parsed.data.status,
-        note:
-          parsed.data.note ||
-          `Status updated to ${parsed.data.status}.${restock ? " Stock restored." : ""}`,
-      },
-    });
-    // Cancelling releases the reserved inventory back to the catalog —
-    // otherwise a cancelled order would consume stock forever.
-    if (restock) {
-      for (const item of order.items) {
-        if (!item.productId) continue; // deleted product — nothing to restore
-        await tx.product.updateMany({
-          where: { id: item.productId },
-          data: { stock: { increment: item.quantity } },
-        });
+  try {
+    await db.$transaction(async (tx) => {
+      // Re-read INSIDE the tx: the guarded write (applyOrderStatusTransition)
+      // only lands when the order is still in the state read here — the event
+      // and the restock derive from the guarded winner, never from the stale
+      // pre-transaction snapshot.
+      const current = await tx.order.findUnique({
+        where: { id: parsed.data.orderId },
+        select: { id: true, status: true, items: { select: { productId: true, quantity: true } } },
+      });
+      if (!current) throw new OrderTransitionConflictError("Order not found. Refresh the list.");
+      if (current.status !== order.status) {
+        // Someone moved it while this submission was in flight — the exact
+        // transition rules apply to the LIVE status.
+        if (current.status === parsed.data.status) return; // already there — no-op
+        if (!canTransitionOrderStatus(current.status, parsed.data.status)) {
+          throw new OrderTransitionConflictError(
+            `An order cannot move from "${current.status}" to "${parsed.data.status}".`,
+          );
+        }
       }
+      const applied = await applyOrderStatusTransition(tx, current, parsed.data.status, parsed.data.note);
+      if (!applied.applied) {
+        throw new OrderTransitionConflictError(
+          `An order cannot move from "${current.status}" to "${parsed.data.status}".`,
+        );
+      }
+    });
+  } catch (error) {
+    if (error instanceof OrderTransitionConflictError) {
+      return { ok: false, error: error.message };
     }
-  });
+    throw error;
+  }
 
   revalidatePath("/admin/orders");
   revalidatePath("/admin");
