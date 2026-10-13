@@ -8,6 +8,7 @@
  *
  * Run: npm run db:seed   (tsx prisma/seed.ts)
  */
+import { pathToFileURL } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import { scryptHash } from "../src/lib/password";
 import { productSeedCreatedAt, productSeedUpdate } from "../src/lib/seed-policy";
@@ -103,7 +104,7 @@ const CATEGORIES = [
   },
 ];
 
-const PRODUCTS: SeedProduct[] = [
+export const PRODUCTS: SeedProduct[] = [
   // ---- The reference catalog (visual-parity core) ----
   {
     slug: "damascus-steel-chef-knife-set",
@@ -702,9 +703,14 @@ async function main() {
   console.log("Seed complete.");
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+// Run the seed only when executed directly (tsx prisma/seed.ts) — importing
+// the module (scripts/restore-demo-stock.ts reads PRODUCTS for the e2e stock
+// restore) must NOT trigger a seed.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main()
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(() => prisma.$disconnect());
+}

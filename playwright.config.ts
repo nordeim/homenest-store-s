@@ -38,8 +38,13 @@ export default defineConfig({
   ],
   webServer: {
     // The standalone server reads PORT; the health route doubles as the
-    // readiness probe (it round-trips the database).
-    command: "PORT=3100 npm run start",
+    // readiness probe (it round-trips the database). S14-4: a fresh start
+    // first restores every product's stock to its seed value — e2e checkouts
+    // are traffic that permanently drains the traffic-owned demo stock (the
+    // seed policy never refreshes it), which eventually broke the pins that
+    // assume the seeded "In Stock" state. A reused healthy server keeps its
+    // (already restored) state.
+    command: "npx tsx scripts/restore-demo-stock.ts && PORT=3100 npm run start",
     url: "http://127.0.0.1:3100/api/health",
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,

@@ -193,4 +193,43 @@ test.describe("auth", () => {
       }
     }
   });
+
+  test("profile edits persist through updateProfileAction and Sign Out ends the session (S14-3)", async ({
+    page,
+  }) => {
+    // C4's wiring pin: the account profile form → updateProfileAction →
+    // persisted name, then logoutAction → signed-out header. The seed name is
+    // restored at the end so the demo account stays pristine (the seed's
+    // `update: {}` policy never re-resets the name).
+    const seedName = "Jordan Rivera";
+    await gotoHydrated(page, "/login");
+    await page.getByLabel("Email").fill("demo@homenestkitchen.com");
+    await page.getByLabel("Password").fill("Demo1234!");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/account/, { timeout: 10_000 });
+
+    // Profile is the default tab. Edit the display name and save.
+    const nameInput = page.getByLabel("Full name");
+    await expect(nameInput).toHaveValue(seedName);
+    await nameInput.fill("Jordan Rivera Edited");
+    await page.getByRole("button", { name: "Save Changes" }).click();
+
+    // The success toast confirms the action ran (Radix toast + auto-dismiss).
+    await expect(page.getByText("Profile updated")).toBeVisible({ timeout: 10_000 });
+
+    // The persisted name survives a full reload (server truth, not local state).
+    await gotoHydrated(page, "/account");
+    await expect(page.getByLabel("Full name")).toHaveValue("Jordan Rivera Edited");
+
+    // Restore the seed name so the demo account stays pristine.
+    await page.getByLabel("Full name").fill(seedName);
+    await page.getByRole("button", { name: "Save Changes" }).click();
+    await expect(page.getByText("Profile updated")).toBeVisible({ timeout: 10_000 });
+
+    // Sign Out → the session ends and the header offers Sign in again.
+    await page.getByRole("button", { name: "Sign Out" }).click();
+    await expect(page).toHaveURL(/\/$/, { timeout: 10_000 });
+    await gotoHydrated(page, "/");
+    await expect(page.getByRole("link", { name: /sign in/i }).first()).toBeVisible();
+  });
 });

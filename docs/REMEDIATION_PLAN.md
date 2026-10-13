@@ -997,3 +997,78 @@ Visual parity re-verified against the LIVE reference (agent-browser, logged in):
 - [x] Screenshots refreshed; docs sweep; worklog updated
 
 **Post-remediation totals (session 13):** see the session-13 run narrative (`docs/session_19.md`) for the final counts.
+
+
+# Session 14 — Post-push audit & toast-timer/boundary-pin completion (2026-10-13)
+
+> **Status:** EXECUTED (see the Session-14 Execution Log at the end)
+> **Scope:** Re-validation of the session-13 deliverables on the pulled tree (`42a188a` = `6d53a79` + `docs/session_20.md`), a **live-reference parity re-verification** (agent-browser, logged in with the operator credentials), a fresh read-only deep audit (repo `code-review-checklist` 12-category scan over `src/`, `prisma/`, `tests/`, root configs — `skills/` excluded), and TDD remediation of the newly identified findings (2 NIT from the audit + 1 NIT discovered during the TDD itself — the cleanest audit surface in the series) plus five coverage pins and two doc-drift repairs.
+> **Method:** unchanged — failing tests first, then the fix, then the full gate chain (`lint && typecheck && typecheck:tests && test && build && test:e2e`).
+
+## 1. Re-validation (all session-13 gates green on the pulled tree)
+
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · **277/277 unit** ✓ · build ✓ · **61/61 e2e** ✓ (sandbox `DATABASE_URL` shadow converged via the pre-existing symlink `/home/z/my-project/db → <repo>/db`; `.env` carries the `file:../db/custom.db` contract; `db/custom.db` seeded at the repo root; health `db:up`).
+
+Visual parity re-verified against the LIVE reference (agent-browser, logged in): reference unchanged — same nav anatomy, same hero slides ("Elevate Your Kitchen" / "New Arrivals" / "Sale Up to 40% Off"), same 8 category tiles, same featured set and authored order (Damascus Steel Chef Knife Set first on the reference's Featured and New Arrivals rows and the clone's `/products` "Newest"), same login card, reference account page (profile + expandable order history) covered by the clone's superset. **Mobile menu re-verified** on the clone's production build (iPhone 390×844: open → `expanded=true` → `navigation "Mobile"` with all 7 links → navigate to `/products` → auto-close, `expanded=false` unmounted) — the Tailwind v4 conditional-mount pattern is intact; the reference's mobile panel carries the same 5 main links (the clone adds Sign In/Wishlist — superset).
+
+## 2. Session-13 fix verification (read-only subagent + spot-checks)
+
+**8/8 WIRED · 0 PARTIAL · 0 MISSING** (S13-1..S13-7 + C8; one count CORRECTION below). (a) `demoModeEnabled` pure (`src/lib/demo-mode.ts:13-20`), login page passes `DEMO_ACCOUNTS` as props ONLY when enabled (`login/page.tsx:44-51`), credentials grep-verified to live in exactly that one server file; (b) every awaited admin action carries a catch (see the count correction); (c) `inert={!cartDrawerOpen}` + `aria-hidden` (`store-chrome.tsx:175-176`); (d) review create inside the aggregate tx (`reviews.ts:68-81`, temp-SQLite pin); (e) three catches narrowed to P2025+rethrow (`admin.ts:144-152,272-279,311-318`); (f) `utcMonthStart` consumed (`analytics/page.tsx:30,38`); (g) `TRUST_CF_CONNECTING_IP` opt-out honored (`rate-limit.ts:79,85`); (h) `settingsPatchSchema` exported pure + consumed (`settings-schema.ts:40-62`, `admin.ts:19,439`).
+
+**Count correction (S13-2):** the session-13 plan said "12 catch blocks across the five admin dialogs" — the actual census is **13 catch blocks across five dialog/form FILES** (product-dialog ×3 — upsert, delete, and the product TOGGLE row — category-dialog ×3, slide-dialog ×4, order-manage-dialog ×2, settings-form ×1). The property (every awaited admin action caught) holds everywhere; only the recorded numbers were off. Fixed in AGENTS.md this session.
+
+## 3. Session-14 audit findings (evidence-based)
+
+**0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 2 NIT** — the cleanest surface in the fourteen-session series. The thirteenth pass re-confirmed clean: admin authorization (`requireAdmin` on every action), PII capability gates (receipt token verified BEFORE the DB read; track-order email-match default-deny), every race-sensitive write (status/tracking/address/cart/coupon/stock all scoped-conditional or in-tx), money bounds + in-tx derivation, Zod at every boundary, all 16 metered surfaces, CSP/nonce wiring, `assertAuthSecret` gate, uniform auth errors + scrypt burn, seed create-only discipline, SEO (sitemap/robots/JSON-LD/canonicals/noindex), Radix dialog semantics + aria labels, `next.config`/tsconfig/vitest/playwright/eslint configs. Static counts re-verified: **277 unit · 61 e2e** = the README badge. Every finding below was personally re-verified with file:line evidence before planning.
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| S14-1 | NIT | **The Toaster's auto-dismiss `setTimeout` is never cleared.** Each `toast()` schedules a bare 4s timer that (a) fires after a manual close (a redundant idempotent filter — benign today), and (b) would call `setItems` after unmount. Harmless only because the Toaster lives in the root layout and never unmounts (React 18+ no longer warns). Fix: track timers in a ref Map; manual dismiss clears its pending timer; unmount clears all — hygiene now, no behavior change. | `src/components/ui/toaster.tsx:29-31` vs `dismiss` at :34-36 |
+| S14-2 | NIT | **`npm run start` pipes through `tee server.log`** — noted only because some process managers detach from `tee`; the behavior is DOCUMENTED in AGENTS.md's commands table and shows no breakage in any gate run. **Accepted as-is** (no code change — the log-tee contract is the operator's documented workflow). | `package.json:8-9` |
+| S14-3 | NIT (found during TDD) | **The toast close button is icon-only with NO accessible name.** `ToastClose` renders a Radix Close wrapping a bare `<X/>` glyph — no `aria-label`, no visually-hidden text — so screen readers announce an unnamed button, violating CLAUDE.md's own "every icon-only button has an `aria-label`" standard. Fixed alongside S14-1 (its test was the discoverer). | `src/components/ui/toast-primitives.tsx:64-78` |
+| S14-4 | MEDIUM (found during the final e2e gates) | **E2E checkout traffic permanently drains the traffic-owned demo stock until stock-assuming pins fail.** Fourteen sessions of suite runs depleted `Damascus Steel Chef Knife Set` to stock 0 (the S7-3 seed policy deliberately never refreshes stock on reseed), so the product page rendered "Out of Stock" — breaking the storefront detail pin (`storefront.spec.ts:84` "In Stock") and the S10-2 cart POST pin (sold-out 409). A data-depletion failure mode, not a code regression: the demo DB had just enough stock left for ONE green suite run at session start, then hit 0. Fix: `scripts/restore-demo-stock.ts` tops every product back to its seed value, wired into the e2e webServer command (fresh start = deterministic demo state; the session-7 "data restored to seed values afterwards" convention, mechanized); `prisma/seed.ts` gains the standard direct-execution guard so the script can import `PRODUCTS` without triggering a seed. | `db/custom.db` Damascus stock 0 (verified via Prisma); `storefront.spec.ts:77-95`; `playwright.config.ts` webServer |
+
+### Doc drift repaired this session
+
+| # | Drift | Repair |
+|---|---|---|
+| D1 | `AGENTS.md:69` limiter summary says "writes 60/min" — the real grid: checkout **20/min**, reviews **20+5 two-tier**, contact/newsletter **5/min**, coupon/track-order **30/min** (the values it does state — 120 search+cart-summary, 60 cart/wishlist/addresses, 10 bulk — are correct) | Grid corrected |
+| D2 | `CLAUDE.md:35` lists `src/components/admin/` — the directory does not exist (admin dialogs live in their admin route folders; the account address dialog in `(storefront)/account/`) | Path description corrected |
+| D3 | AGENTS.md S13-2 invariant says "12 catch blocks across the five admin dialogs" — actually **13 blocks across five dialog/form files** (count correction above) | Numbers corrected |
+
+### Coverage pins added this session (from the audit's gap list)
+
+| # | Gap | Pin |
+|---|---|---|
+| C1 | `/api/health` degraded **503** path unpinned | Unit: mocked `db.$queryRaw` resolve → `{status:"ok",db:"up"}` 200; reject → `{status:"degraded",db:"down"}` 503 |
+| C2 | Newsletter/contact route **boundary mappings** unpinned (malformed JSON 400, invalid body 400, 429 mapping) | Unit (route handlers are import-safe in Vitest — verified empirically): malformed JSON → 400, invalid email → 400, exhausting the 5/min budget → 429 |
+| C3 | Checkout **429 + Retry-After** mapping unpinned | Unit: 20 valid `cod` bodies pass the limiter, the 21st → 429 with the `Retry-After` header |
+| C4 | `updateProfileAction` / `logoutAction` have no direct pin (actions are not import-safe in Vitest — `next/cache`) | E2E: sign in → profile edit → success toast → name persisted after reload (then restored) → Sign Out returns to the signed-out header — pins the full wiring |
+| C5 | Toaster timer hygiene (S14-1 vehicle) — the suite's first component test | Unit (`jsdom` docblock + fake timers): auto-dismiss at 4s; manual dismiss cancels the pending timer; unmount with a pending timer is clean |
+
+### Accepted / deferred (with justification)
+
+- **Checkout `saveAddress` at-cap skip-save pin deferred** (audit gap): the order-still-places behavior is implemented (`checkout/route.ts:370-400`) but pinning it end-to-end requires the address-cap + checkout integration seam — the same deferred harness family as the carried "checkout P2002 recovery-loop integration test" (creating 20 addresses then checking out in one e2e is the workable shape; not this session).
+- **`placeOrderWithRetry` order-number collision exhaustion (5× → 500) unpinned**: arranging five real sequential collisions requires mocking the number generator inside the route module — accepted as documented debt.
+- **S14-2 accepted as-is** (documented operator workflow, no breakage evidence).
+- **Carried deferrals unchanged**: drawer OPEN-state focus trap (S8-7), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration test, checkout coupon-cap concurrency harness, review two-tier budgets e2e, 404-shell CSP nonce, `__Host-` prefix, shared-store limiter, admin coupon-management UI, real mailer, radiogroup roving focus, address content dedup.
+
+## 4. Remediation plan (TDD)
+
+1. **S14-1** — `toaster.tsx`: a `React.useRef(new Map<number, number>())` timer registry; `toast()` registers its timer, the auto-dismiss callback deletes its entry and filters; `dismiss()` clears the pending timer before filtering; a `useEffect` cleanup clears every pending timer on unmount. Component unit RED-first (`tests/unit/toaster.test.tsx`, `@vitest-environment jsdom` docblock — the suite's first component test): auto-dismiss at 4s under fake timers; manual close cancels the pending timer; unmount with a pending timer performs no further state updates.
+2. **S14-3** — `toast-primitives.tsx`: `aria-label="Dismiss notification"` on the icon-only ToastClose (the manual-close RED surfaced it).
+3. **S14-2 / C1-C3** — `tests/unit/api-boundaries.test.ts`: route-handler units with `vi.mock("@/lib/db")` where a DB touch would otherwise occur; per-test IP isolation via rightmost-`x-forwarded-for` headers (the `clientIp` contract). Health ok/503; newsletter malformed-JSON 400 / invalid-body 400 / 429; contact 429; checkout 429 + `Retry-After`.
+4. **C4** — `tests/e2e/auth.spec.ts` profile+logout flow (sign in → edit name → toast → persisted → restored → Sign Out → signed-out header).
+5. **S14-4** — `scripts/restore-demo-stock.ts` (seed-value stock restore) wired as the e2e webServer's first command; `prisma/seed.ts` made import-safe (direct-execution guard) with `PRODUCTS` exported; the drained demo stock restored.
+6. **DOC** — AGENTS.md (limiter grid D1 + S13-2 count D3), CLAUDE.md (D2 component-path description), README/SKILL/PAD counts + known-issues ledger, `.env.example` unchanged, `docs/session_21.md` (run-15 narrative), worklog entry, screenshots refreshed.
+
+## 5. Execution log (session 14)
+
+- [x] Probe — route-handler import-safety in Vitest verified empirically BEFORE the tests were written (health/newsletter/contact/checkout all import + answer a real 400 in the node env)
+- [x] RED — `tests/unit/toaster.test.tsx` (S14-1: the unmount case failed `expected 1 to be +0` against the pre-fix component — the orphan 4s timer was live; the manual-close case first exposed a BONUS finding: the ToastClose icon-only button had NO accessible name, violating CLAUDE.md's icon-only rule — fixed with `aria-label="Dismiss notification"`) — with the existing 277 green
+- [x] Coverage pins (green on arrival, as pins of existing correct behavior are): `tests/unit/api-boundaries.test.ts` (S14-2/C1-C3: 8 cases — health ok/503, newsletter malformed-JSON/invalid-body/429, contact 429, checkout 429 + `Retry-After`) and the e2e profile+logout flow (`tests/e2e/auth.spec.ts`, S14-3/C4 — pins the existing `updateProfileAction`/`logoutAction` wiring end-to-end, restoring the seed name afterwards)
+- [x] GREEN — S14-1 timer registry (register / auto-delete / dismiss-clear / unmount-clear) — all 3 toaster cases + 8 boundary cases green
+- [x] Full gate chain re-run green; manual agent-browser verification (toast auto-dismiss + manual close, profile save flow, mobile menu re-check, health endpoints)
+- [x] Screenshots refreshed; docs sweep; worklog updated
+
+**Post-remediation totals (session 14):** see the session-14 run narrative (`docs/session_21.md`) for the final counts.

@@ -21,18 +21,39 @@ let nextId = 1;
  */
 export function Toaster({ children }: { children: React.ReactNode }) {
   const [items, setItems] = React.useState<ToastItem[]>([]);
+  // S14-1: pending auto-dismiss timers, tracked so a manual close or an
+  // unmount can clear them instead of leaving orphans that fire a redundant
+  // filter (and would call setItems after unmount).
+  const timersRef = React.useRef<Map<number, number>>(new Map());
+
+  const removeItem = React.useCallback((id: number) => {
+    const timer = timersRef.current.get(id);
+    if (timer !== undefined) {
+      window.clearTimeout(timer);
+      timersRef.current.delete(id);
+    }
+    setItems((prev) => prev.filter((i) => i.id !== id));
+  }, []);
 
   const toast = React.useCallback((t: ToastInput) => {
     const id = nextId++;
     setItems((prev) => [...prev, { ...t, id }]);
-    // Auto-dismiss after 4s.
-    window.setTimeout(() => {
+    // Auto-dismiss after 4s — register the timer so dismiss/unmount clear it.
+    const timer = window.setTimeout(() => {
+      timersRef.current.delete(id);
       setItems((prev) => prev.filter((i) => i.id !== id));
     }, 4000);
+    timersRef.current.set(id, timer);
   }, []);
 
-  const dismiss = React.useCallback((id: number) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
+  const dismiss = removeItem;
+
+  React.useEffect(() => {
+    const pending = timersRef.current;
+    return () => {
+      for (const timer of pending.values()) window.clearTimeout(timer);
+      pending.clear();
+    };
   }, []);
 
   return (

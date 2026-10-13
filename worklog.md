@@ -150,3 +150,23 @@ Stage Summary:
 - Session-13 remediation complete and pushed: remote main advanced 8439105 → this commit (fast-forward, main only, no new branches). All user checklist items satisfied.
 - Codebase state: 277 unit + 61 e2e green; drawer-a11y/bundle-hygiene/transactional hardening (session 13); docs fully aligned.
 - Carried deferrals unchanged: drawer OPEN-state focus trap (S8-7 — the closed-state leak is now closed), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, real payment/email epics, admin coupon UI.
+
+---
+Task ID: 15 (session 15 — homenest-store-s)
+Agent: audit + remediation agent (Super Z)
+Task: Full audit/remediation cycle on homenest-store-s — refresh workspace, review docs (session_19/20, REMEDIATION_PLAN, worklog), re-validate gates, live-reference parity + mobile menu, fresh deep audit (session 14), TDD remediation, docs/screenshots, commit + SSH push to main.
+
+Work Log:
+- git pull → 42a188a (= 6d53a79 + docs/session_20.md); reviewed all project docs + session logs + the uploaded coding_agent_prompt.md; sandbox DATABASE_URL shadow converged via the pre-existing symlink.
+- Gates re-validated: lint/typecheck/typecheck:tests ✓ · 277/277 unit ✓ · build ✓ · 61/61 e2e ✓.
+- Live reference parity verified via agent-browser (logged in with the operator credentials): reference unchanged, the session-12 authored-order fix holds on BOTH sides, clone remains the superset; mobile menu re-verified (open → 7-link panel → navigate → auto-close; Tailwind v4 conditional-mount intact).
+- Fresh deep audit (read-only subagent 15-a + own file:line verification): session-13 fixes 8/8 WIRED / 0 PARTIAL / 0 MISSING (S13-2 count corrected: 13 catch blocks across five dialog/form files); new findings 0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 2 NIT — the cleanest surface in the series; 5 coverage gaps + 2 doc-drift items.
+- TDD remediation S14-1..S14-4 (plan appended to docs/REMEDIATION_PLAN.md; RED confirmed at 277 — the toaster unmount case failed on the live orphan timer): S14-1 Toaster timer registry (manual close + unmount clear pending auto-dismiss timers; pinned by the suite's FIRST COMPONENT test — toaster.test.tsx, jsdom docblock + fake timers), S14-3 aria-label="Dismiss notification" on the icon-only ToastClose (discovered by the S14-1 test), route-handler import-safety probe before the boundary pins, api-boundaries.test.ts (8 cases: health ok/degraded-503 with a mocked db, newsletter malformed-JSON/invalid-body/429, contact 429, checkout 429 + Retry-After), S14-3/C4 auth e2e profile-edit + Sign Out wiring pin (seed name restored).
+- S14-4 (found during the final e2e gates): 2 stock-assuming pins failed — root cause DATA, not code: fourteen sessions of e2e checkout traffic drained the traffic-owned demo stock to Damascus = 0. scripts/restore-demo-stock.ts tops every product back to its seed value as the e2e webServer's first command; prisma/seed.ts direct-execution-guarded + PRODUCTS exported so the import never seeds. Both pins green on re-run; seed policy UNCHANGED.
+- Final gates: lint/typecheck/typecheck:tests ✓ · 287/287 unit ✓ · build ✓ · 62/62 e2e ✓; manual agent-browser + curl verification (toast accessible name + auto-dismiss + manual dismiss + zero console errors, profile save flow, mobile menu open/navigate/close, health db:up, newsletter malformed-JSON 400 live); 23 screenshots refreshed.
+- Docs aligned: AGENTS.md (limiter grid D1 + S13-2 count D3 + 2 new invariants + data-failure triage rule), CLAUDE.md (D2 component path + coverage), README.md (287/62 + troubleshooting row), PAD (§8 tables, known issues #57–60), SKILL.md v1.11.0, DEPLOYMENT.md (restore note + runbook row), docs/session_21.md (run narrative), worklog.md.
+
+Stage Summary:
+- Session-14 remediation complete and pushed: remote main advanced 42a188a → this commit (fast-forward, main only, no new branches). All user checklist items satisfied.
+- Codebase state: 287 unit + 62 e2e green; toast-timer hygiene + boundary pins + e2e determinism guard (session 14); docs fully aligned.
+- Carried deferrals unchanged: drawer OPEN-state focus trap (S8-7), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, checkout saveAddress at-cap skip-save integration pin, real payment/email epics, admin coupon UI.

@@ -126,7 +126,7 @@ npm run lint
 npm run typecheck && npm run typecheck:tests
 npm run test                                 # Vitest unit suite
 npm run build
-npm run test:e2e                             # Playwright suite (starts the standalone server on :3100 itself)
+npm run test:e2e                             # Playwright suite (starts the standalone server on :3100 itself; a fresh start first restores the demo stock — scripts/restore-demo-stock.ts, S14-4)
 ```
 
 The clean-check order in `AGENTS.md` is the deploy gate: every step must exit
@@ -147,3 +147,4 @@ The clean-check order in `AGENTS.md` is the deploy gate: every step must exit
 | 429s on review submissions from one network | Reviews are two-tier metered (session-11): 20/min per IP (authoritative anti-spam ceiling) + 5/min per author per product | Wait for `Retry-After`; raise the per-IP ceiling only with a shared-store limiter decision |
 | `noindex` on pages you expected indexed | Session-8: cart/account/checkout/track-order/auth/wishlist/admin ship `robots: noindex` by design | Public catalog surfaces (`/`, `/products`, `/product/*`, `/about`, `/contact`, `/legal/*`) stay indexable |
 | `EADDRINUSE :3100` during e2e | A previous standalone server is alive (process renames to `next-server`) | `pkill -f next-server` |
+| Stock-assuming e2e pins fail after many suite runs ("In Stock" gone, sold-out 409s on seeded products) | E2E checkouts are traffic that permanently drains the demo DB's traffic-owned stock (the seed policy never refreshes it — S14-4) | `npx tsx scripts/restore-demo-stock.ts` (the e2e webServer runs it automatically on a fresh server start); run it BEFORE suspecting code |

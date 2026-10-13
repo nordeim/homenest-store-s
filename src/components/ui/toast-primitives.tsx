@@ -64,6 +64,9 @@ function ToastDescription({ className, ...props }: React.ComponentProps<typeof T
 function ToastClose({ className, ...props }: React.ComponentProps<typeof ToastPrimitive.Close>) {
   return (
     <ToastPrimitive.Close
+      // Icon-only button — CLAUDE.md requires an accessible name (the X glyph
+      // is decorative, so the name must come from here).
+      aria-label="Dismiss notification"
       className={cn(
         "absolute right-2 top-2 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none group-hover:opacity-100",
         className,

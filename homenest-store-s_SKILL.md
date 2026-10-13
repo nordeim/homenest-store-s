@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.10.0
+version: 1.11.0
 last_updated: 2026-10-13
-project_state: "277 unit tests · 61 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-13)"
+project_state: "287 unit tests · 62 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-14)"
 tags:
   - nextjs16
   - react19
@@ -1013,6 +1013,41 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
 - Lesson (Appendix B): a `"use client"` file's module scope still ships —
   gating the JSX is not gating the data. Verify "hidden" secrets against the
   BUILT CHUNK, not the source.
+
+### Session 14 — toast-timer/boundary-pin completion (2026-10-13, v1.11.0)
+
+- Re-validated session-13 on the pulled tree (`42a188a`): all gates green
+  (277 unit / 61 e2e), live-reference parity re-verified (logged in with the
+  operator credentials; reference unchanged, clone remains the superset),
+  mobile menu re-verified on the production build.
+- Fresh deep audit (read-only subagent + own file:line verification):
+  session-13 fixes 8/8 WIRED; new findings 0 CRITICAL / 0 HIGH / 0 MEDIUM /
+  0 LOW / 2 NIT — the cleanest surface in the series; 5 coverage gaps +
+  2 doc-drift items (the limiter grid understated checkout 20/min,
+  contact/newsletter 5/min, coupon/track 30/min; CLAUDE.md listed a phantom
+  `src/components/admin/` directory; the S13-2 count was 13 blocks across
+  five files, not 12).
+- Fixes (TDD — RED first): **S14-1** the Toaster tracks auto-dismiss timers
+  in a ref registry — manual close + unmount clear pending timers (pinned by
+  the suite's FIRST COMPONENT test, `toaster.test.tsx`, jsdom docblock +
+  fake timers); **S14-3** the icon-only toast close button gains
+  `aria-label="Dismiss notification"` (discovered by the S14-1 test).
+- Coverage pins: `api-boundaries.test.ts` (route handlers verified
+  import-safe in Vitest; mocked `db`; health ok/degraded-503, newsletter
+  malformed-JSON/invalid-body/429, contact 429, checkout 429 +
+  `Retry-After`) + the S14-3 auth e2e profile-edit/Sign Out wiring pin
+  (seed name restored afterwards).
+- **S14-4 (found during the final e2e gates)**: fourteen sessions of e2e
+  checkout traffic had permanently drained the traffic-owned demo stock
+  (the S7-3 seed policy never refreshes it) — Damascus hit stock 0 and the
+  stock-assuming pins failed. Fix: `scripts/restore-demo-stock.ts` tops
+  every product back to its seed value as the e2e webServer's first command;
+  `prisma/seed.ts` is direct-execution-guarded so the script can import
+  `PRODUCTS` without seeding. Lesson: distinguish DATA-depletion failures
+  from code regressions before touching code.
+- 287 unit + 62 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/
+  README/PAD/SKILL/DEPLOYMENT aligned; run narrative at
+  `docs/session_21.md`.
 
 
 ## Appendix C — Quick Reference Card
