@@ -18,6 +18,18 @@ import { gotoHydrated } from "./helpers";
  *      creating (the code-clash P2002 would fail the create step),
  *   3. restores the cart line to its pre-spec quantity at the end (delete
  *      when it was absent), leaving the durable cart as found.
+ *
+ * Session-21 S21-1 (the API seeding made cookie-correct — the run-22 suite
+ * failure): the per-test `request` fixture is a fully ISOLATED cookie jar —
+ * it does NOT share the browser context's cookies — and the production
+ * session cookie is `Secure`, which a plain-HTTP API client refuses to send
+ * even when present. The original S20-1 shape therefore acted as a GUEST on
+ * every request-fixture call: the seeded line landed on a throwaway guest
+ * cart while the /cart page (the admin's own cart) stayed empty and the
+ * coupon box never rendered. It only ever passed on a DB whose durable
+ * admin cart already had content (the empty-cart failure was masked). The
+ * fix reads the session cookie from the browser context and sends it
+ * explicitly on every admin-identity call below.
  */
 const CODE = "SESSION5";
 
@@ -30,8 +42,16 @@ async function loginAsAdmin(page: import("@playwright/test").Page) {
 }
 
 test.describe("admin coupon management", () => {
-  test("create → apply → deactivate → reject → delete", async ({ page, request }) => {
+  test("create → apply → deactivate → reject → delete", async ({ page, request, context }) => {
     await loginAsAdmin(page);
+
+    // S21-1: the isolated request fixture never sees the browser context's
+    // `Secure` session cookie — send it explicitly on admin-identity calls
+    // (verified: with the header the POST lands on the admin's own cart;
+    // without it, on a throwaway guest cart).
+    const session = (await context.cookies()).find((c) => c.name === "homenest_session");
+    expect(session, "admin session cookie must exist after login").toBeTruthy();
+    const adminIdentity = { headers: { cookie: `homenest_session=${session!.value}` } };
 
     // The management surface lists the seeded coupons.
     await gotoHydrated(page, "/admin/coupons");
@@ -65,21 +85,23 @@ test.describe("admin coupon management", () => {
     await expect(page.getByRole("heading", { name: CODE, exact: true })).toBeVisible();
     await expect(page.getByText("5% off")).toBeVisible();
 
-    // S20-1: seed the admin's cart through the API — the request fixture
-    // shares the admin session cookies. Snapshot the target product's
-    // pre-spec quantity so the cleanup can restore it exactly.
+    // S20-1: seed the admin's cart through the API. The request fixture is
+    // identity-isolated — the explicit session-cookie header (S21-1) is what
+    // makes this the admin's own cart rather than a throwaway guest cart.
+    // Snapshot the target product's pre-spec quantity so the cleanup can
+    // restore it exactly.
     const search = await request.get("/api/search?q=knife");
     const { results } = (await search.json()) as { results: Array<{ id: string; name: string }> };
     expect(results.length).toBeGreaterThan(0);
     const product = results[0]!;
 
-    const summaryBefore = await request.get("/api/cart-summary");
+    const summaryBefore = await request.get("/api/cart-summary", adminIdentity);
     const before = (await summaryBefore.json()) as {
       lines: Array<{ productId: string; quantity: number }>;
     };
     const preQuantity = before.lines.find((l) => l.productId === product.id)?.quantity ?? 0;
 
-    const added = await request.post("/api/cart", { data: { productId: product.id, quantity: 1 } });
+    const added = await request.post("/api/cart", { ...adminIdentity, data: { productId: product.id, quantity: 1 } });
     expect(added.ok()).toBeTruthy();
 
     // The new code redeems at the cart (the admin's own cart is a real cart).
@@ -118,18 +140,19 @@ test.describe("admin coupon management", () => {
     // S20-1 cleanup: restore the cart line to its pre-spec quantity (delete
     // the line entirely when the cart did not have the product before) —
     // "leaves the seed data as found" includes the durable cart.
-    const summaryAfter = await request.get("/api/cart-summary");
+    const summaryAfter = await request.get("/api/cart-summary", adminIdentity);
     const after = (await summaryAfter.json()) as {
       lines: Array<{ id: string; productId: string }>;
     };
     const line = after.lines.find((l) => l.productId === product.id);
     if (preQuantity === 0) {
       if (line) {
-        const removed = await request.delete(`/api/cart?line=${encodeURIComponent(line.id)}`);
+        const removed = await request.delete(`/api/cart?line=${encodeURIComponent(line.id)}`, adminIdentity);
         expect(removed.ok()).toBeTruthy();
       }
     } else if (line) {
       const patched = await request.patch("/api/cart", {
+        ...adminIdentity,
         data: { lineId: line.id, quantity: preQuantity },
       });
       expect(patched.ok()).toBeTruthy();

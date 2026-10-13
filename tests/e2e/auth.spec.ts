@@ -201,6 +201,15 @@ test.describe("auth", () => {
     // persisted name, then logoutAction → signed-out header. The seed name is
     // restored at the end so the demo account stays pristine (the seed's
     // `update: {}` policy never re-resets the name).
+    //
+    // Session-21 S21-2 (the run-22 suite failure): the "Profile updated"
+    // toast assertions race the strict-mode locator the same way the
+    // session-9/11/20 toast titles did — the title also lives inside the
+    // toaster's aria-live wrapper, so getByText resolves to 2 elements the
+    // moment the announcement is up. `.first()` per the suite convention.
+    // And because a run aborted between the edit and the restore leaves the
+    // demo name dirty (the seed never re-resets it), the setup self-heals a
+    // non-seed name back through the same form flow (the S20-1 discipline).
     const seedName = "Jordan Rivera";
     await gotoHydrated(page, "/login");
     await page.getByLabel("Email").fill("demo@homenestkitchen.com");
@@ -210,12 +219,18 @@ test.describe("auth", () => {
 
     // Profile is the default tab. Edit the display name and save.
     const nameInput = page.getByLabel("Full name");
+    const current = await nameInput.inputValue();
+    if (current !== seedName) {
+      await nameInput.fill(seedName);
+      await page.getByRole("button", { name: "Save Changes" }).click();
+      await expect(page.getByText("Profile updated").first()).toBeVisible({ timeout: 10_000 });
+    }
     await expect(nameInput).toHaveValue(seedName);
     await nameInput.fill("Jordan Rivera Edited");
     await page.getByRole("button", { name: "Save Changes" }).click();
 
     // The success toast confirms the action ran (Radix toast + auto-dismiss).
-    await expect(page.getByText("Profile updated")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Profile updated").first()).toBeVisible({ timeout: 10_000 });
 
     // The persisted name survives a full reload (server truth, not local state).
     await gotoHydrated(page, "/account");
@@ -224,7 +239,7 @@ test.describe("auth", () => {
     // Restore the seed name so the demo account stays pristine.
     await page.getByLabel("Full name").fill(seedName);
     await page.getByRole("button", { name: "Save Changes" }).click();
-    await expect(page.getByText("Profile updated")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Profile updated").first()).toBeVisible({ timeout: 10_000 });
 
     // Sign Out → the session ends and the header offers Sign in again.
     await page.getByRole("button", { name: "Sign Out" }).click();

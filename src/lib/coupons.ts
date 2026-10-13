@@ -133,10 +133,12 @@ export function couponRedemptionWhere(maxRedemptions: number | null): { timesUse
 /**
  * Session-20 S20-6 (audit I4): the checkout transaction's increment
  * where-clause — the cap guard PLUS the always-on `isActive` guard. A coupon
- * deactivated (or expired past the cap semantics) in the sub-second window
- * between the in-tx read and the increment now makes `count === 0` → the tx
- * rolls back with the friendly 409, completing the atomic redemption guard
- * instead of trusting the pre-increment read alone. Pure and unit-tested.
+ * DEACTIVATED in the sub-second window between the in-tx read and the
+ * increment now makes `count === 0` → the tx rolls back with the friendly
+ * 409, completing the atomic redemption guard instead of trusting the
+ * pre-increment read alone. Expiry stays READ-guarded only — the in-tx
+ * `isCouponRedeemable` check bounds it; the sub-second expiry residue is
+ * the same accepted class the deactivation gap was in. Pure and unit-tested.
  */
 export function couponRedemptionFilter(
   code: string,

@@ -193,7 +193,17 @@ export function CheckoutClient({
         });
         const data = (await res.json()) as CouponApplyResponse;
         if (data.ok) {
-          setCoupon({ code: data.code, discount: data.discount, label: data.label, description: data.description });
+          // Session-21 S21-3: pass the freeShipping flag through — the
+          // mirror's couponFreeShipping read is dead without it (the flag
+          // was typed on AppliedCoupon but never stored, so FREESHIP
+          // rendered full shipping below the spend threshold).
+          setCoupon({
+            code: data.code,
+            discount: data.discount,
+            label: data.label,
+            description: data.description,
+            ...(data.freeShipping ? { freeShipping: true } : {}),
+          });
           window.sessionStorage.setItem(COUPON_STORAGE_KEY, data.code);
           setCouponInput("");
           if (!silent) {

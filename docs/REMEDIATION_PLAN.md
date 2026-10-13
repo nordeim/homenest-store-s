@@ -1622,6 +1622,7 @@ Session-19 fixes **ALL WIRED** (S19-1 stepper constant binding + mocked-constant
 
 - **I3 (allowScripts exact pins vs caret ranges):** verified the lockfile resolves exactly `@prisma/engines@6.19.3` / `esbuild@0.28.2` / `unrs-resolver@1.12.2` / `prisma@6.19.3` / `@prisma/client@6.19.3` — the allowlist is CORRECT for the committed lockfile; a future bump re-triggering npm's approval prompt is the documented workflow (README Troubleshooting). Accepted as-is.
 - **S19-3 / S19-4 (Informational, session 19):** dispositions unchanged.
+- **S21-7 (NIT, operator-found during manual verification — disposition recorded, not taken):** the cart page's threshold-progress hint ("Add $15.01 more for free shipping") is server-rendered from the settings threshold only and does not know an applied free_shipping coupon — with FREESHIP applied below the threshold the hint coexists with the applied block right above it ("Free standard shipping… applied at checkout"). No money-path impact (the checkout mirror and the server receipt are correct; the row itself says "Calculated at checkout"). Making the server-rendered hint coupon-aware would require lifting the client-side applied-coupon state into the page (or moving the widget into the CouponBox client boundary) — structural change for marginal benefit, the S20-7 precedent ("a live-state hint would need an API fetch for marginal benefit — not taken"). Recorded.
 - **Carried deferrals (unchanged):** login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, review action two-tier gate pin, `/track-order` page-limiter wiring pin, and the external-service epics (real email delivery, OAuth, real payments — blocked on sandbox-external credentials/SMTP).
 
 ## 3. Execution log (session 20)
@@ -1634,4 +1635,70 @@ Session-19 fixes **ALL WIRED** (S19-1 stepper constant binding + mocked-constant
 - [x] GREEN — S20-1 hardened admin-coupons spec (API-seeded cart, self-healing setup, full cleanup)
 - [x] S20-3 / S20-4 / S20-7 — doc + comment + copy corrections
 - [x] Full gate chain re-run green; manual verification (agent-browser: checkout with FREESHIP → shipping FREE; admin coupon dialog type option; mobile menu re-check)
+- [x] Screenshots refreshed; docs sweep; worklog updated
+
+---
+
+# Session 21 — the run-22 audit cycle (e2e suite reliability + the checkout free-shipping mirror)
+
+> **Status:** EXECUTED (see the Execution Log at the end)
+> **Date:** 2026-10-14
+> **Scope:** Fresh clone at `dbd8674` (= `a857949`, the run-21/session-20 commit, + the operator-committed `docs/session_34.md` raw log). Gates re-validated on the pulled tree (lint ✓ · typecheck ✓ · typecheck:tests ✓ · 379/379 unit ✓ · build ✓ · **63/65 e2e — the two failures investigated below**), live-reference parity re-verified via agent-browser (reference unchanged, logged in with the provided credentials; mobile menu / sitemap 25 URLs / robots / JSON-LD / desktop parity / zero console errors all green), then a read-only deep audit (subagent 22-a + operator file:line verification).
+
+## 1. Audit summary (evidence-based)
+
+Session-20 fixes **WIRED** (S20-2 narrow toggle consumed by the dialog with the narrowed prop type; S20-6 engine chain — `couponLabel`/`couponDiscount`/`couponRedemptionFilter` → checkout tx increment with the always-on `isActive` guard → `computeOrderMoney` override → schema → dialog → seed — **with one real gap: the checkout client mirror dropped the `freeShipping` flag, S21-3 below**). The two run-22 e2e failures were root-caused to genuine suite defects (S21-1, S21-2) and fixed TDD-first. Static counts re-verified: 379 unit (38 files) / 65 e2e (13 specs) / 18 models / **14 requireAdmin'd actions** (+1 coupon toggle) / 14 metered `Retry-After` sites / 16 admin catch blocks across six files — **all matching the docs** (zero count drift).
+
+**Result: 0 CRITICAL / 0 HIGH / 1 MEDIUM (product) + 1 HIGH-severity *test-reliability* finding (observed live twice) + 1 MEDIUM-severity *test-reliability* finding (observed live) + 1 LOW / 2 NIT / 2 Informational — the ninth consecutive session without a CRITICAL/HIGH product defect.**
+
+## 2. Findings → work items
+
+### S21-1 (High — e2e suite reliability; observed live twice this run) — the S20-1 "API-seeded cart" never acted as the admin: the per-test `request` fixture is identity-isolated
+
+- **Evidence:** the full-suite run failed `admin-coupons.spec.ts` (timeout waiting for the cart's `Coupon code` input) and a single-spec re-run failed identically. DB inspection: the POST's line landed on a **guest** cart (`userId: null`) while the admin's own cart stayed empty; the /cart page (rendered for the admin session) showed "Your cart is empty", so the coupon box never rendered. A Playwright probe then proved the mechanism: after a page login, `context.cookies()` holds `homenest_session` (`secure: true` — the production build), `request.storageState()` returns an **empty jar** (the per-test `request` fixture does NOT share the browser context's cookies), and an un-headered `request.post("/api/cart")` created a GUEST cart while the same call with an explicit `Cookie: homenest_session=…` header landed on the admin's cart (DB-verified ownership).
+- **Why it ever passed:** run-21's DB carried a durable admin cart (Damascus ×3). The guest-bound POST was masked — the /cart page showed the pre-existing content, the coupon applied, and the "restore" cleanup operated on the wrong (guest) cart, leaving the admin cart untouched, i.e. "as found" held vacuously. On a fresh database (this run's state) the defect is deterministic.
+- **Fix:** `tests/e2e/admin-coupons.spec.ts` reads the session cookie from the browser context after `loginAsAdmin` (with a loud `expect(...).toBeTruthy()` guard) and sends it as an explicit `Cookie` header on **all five** admin-identity request-fixture calls (cart-summary snapshot, cart POST seed, cleanup summary/DELETE/PATCH). The headerless `/api/search` call is identity-free and stays as-is. The spec header documents the mechanism and the masking history.
+
+### S21-2 (Medium — e2e suite reliability; observed live) — the auth profile spec's toast assertions race the session-9 strict-mode class, and its own abort leaves dirty durable state
+
+- **Evidence:** captured live in the full-suite run: `getByText('Profile updated')` resolved to **2 elements** — the toast title `div` and the toaster's `aria-live` announcement `span` (`toaster.tsx:62-71` + Radix `ToastProvider`) — the exact session-9 strict-mode race the suite fixed with `.first()` in admin.spec (session 9), wishlist.spec (session 11) and admin-coupons (run 21); the auth profile spec (S14-3) never got the treatment. Intermittent because the wrapper carries the text only while the announcement is live. Secondary effect (observed): a run aborted between the edit and the restore leaves the demo user's name "Edited", and the seed's `update: {}` policy never re-resets it — the next run then fails its own `toHaveValue(seedName)` pin (self-breaking).
+- **Fix (TDD — the captured strict-mode violation is the RED evidence):** `.first()` on all three "Profile updated" assertions, plus a self-healing setup in the S20-1 discipline: if the form's value is not the seed name, restore it through the same fill → Save → toast flow before pinning.
+
+### S21-3 (Medium — product defect, session-20 regression) — the checkout mirror drops the `freeShipping` flag: FREESHIP renders full shipping and an overstated total on the checkout page
+
+- **Evidence (audit F-1, operator-verified):** `checkout-client.tsx` added `freeShipping` to `AppliedCoupon`/`CouponApplyResponse` (:54,:57) and the mirror reads `coupon?.freeShipping === true` (:168) feeding `shippingCost` (:169-174) — but the state setter at :196 was never updated: `setCoupon({ code, discount, label, description })`. The API returns the flag (`/api/coupon/apply/route.ts:65`) and the cart passes it through (`coupon-box.tsx:54` `setApplied(data)`) — only the checkout wizard drops it, so `couponFreeShipping` is permanently `false` there.
+- **Impact:** for a `free_shipping` coupon below the spend threshold, step 3's review card AND the sticky summary render `Shipping: $6.95` (express $15.95) and an inflated total directly beneath "Coupon FREESHIP — Free shipping" — an internally contradictory UI. **No overcharge occurs** (the server re-derives shipping = 0 inside the order transaction), but the mirror contradicts the receipt and the documented invariant (AGENTS.md "the checkout mirror honors it").
+- **Fix (TDD):** pass the flag through in the setter: `setCoupon({ code: data.code, discount: data.discount, label: data.label, description: data.description, ...(data.freeShipping ? { freeShipping: true } : {}) })`. The regression test is S21-4's hardened assertion (RED against the current code, GREEN after).
+
+### S21-4 (Low — vacuous e2e pin; it is why S21-3 slipped through 65/65) — the free-shipping spec's checkout "FREE" assertion matches the coupon label
+
+- **Evidence (audit F-2, operator-verified):** `free-shipping-coupon.spec.ts:57` `expect(page.getByText("FREE").first()).toBeVisible()` — Playwright's string `getByText` is a case-insensitive substring match, so `"FREE"` matches the review card's "Coupon FREESHIP — **Free shipping**" row (asserted on the previous line), which renders regardless of the mirror bug. The only sound FREE pin was the server-derived receipt.
+- **Fix:** scope the pin to the actual shipping rows: the review card's `dl` row and the sticky summary's (`aside[aria-label="Order summary"]`) `dl` row each located by `has: getByText("Shipping", { exact: true })`, `toHaveCount`-pinned, both asserting `toContainText("FREE")`. RED against the unfixed mirror (the rows render `$6.95`), GREEN after S21-3.
+
+### S21-5 (NIT) — stale inline comment contradicts the S21-1 fix in the same file
+
+- **Evidence (audit F-3):** `admin-coupons.spec.ts` mid-test comment still said "the request fixture **shares the admin session cookies**" — the exact premise S21-1 disproved (the file's own header documents the opposite). Misleads the next editor into reverting the fix.
+- **Fix:** reword to state the fixture is identity-isolated and the explicit header makes the call the admin's.
+
+### S21-6 (NIT) — `couponRedemptionFilter` doc comment overclaims expiry coverage
+
+- **Evidence (audit F-4):** the comment says "deactivated (or expired past the cap semantics)" but the where-clause guards only `code + isActive + cap`; expiry is NOT in the increment filter — a coupon expiring in the read→increment window still redeems (read-guarded only by the in-tx `isCouponRedeemable`). AGENTS.md scopes the guarantee correctly ("cap AND deactivation TOCTOU"); only this comment overstates.
+- **Fix:** drop the parenthetical; note expiry is read-guarded only. (Closing the residual expiry window would need an `expiresAt` clause in the filter — recorded, not taken; the sub-second residue is the same accepted class as the pre-S20-6 deactivation gap and the in-tx read bounds it.)
+
+### Dispositions (no change, recorded)
+
+- **F-5 (Informational):** the S21-1 fix hardcodes the `"homenest_session"` cookie name — importing `SESSION_COOKIE` from `src/lib/auth.ts` would pull `next/headers` + Prisma into the Playwright bundle (the documented seed-import restriction class); the loud `expect(...).toBeTruthy()` guard fails on drift. Accepted.
+- **F-6 (Informational):** request-fixture guest flows in shopping-flow/admin.spec create throwaway guest rows and one durable cancelled order — pre-existing, intentional, bounded by restore-demo-stock. Accepted.
+- **Carried deferrals (unchanged):** login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, review action two-tier gate pin, `/track-order` page-limiter wiring pin, and the external-service epics (real email delivery, OAuth, real payments — blocked on sandbox-external credentials/SMTP).
+
+## 3. Execution log (session 21)
+
+- [x] RED (observed live, twice) — S21-1: the suite failure + the probe matrix (empty API jar / guest-cart ownership / header-POST → admin cart)
+- [x] RED (observed live) — S21-2: the captured strict-mode violation (2-element resolution) on the profile toast
+- [x] GREEN — S21-1: explicit session-cookie header on all admin-identity request-fixture calls; spec passes on a fresh DB (the exact failing scenario); DB-verified as-found cleanup
+- [x] GREEN — S21-2: `.first()` × 3 + the self-heal; spec passes alone and in the full suite
+- [x] RED — S21-4: the hardened shipping-row pins fail against the unfixed mirror ($6.95 rendered on both rows)
+- [x] GREEN — S21-3: the mirror passes the flag through; the hardened pins pass (both rows render FREE below the threshold)
+- [x] S21-5 / S21-6 — comment corrections
+- [x] Full gate chain re-run green; manual verification (agent-browser: FREESHIP checkout mirror renders FREE on the review card and the summary; mobile menu re-check)
 - [x] Screenshots refreshed; docs sweep; worklog updated

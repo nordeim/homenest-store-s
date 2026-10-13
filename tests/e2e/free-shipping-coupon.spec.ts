@@ -50,11 +50,24 @@ test.describe("free_shipping coupon (S20-6)", () => {
     await page.getByLabel("CVC").fill("123");
     await page.getByRole("button", { name: /Review|Continue/ }).click();
 
-    // Step 3: the coupon is still applied and the shipping line is FREE
-    // (both the sticky summary and the review card render it).
+    // Step 3: the coupon is still applied and the SHIPPING ROWS are FREE —
+    // pinned on the actual shipping lines (the review card's dl row AND the
+    // sticky summary's), not a bare getByText("FREE"), which is a
+    // case-insensitive substring match that also hits the coupon label's
+    // "Free shipping" — the vacuous pin that let the dropped mirror flag
+    // (session-21 S21-3) pass 65/65. The review card renders only at step 3
+    // (conditional mount); the summary aside renders on every step.
     await expect(page.getByRole("heading", { name: "Review Your Order" })).toBeVisible();
     await expect(page.getByText(/Coupon FREESHIP — Free shipping/)).toBeVisible();
-    await expect(page.getByText("FREE").first()).toBeVisible();
+    const summaryShippingRow = page
+      .getByRole("complementary", { name: "Order summary" })
+      .locator("dl div", { has: page.getByText("Shipping", { exact: true }) });
+    await expect(summaryShippingRow).toHaveCount(1);
+    await expect(summaryShippingRow).toContainText("FREE");
+    const reviewShippingRow = page
+      .locator("section dl div", { has: page.getByText("Shipping", { exact: true }) });
+    await expect(reviewShippingRow).toHaveCount(1);
+    await expect(reviewShippingRow).toContainText("FREE");
     await page.getByRole("button", { name: /Place Order/ }).click();
 
     // The SERVER-derived receipt pins the real math (not just the mirror).

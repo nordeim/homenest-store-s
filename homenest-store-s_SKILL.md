@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.17.0
-last_updated: 2026-10-13
-project_state: "379 unit tests · 65 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-20; admin coupon management + the first-class free_shipping coupon type delivered)"
+version: 1.18.0
+last_updated: 2026-10-14
+project_state: "379 unit tests · 65 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-21; the checkout free-shipping mirror fixed, the e2e request-fixture identity-isolation trap documented, all coupon surfaces verified end-to-end)"
 tags:
   - nextjs16
   - react19
@@ -1314,6 +1314,76 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   screenshots refreshed; AGENTS/CLAUDE/README/PAD/SKILL aligned;
   DEPLOYMENT.md drift-free; `.env.example` unchanged; run narrative at
   `docs/session_33.md`.
+
+### Session 21 — the checkout mirror fix + the request-fixture identity trap (2026-10-14, v1.18.0)
+
+- Re-validated session-20 on a fresh clone (`dbd8674` = `a857949` + operator
+  `session_34.md`): gates green EXCEPT **63/65 e2e** — `admin-coupons` and
+  `auth` profile both failed. Environment: the sandbox db symlink was
+  re-pointed at the fresh clone's db dir (one inode verified); seed 16/8/3/2
+  verified. Live-reference parity re-verified (reference unchanged; logged
+  in with the provided credentials; mobile menu 7 links → navigate →
+  auto-close; sitemap 25 URLs; robots; JSON-LD; desktop parity; zero
+  console errors).
+- **S21-1 (High, test reliability — the observed failure, root-caused with
+  a probe matrix)**: the per-test Playwright `request` fixture is
+  IDENTITY-ISOLATED — it does NOT share the browser context's cookies
+  (`request.storageState()` returned an EMPTY jar while `context.cookies()`
+  held the session), and the production session cookie is `Secure`, which a
+  plain-HTTP API client refuses to send anyway. The S20-1 "API-seeded
+  cart" therefore acted as a GUEST for its entire life: the POST landed on
+  a throwaway guest cart (DB-verified `userId: null`), the /cart page (the
+  admin's own cart) stayed empty, and the coupon box never rendered. It
+  only ever passed on a DB whose durable admin cart already had content —
+  the failure was masked, not fixed, in run-21. Fix: read `homenest_session`
+  from `context.cookies()` and send it as an explicit `Cookie` header on
+  every admin-identity request-fixture call (the header POST is DB-verified
+  to land on the admin's cart); `page.request` is the sharing alternative
+  for read-shaped calls. Documented as its own AGENTS.md trap-log entry.
+- **S21-2 (Medium, test reliability — observed live)**: the auth profile
+  spec's `getByText("Profile updated")` raced the session-9 strict-mode
+  class (2-element resolution: toast title + the aria-live wrapper) —
+  `.first()` applied to all three assertions; the setup now SELF-HEALS a
+  demo name left dirty by an aborted run (the seed's `update: {}` never
+  re-resets it — the self-breaking cascade observed in this run).
+- **S21-3 (Medium, product — the audit's F-1, session-20 regression)**: the
+  checkout mirror DROPPED the `freeShipping` flag — the S20-6 diff typed it
+  on `AppliedCoupon`/`CouponApplyResponse` and read it for `shippingCost`
+  but never stored it in `setCoupon`, so FREESHIP rendered full shipping
+  ($6.95/$15.95) and an inflated total on the checkout page (no overcharge:
+  the server re-derives in-tx; the mirror contradicted the receipt). Fix:
+  the setter passes the flag through. Verified live end-to-end: mirror
+  total $37.61 = subtotal + tax; shipping FREE on the review card, the
+  sticky summary, AND the server receipt.
+- **S21-4 (Low — the vacuous pin that let S21-3 slip through 65/65)**: the
+  free-shipping spec's `getByText("FREE")` is a case-insensitive substring
+  match that also hits the coupon label's "Free shipping" — replaced with
+  pins scoped to the actual Shipping rows (review card `dl` + the
+  `aside[aria-label="Order summary"]` `dl`, each `toHaveCount(1)` +
+  `toContainText("FREE")`). The RED run against the unfixed mirror printed
+  `"Shipping$6.95"` — the exact defect — before the fix turned it green.
+- **S21-5/S21-6 (NITs)**: the stale "the request fixture shares the admin
+  session cookies" inline comment (the exact premise S21-1 disproved)
+  reworded; the `couponRedemptionFilter` doc comment no longer overclaims
+  expiry coverage (expiry stays READ-guarded by the in-tx
+  `isCouponRedeemable`; the sub-second expiry residue is the accepted class
+  the deactivation gap was in). **S21-7 (NIT, disposition recorded)**: the
+  cart's server-rendered threshold hint does not know an applied
+  free_shipping coupon — no money-path impact; lifting client coupon state
+  into the page is structural change for marginal benefit (S20-7
+  precedent).
+- Fresh deep audit (read-only subagent 22-a + own file:line verification):
+  session-20 fixes WIRED (with the S21-3 gap found); defect-class sweeps
+  CLEAN elsewhere (every remaining `request.*` identity site audited; every
+  remaining toast assertion carries `.first()`); static counts all match
+  the docs (379/38 · 65/13 · 18 models · 14 requireAdmin · 14 metered · 16
+  catch blocks across six files); **0 CRITICAL / 0 HIGH / 1 MEDIUM product
+  + 2 test-reliability / 1 LOW / 2 NIT / 2 Informational** — the ninth
+  consecutive session without a CRITICAL/HIGH product defect.
+- 379 unit + 65/65 e2e green; 24 screenshots refreshed; AGENTS (2 trap-log
+  entries + the coupon invariant), CLAUDE, README, PAD (§8.2 + known issues
+  #82–83), SKILL v1.18.0 aligned; DEPLOYMENT.md drift-free; run narrative
+  at `docs/session_35.md`.
 
 
 ## Appendix C — Quick Reference Card
