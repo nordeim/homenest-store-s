@@ -30,6 +30,14 @@ session, generalized.
 
 ## Field-tested sequence (what actually worked)
 
+> **⚠️ Repo-specific trap (verified session 9, 2026-10-13):** the wrapper's
+> DEFAULT remote is the stale `git@github.com:nordeim/task-management.git`
+> from the project it was written for. In THIS repo you MUST pass
+> `--remote git@github.com:nordeim/homenest-store-s.git` on both the dry-run
+> and the real push — the default would push these commits to the wrong
+> repository (the non-fast-forward rejection is the only thing that saves
+> you, and only while that other repo's main is ahead).
+
 ```bash
 cd task-management
 # 0. Gates green and commits already on main (rules 1-3).

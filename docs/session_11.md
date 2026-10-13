@@ -180,3 +180,15 @@ wrapper (dry-run → push → remote ref verified).
 recovery-loop integration seam; real payment/email are still the major
 epics. Feature-wise, the wishlist filled-heart state and an admin
 coupon-management UI are the next natural increments.
+
+## 10. Post-push addendum
+
+The first dry-run REJECTED the push — the wrapper's DEFAULT remote is the
+stale `git@github.com:nordeim/task-management.git` from the project the
+wrapper was written for. Re-ran both the dry-run and the real push with
+`--remote git@github.com:nordeim/homenest-store-s.git` (fast-forward
+`401ec63..6e7c11a` confirmed, remote ref verified equal to local HEAD,
+operator key shredded). A trap note was added to
+`docs/how-to-git-push-using-ssh-wrapper_SKILL.md` so the next run passes
+`--remote` on the first try. (The non-fast-forward rejection — that other
+repo's main is ahead — was the only guard; treat the flag as mandatory.)
