@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.15.0
+version: 1.16.0
 last_updated: 2026-10-13
-project_state: "334 unit tests · 63 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-18)"
+project_state: "360 unit tests · 64 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-19; admin coupon management delivered)"
 tags:
   - nextjs16
   - react19
@@ -1203,6 +1203,58 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
 - 334 unit + 63 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/README/
   PAD/SKILL aligned; DEPLOYMENT.md drift-free; `.env.example` unchanged
   (no new env vars); run narrative at `docs/session_29.md`.
+
+### Session 19 — coupon management + module-graph trap (2026-10-13, v1.16.0)
+
+- Re-validated session-18 on a fresh clone (`9a3d22e` = `67861e3` + operator
+  `session_30.md`): all gates green (334 unit / 63 e2e). Environment: the
+  prior sessions' convergence symlink was found DANGLING (an old workspace
+  path) — removed via node, the real dir recreated, and the shadow path
+  re-converged with a hard link to `<repo>/db/custom.db` (one inode).
+- Live-reference parity re-verified (reference unchanged: nav anatomy, hero
+  slides, 8 categories, Damascus-first, mobile panel = 5 links + close);
+  clone verified on the fresh production build: mobile menu open → 7 links
+  + search → navigate → auto-close/unmount; /products Damascus-first;
+  sitemap = 25 public URLs; robots + JSON-LD intact; demo login → /account;
+  desktop visual parity re-confirmed; zero console errors.
+- Fresh deep audit (read-only subagent 20-a + own file:line verification):
+  session-18 fixes **4/4 WIRED**; older-fix spot-checks **10/10 WIRED**;
+  static counts re-verified (334/35 files · 63/12 specs · 18 models ·
+  11/11 requireAdmin · 14 metered sites · 13 catch blocks); new findings
+  **0 CRITICAL / 0 HIGH / 0 MEDIUM / 1 LOW / 1 NIT / 2 Informational /
+  0 doc-drift** — the seventh consecutive session without a
+  CRITICAL/HIGH/MEDIUM.
+- Fixes (TDD — RED first, 23 failed / 3 by-design pins): **S19-1 (NIT)**
+  the QuantityStepper's default `max = 99` literal replaced with the
+  imported `MAX_CART_QUANTITY`, pinned by a jsdom test mocking the constant
+  to 7 (impossible with a retyped literal). **S19-2 (Low)** the S18-1
+  extraction's unset-defaults scope restored to the pre-extraction
+  `where: { userId, isDefault: true }` (the broad clause touched every row
+  of the book inside the checkout tx); the session-18 pin extended.
+  S19-3/S19-4 (Informational) recorded as reviewed dispositions, no change.
+- **Feature (S19-5) — the admin coupon-management UI** (the increment the
+  audit trail carried for two sessions): `couponInputSchema` + the pure
+  `couponLabel` (single-sourced with `couponDiscount`),
+  `upsertCouponAction`/`deleteCouponAction` (requireAdmin, uppercase code
+  normalization matching `findActiveCoupon`, S8-13 P2002/P2025 mappings,
+  S13-2 rethrows), and the role-gated `/admin/coupons` surface (list with
+  usage/expiry/cap badges + the category-dialog-pattern Add/Edit island +
+  delete confirm + active toggle + the admin-nav Ticket item). Orders keep
+  their discount snapshot across deletes. Unit-pinned + the e2e CRUD loop
+  (`admin-coupons.spec.ts`: create → apply at the cart → deactivate →
+  reject → delete, leaving the seeds as found).
+- **NEW TRAP (Turbopack panic)**: a `export { couponLabel } from
+  "@/lib/coupons"` re-export in validation.ts (client-imported) pulled
+  `db` → `@prisma/client` → `node:fs` into a browser chunk — Turbopack
+  PANICKED with "chunking context does not support external modules
+  (request: node:fs)" pointing at an UNRELATED route (/admin/orders).
+  Diagnosed by stash-bisect (pristine baseline built clean); fix = define
+  the label in coupons.ts, import it directly where needed, and record the
+  client-safe module-graph rule in AGENTS.md's trap section.
+- 360 unit + 64 e2e green; 24 screenshots refreshed (incl.
+  `15b-admin-coupons`); AGENTS/CLAUDE/README/PAD/SKILL aligned;
+  DEPLOYMENT.md drift-free; `.env.example` unchanged; run narrative at
+  `docs/session_31.md`.
 
 
 ## Appendix C — Quick Reference Card

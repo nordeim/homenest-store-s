@@ -17,6 +17,16 @@ export type CouponApplication =
   | { ok: true; code: string; discount: number; label: string }
   | { ok: false; error: string };
 
+/**
+ * Pure display label for a coupon's discount (session-19 S19-5) — the one
+ * source of truth the coupon engine (`couponDiscount`), the admin coupon
+ * list and any future surface share. `fixed` values are integer cents.
+ */
+export function couponLabel(type: string, value: number): string {
+  if (type === "fixed") return `$${(value / 100).toFixed(2)} off`;
+  return `${value}% off`;
+}
+
 /** Pure discount computation for a validated coupon against a subtotal. */
 export function couponDiscount(coupon: CouponInfo, subtotal: number): CouponApplication {
   if (subtotal < coupon.minSubtotal) {
@@ -31,7 +41,7 @@ export function couponDiscount(coupon: CouponInfo, subtotal: number): CouponAppl
       ok: true,
       code: coupon.code,
       discount: Math.round((subtotal * coupon.value) / 100),
-      label: `${coupon.value}% off`,
+      label: couponLabel(coupon.type, coupon.value),
     };
   }
   if (coupon.type === "fixed") {
@@ -42,7 +52,7 @@ export function couponDiscount(coupon: CouponInfo, subtotal: number): CouponAppl
       ok: true,
       code: coupon.code,
       discount: Math.min(coupon.value, subtotal),
-      label: `$${(coupon.value / 100).toFixed(2)} off`,
+      label: couponLabel(coupon.type, coupon.value),
     };
   }
   return { ok: false, error: "Invalid coupon configuration." };

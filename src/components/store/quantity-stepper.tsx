@@ -3,13 +3,16 @@
 import * as React from "react";
 import { Minus, Plus } from "lucide-react";
 
+import { MAX_CART_QUANTITY } from "@/lib/cart-quantity";
 import { cn } from "@/lib/utils";
 
 export function QuantityStepper({
   value,
   onChange,
   min = 1,
-  max = 99,
+  // Session-19 S19-1: the default binds the single-sourced ceiling (the S17-2
+  // invariant) — never retype the literal here.
+  max = MAX_CART_QUANTITY,
   className,
 }: {
   value: number;

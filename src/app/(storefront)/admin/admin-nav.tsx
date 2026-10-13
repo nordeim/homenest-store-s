@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Images, LayoutDashboard, Package, Settings, ShoppingBag, Tags } from "lucide-react";
+import { BarChart3, Images, LayoutDashboard, Package, Settings, ShoppingBag, Tags, Ticket } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/admin/products", label: "Products", icon: Package, exact: false },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag, exact: false },
   { href: "/admin/categories", label: "Categories", icon: Tags, exact: false },
+  { href: "/admin/coupons", label: "Coupons", icon: Ticket, exact: false },
   { href: "/admin/carousel", label: "Carousel", icon: Images, exact: false },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3, exact: false },
   { href: "/admin/settings", label: "Settings", icon: Settings, exact: false },

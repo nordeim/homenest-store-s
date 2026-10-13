@@ -112,6 +112,7 @@ for (const [name, path] of [
   ["13-admin-products", "/admin/products"],
   ["14-admin-orders", "/admin/orders"],
   ["15-admin-categories", "/admin/categories"],
+  ["15b-admin-coupons", "/admin/coupons"],
   ["16-admin-carousel", "/admin/carousel"],
   ["17-admin-analytics", "/admin/analytics"],
   ["18-admin-settings", "/admin/settings"],

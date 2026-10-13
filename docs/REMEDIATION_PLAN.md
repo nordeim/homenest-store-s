@@ -1384,3 +1384,168 @@ CRITICAL/HIGH/MEDIUM.
 - [x] S18-3 — unused devDependencies removed via npm
 - [x] Full gate chain re-run green; manual verification (agent-browser)
 - [x] Screenshots refreshed; docs sweep; worklog updated
+
+---
+
+# Session 19 — remediation plan (run 20)
+
+> **Status:** EXECUTED (see the Execution Log at the end)
+> **Date:** 2026-10-13
+> **Scope:** Fresh-clone re-validation of the session-18 tree (`9a3d22e` = `67861e3`
+> + the operator-committed `docs/session_30.md` raw log), a fresh session-19 deep
+> audit, the audit's two actionable findings, and the long-carried feature
+> increment the audit trail keeps recommending: the **admin coupon-management UI**.
+> **Method:** TDD as always — failing tests first, then the fix, then the full
+> gate chain.
+
+## 1. Re-validation (all session-18 gates green on the fresh clone)
+
+Workspace had been reset — fresh-cloned `https://github.com/nordeim/homenest-store-s.git`
+at `9a3d22e`. Environment: the sandbox re-exports
+`DATABASE_URL=file:/home/z/my-project/db/custom.db` on shell recycle; the
+prior sessions' convergence symlink was found DANGLING (pointing at an old
+workspace path) and was removed via node, the real directory recreated, and
+the shadow path re-converged with a **hard link** to `<repo>/db/custom.db`
+(one inode — SQLite byte-range locks apply to the inode, so both paths stay
+mutually exclusive; symlinks remain blocked in this sandbox). `.env` carries
+the `file:../db/custom.db` contract + a dev `AUTH_SECRET`; `db/custom.db`
+pushed + seeded at the repo root (16 products / 8 categories / 3 coupons /
+2 users verified). Gates: lint ✓ · typecheck ✓ · typecheck:tests ✓ ·
+**334/334 unit** ✓ · build ✓ · **63/63 e2e** ✓ — the pulled tree is exactly
+as documented (run 19 = session-18 remediation complete).
+
+## 2. Session-18 fix verification (read-only subagent 20-a + spot-checks)
+
+Subagent 20-a executed the `code-review-checklist` 12-category scan over
+`src/`, `prisma/`, `scripts/`, `tests/` and root configs (`skills/`
+excluded); every finding was personally re-verified with file:line evidence
+before planning. **Session-18 fixes 4/4 WIRED; older-fix spot-checks 10/10
+WIRED** (14/14 Retry-After sites, 4/4 `clampSearchTerm` consumers,
+`MAX_CART_QUANTITY` single-sourcing, S16-1 wishlist-cap tx gate, S16-3
+page-shell inert modal, S17-1 guarded category delete, S13-1 demo-mode
+credential boundary, mobile-nav conditional mount, CSP nonce +
+`(auth)` connection(), integer-cents money). Static counts re-verified:
+**334 unit tests in 35 files · 63 e2e in 12 specs · 18 models · 16 products
+· 11/11 admin actions requireAdmin'd · 14 metered sites · 13 admin catch
+blocks · 8 categories / 3 coupons**. Docs verified drift-free (README badge,
+limiter grid, catch-block count, model count all TRUE).
+
+## 3. Session-19 audit findings (evidence-based)
+
+**Result: 0 CRITICAL / 0 HIGH / 0 MEDIUM / 1 LOW / 1 NIT / 2 Informational /
+0 doc-drift** — the seventh consecutive session without a
+CRITICAL/HIGH/MEDIUM.
+
+- **S19-1 (NIT)** — `src/components/store/quantity-stepper.tsx:12`: the
+  component's `max = 99` DEFAULT PARAMETER retypes the ceiling literal.
+  Unreachable today (its only consumer, `purchase-panel.tsx:39`, always
+  passes `max = Math.max(1, Math.min(stock, MAX_CART_QUANTITY))`), but it is
+  exactly the drift vector the S17-2 invariant bans: a future
+  `MAX_CART_QUANTITY` change would silently leave this dead default
+  disagreeing with the single-sourced constant.
+- **S19-2 (Low)** — `src/lib/addresses.ts:206-209`: the S18-1 extraction
+  carried a subtle behavior delta. The PRE-extraction checkout block unset
+  previous defaults with `where: { userId, isDefault: true }` (per the
+  `67861e3` diff), while the extracted `saveCheckoutAddressInTx` unsets with
+  `where: { userId }` — an UPDATE touching EVERY row of the user's book
+  instead of only the defaults. Same end state (the create follows with
+  `isDefault: true`), benign at the 20-row cap, but it contradicts the
+  extraction's documented "no behavior change" contract and does redundant
+  row writes inside the checkout transaction. Restore the scoped clause.
+- **S19-3 (Informational)** — `src/app/api/checkout/route.ts:382`: the
+  checkout call site DISCARDS the `saveCheckoutAddressInTx` outcome. The
+  session-18 plan's wording ("call-site catch replaced by the
+  return-value check") is not literally implemented — skip-save is
+  emergent from the helper's no-writes-at-cap behavior (which the unit pin
+  locks). Reviewed and ACCEPTED as-is: there is genuinely nothing to branch
+  on (the S7-8 contract is "the order still places; only the save is
+  skipped"), the helper's contract is unit-pinned, and the call-site
+  comment documents the semantics. Recorded so the discard is a reviewed
+  decision rather than an oversight.
+- **S19-4 (Informational)** — `src/app/(storefront)/track-order/page.tsx:100-114`:
+  a buyer who exhausts the 30/min page-level limiter sees the same
+  "couldn't find an order" shell as a wrong-email lookup. Deliberate — the
+  anti-enumeration convergence (wrong-email / missing / rate-limited are
+  indistinguishable) is exactly what WI-1 designed — and the limiter-wiring
+  pin gap is already recorded as accepted debt (S18-4b). No change.
+- **S19-5 (Feature increment)** — the carried "admin coupon-management UI"
+  (recommended by sessions 18 and 19 audit trails): the coupon engine is
+  fully hardened (`isCouponRedeemable`, `couponDiscount`, atomic
+  `couponRedemptionWhere`, /api/coupon/apply, checkout integration, 3
+  seeded coupons) but there is NO admin surface to create/edit/deactivate
+  coupons — `prisma/seed.ts:694-697` states it outright: "with no admin
+  coupon UI, DB state is the only state". This is the natural superset
+  increment.
+
+## 4. Remediation plan (TDD)
+
+1. **S19-1** — `src/components/store/quantity-stepper.tsx` imports
+   `MAX_CART_QUANTITY` from `@/lib/cart-quantity` and defaults
+   `max = MAX_CART_QUANTITY` (the literal retypes never again). Pinned by a
+   jsdom component test (`tests/unit/quantity-stepper.test.tsx`, the
+   suite's third component test): the default-max stepper renders "+"
+   DISABLED at 99 (and enabled at 98), pinning the default parameter's
+   value through behavior.
+2. **S19-2** — `saveCheckoutAddressInTx`'s unset runs
+   `where: { userId, isDefault: true }` (the pre-extraction shape; the
+   `CheckoutAddressSavingClient.updateMany` interface narrows
+   accordingly). The session-18 pin is extended to assert the unset
+   targets ONLY default rows.
+3. **S19-5 — admin coupon management** (the S18-exemplar patterns):
+   - `src/lib/validation.ts`: `couponInputSchema` (code 3-40 charset
+     letters/digits/dashes — normalized to uppercase in the action like
+     `findActiveCoupon` does; `type` percent|fixed; `value` int ≥ 1 with a
+     percent ≤ 100 superRefinement; `description` ≤ 200; `minSubtotal`
+     cents ≥ 0; `isActive` default true; `expiresAt` date-string or null,
+     refined to parse as a Date; `maxRedemptions` int ≥ 1 or null) +
+     `couponLabel` moved to a PURE helper in `src/lib/coupons.ts`
+     (`couponLabel(type, value)` — percent "10% off", fixed 695 cents
+     "$6.95 off") so the admin list and any future surface share it.
+   - `src/lib/actions/admin.ts`: `upsertCouponAction` (requireAdmin →
+     safeParse → code normalize/uppercase → pre-check code clash excluding
+     self → P2002/P2025 narrowed mappings, the S8-13 pattern →
+     revalidatePath) and `deleteCouponAction` (requireAdmin → id guard →
+     delete; order receipts carry their own discount snapshot, no FK, so
+     history is unaffected).
+   - `src/app/(storefront)/admin/coupons/page.tsx` + `coupon-dialog.tsx`
+     (the category-dialog island pattern: Add/Edit dialog with type-aware
+     value input — percent integer / fixed dollars via
+     `parseDollarsToCents` — dollars inputs for minSubtotal, date input
+     for expiry converted to END-OF-DAY UTC, optional redemption cap,
+     active toggle, delete confirm; every async handler carries the S13-2
+     visible-failure catch) + `admin-nav.tsx` gains the Coupons item
+     (Ticket icon) between Categories and Carousel. The admin layout's
+     role gate covers the new route automatically.
+   - Unit pins (`tests/unit/session19-hardening.test.ts`, mocked
+     `db`/`next/headers`/`next/cache` following the session-16 pattern):
+     schema boundary table (percent 0/101 rejected, fixed 0 rejected, code
+     charset/length, negative minSubtotal, maxRedemptions 0, invalid
+     expiry string, defaults), `couponLabel` truth table, upsert
+     normalization + clash + P2002/P2025 mappings + admin denial, delete
+     denial + success.
+   - E2E (`tests/e2e/admin-coupons.spec.ts`): admin signs in → sees the 3
+     seeded coupons → creates SESSION5 (5% off) → applies it on a cart at
+     the coupon field → discount appears → deactivates it → the same code
+     is rejected → deletes it → the row is gone. The spec cleans up after
+     itself (leaves the DB as found).
+4. **DOC** — AGENTS.md (admin-surface list + coupon-management invariant),
+   CLAUDE.md (lib/action/coverage lists), README.md (features row + badge
+   counts), PAD (§8.1 + §12 + known-issues), SKILL.md v1.16.0
+   (project_state + Appendix B Session-19 entry), DEPLOYMENT.md (no
+   expected drift), `.env.example` (unchanged), `docs/session_31.md` (run
+   narrative), worklog, screenshots refreshed.
+
+## 5. Execution log (session 19)
+
+- [x] RED — `tests/unit/session19-hardening.test.ts` fails on the missing
+      `couponInputSchema` / `couponLabel` / action exports + the S19-2
+      clause pin fails on the broad where
+- [x] RED — `tests/unit/quantity-stepper.test.tsx` fails on the literal
+      default (default-max "+" still enabled at 100)
+- [x] GREEN — S19-1 stepper default from the shared constant
+- [x] GREEN — S19-2 scoped unset clause restored
+- [x] GREEN — S19-5 coupon schema + label helper + actions + admin UI + nav
+- [x] E2E — admin-coupons.spec.ts green (create → apply → deactivate →
+      reject → delete)
+- [x] Full gate chain re-run green; manual verification (agent-browser)
+- [x] Screenshots refreshed; docs sweep; worklog updated

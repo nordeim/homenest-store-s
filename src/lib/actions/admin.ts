@@ -22,6 +22,7 @@ import { updateSettings } from "@/lib/settings";
 import {
   carouselSlideInputSchema,
   categoryInputSchema,
+  couponInputSchema,
   firstError,
   orderStatusSchema,
   productInputSchema,
@@ -242,6 +243,85 @@ export async function deleteCategoryAction(id: string): Promise<AdminActionResul
   revalidatePath("/admin/categories");
   revalidatePath("/");
   revalidatePath("/products");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Coupons (session-19 S19-5)
+// ---------------------------------------------------------------------------
+
+export type CouponUpsertInput = z.input<typeof couponInputSchema> & { id?: string | null };
+
+export async function upsertCouponAction(data: CouponUpsertInput): Promise<AdminActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return { ok: false, error: denied };
+
+  const parsed = couponInputSchema.safeParse(data);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const input = parsed.data;
+  const id = typeof data.id === "string" && data.id.length > 0 ? data.id : null;
+
+  // The code normalizes to uppercase exactly like the redemption lookup
+  // (`findActiveCoupon`) — "save5" and "SAVE5" are the same coupon.
+  const code = input.code.toUpperCase();
+
+  const codeClash = await db.coupon.findFirst({
+    where: { code, ...(id ? { id: { not: id } } : {}) },
+    select: { id: true },
+  });
+  if (codeClash) return { ok: false, error: "A coupon with this code already exists." };
+
+  const dbData = {
+    code,
+    type: input.type,
+    value: input.value,
+    description: input.description ?? "",
+    minSubtotal: input.minSubtotal ?? 0,
+    isActive: input.isActive ?? true,
+    // The schema guaranteed parseability; the caller owns the instant (the
+    // admin dialog sends end-of-day UTC for a date-only pick).
+    expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+    maxRedemptions: input.maxRedemptions ?? null,
+  };
+
+  try {
+    if (id) {
+      await db.coupon.update({ where: { id }, data: dbData });
+    } else {
+      await db.coupon.create({ data: dbData });
+    }
+  } catch (error) {
+    // The S8-13 pattern: distinguish the races the pre-check can't close.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { ok: false, error: "A coupon with this code already exists." };
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return { ok: false, error: "Coupon not found. Refresh and try again." };
+    }
+    throw error;
+  }
+
+  revalidatePath("/admin/coupons");
+  return { ok: true };
+}
+
+export async function deleteCouponAction(id: string): Promise<AdminActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return { ok: false, error: denied };
+  if (!id) return { ok: false, error: "Missing coupon id." };
+
+  try {
+    // Orders carry their own discount snapshot (no coupon FK), so deleting a
+    // coupon never rewrites history — the S7-8 receipt integrity holds.
+    await db.coupon.delete({ where: { id } });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return { ok: false, error: "Coupon not found. Refresh the page." };
+    }
+    throw error;
+  }
+
+  revalidatePath("/admin/coupons");
   return { ok: true };
 }
 

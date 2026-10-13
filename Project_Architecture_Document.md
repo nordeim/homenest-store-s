@@ -290,7 +290,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 **Two suites, one gate:** `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e` — all must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 334 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 360 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
@@ -331,10 +331,12 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 | `session17-hardening.test.ts` | The S17-1 guarded category delete (`deleteCategoryIfEmpty` outcomes: in-use pre-count / deleted / not-found / the P2003-race → in-use with an unknown count / rethrow) + the `isForeignKeyViolation` duck-type truth table |
 | `session18-hardening.test.ts` | The S18-1 checkout saveAddress extraction (`saveCheckoutAddressInTx` — "saved"/"at-cap" outcomes, unset-before-create order, no-writes-at-cap, unknown-error rethrow) + the S18-2 friendly cart-ceiling messages (the three cart schemas reject over-ceiling quantities with store copy, not the Zod default) |
+| `session19-hardening.test.ts` | S19-2 the scoped unset pin (the checkout save's `updateMany` targets ONLY `isDefault: true` rows — the pre-extraction clause restored) + S19-5 the coupon admin boundary: `couponInputSchema` (percent 1..100 superRefinement copy, fixed cents ≥ 1, code charset/length, negative minSubtotal, 0/negative redemption cap, unparseable expiry, defaults), the pure `couponLabel` truth table, and the guarded actions (`upsertCouponAction`/`deleteCouponAction` — admin denial, uppercase normalization, clash pre-check, P2002/P2025 mappings, the S13-2 rethrows; mocked `db`/`auth`/`next/cache`) |
+| `quantity-stepper.test.tsx` | S19-1 (jsdom): a MOCKED `MAX_CART_QUANTITY = 7` proves the QuantityStepper's DEFAULT `max` binds the imported constant — a retyped literal would leave "+" enabled at 7 |
 | `validation.test.ts` (S17-2 addendum) | `MAX_CART_QUANTITY` is 99 and the cart schemas interpolate the shared constant |
 | `api-boundaries.test.ts` (C7 addendum) | Cart DELETE `?all=1`: no cart → `{itemCount:0}` with `deleteMany` never called; guest cart → cartId-scoped `deleteMany` + the fresh summary's `itemCount` |
 
-### 8.2 E2E (Playwright — 63 tests, `tests/e2e/`)
+### 8.2 E2E (Playwright — 64 tests, `tests/e2e/`)
 
 Two projects: `mobile-navigation` (iPhone-13 device emulation on Chromium — WebKit is not installable in the target sandbox) and `desktop-chromium` (1440×900). The config first runs `scripts/restore-demo-stock.ts` (S14-4 — e2e checkouts permanently drain the traffic-owned demo stock) and then boots the standalone production build on :3100 with `/api/health` as the readiness probe (reusing an existing healthy server, whose state is already restored).
 
@@ -352,6 +354,7 @@ Two projects: `mobile-navigation` (iPhone-13 device emulation on Chromium — We
 | `wishlist.spec.ts` | Hearts toggle, page lists the saved items, one-request Add All lands both lines in the cart (S8-6) |
 | `cart-badge.spec.ts` | The header badge shows the **server-rendered count after a full page reload** and survives client-side navigation into the cart (S9-1) |
 | `contact-newsletter.spec.ts` | The support/marketing capture surfaces (C5): contact form success toast + the `/api/contact` 400 boundary (invalid email, short message), newsletter subscribe success + the `/api/newsletter` 400 boundary (invalid email, malformed JSON) |
+| `admin-coupons.spec.ts` | The session-19 S19-5 coupon-management loop: the 3 seeded coupons render, a new coupon is created through the dialog, APPLIED at the cart, deactivated (the same code then rejects at the same surface), deleted — the spec cleans up after itself |
 
 **E2E conventions:** `gotoHydrated(page, url)` before any interaction (the `data-hydrated` sentinel from `StoreProvider` — clicking before hydration falls back to native GET, a real bug class this suite caught); async cart effects asserted via the `data-testid="cart-count"` badge before navigating; off-canvas drawers assert `not.toBeInViewport()` + `pointer-events-none` (the always-mounted translate pattern is invisible to `toBeHidden`); DB-mutating specs tolerate re-runs (seed is idempotent, order numbers increment).
 
@@ -482,7 +485,10 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | 72 | Accepted (session 17) | The cart DELETE `?all=1` boundary and the wishlist pre-create fast-fail branch were unpinned; the session-16 execution-log checkboxes were left unchecked in this plan | C7 cart DELETE `?all=1` boundary pins added (api-boundaries pattern); the D-1 doc drift corrected (checkboxes flipped). Remaining carried debt: wishlist pre-create fast-fail pin (behaviorally redundant behind the S16-1 tx gate), login-limiter lockout tradeoff (S8-8), checkout integration seams, review action two-tier gate pin, admin coupon-management UI, real mailer/payment epics. |
 | 73 | Fixed (session 18) | Checkout's in-tx `saveAddress` gated the address-book cap with the PRE-create check only (the S11-6/S16-1 class) and the block was route-private and untestable — the carried "saveAddress at-cap skip-save integration pin" deferral dated to session 7 | The block extracted to `saveCheckoutAddressInTx` (`src/lib/addresses.ts`, the S11-6 lib pattern) returning `"saved" \| "at-cap"` — at cap the order STILL PLACES (S7-8). The gate deliberately STAYS the pre-create fast-fail: a post-create throw (the S16-1 shape) would roll back the entire order transaction (no savepoints in Prisma interactive txs). Contract unit-pinned (`session18-hardening.test.ts`) — the S18-4a coverage gap closes with it; the residual bounded race recorded as accepted debt (the S17-3 pattern). |
 | 74 | Fixed (session 18) | The cart-page and drawer "+" steppers stayed enabled at the 99 ceiling (stock > 99 reachable), so the click PATCHed 100 and the schema 400 surfaced Zod's default English message in the error toast | Page stepper disables at `min(stock, MAX_CART_QUANTITY)`, drawer stepper at `MAX_CART_QUANTITY` (the drawer carries no stock data — the server clamp remains the stock guard); the three cart schemas carry the interpolated "Quantity is limited to 99 per item." store copy (S18-2). Unit-pinned. |
-| 75 | Fixed (session 18) | `axe-core` and `@testing-library/user-event` were declared devDependencies imported by zero files (install weight; suggested an a11y scan that was never wired) | Both removed via npm (S18-3). The a11y surface remains pinned by the aria/assertive-live/focus pins across the existing e2e specs; wiring a new axe scan would be a speculative feature. Remaining carried debt: the `/track-order` page-level limiter wiring pin (e2e-heavy for a wiring fact — the limiter logic and the route-level 429 contract are already pinned), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, review action two-tier gate pin, admin coupon-management UI, real mailer/payment epics. |
+| 75 | Fixed (session 18) | `axe-core` and `@testing-library/user-event` were declared devDependencies imported by zero files (install weight; suggested an a11y scan that was never wired) | Both removed via npm (S18-3). The a11y surface remains pinned by the aria/assertive-live/focus pins across the existing e2e specs; wiring a new axe scan would be a speculative feature. Remaining carried debt: the `/track-order` page-level limiter wiring pin (e2e-heavy for a wiring fact — the limiter logic and the route-level 429 contract are already pinned), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, review action two-tier gate pin, real mailer/payment epics. (The carried admin coupon-management UI DELIVERED in session 19 — row 78.) |
+| 76 | Fixed (session 19) | The QuantityStepper's default `max = 99` parameter retyped the S17-2 ceiling literal (unreachable today — its only consumer always passes an explicit max — but a drift vector the single-sourcing invariant bans) | The default binds the imported `MAX_CART_QUANTITY`; pinned by a jsdom test that MOCKS the constant to 7 and requires the default-max "+" to disable at 7 (`tests/unit/quantity-stepper.test.tsx`) — impossible with a retyped literal (S19-1). |
+| 77 | Fixed (session 19) | The S18-1 extraction subtly changed the checkout save's unset-defaults scope: `where: { userId }` touches EVERY row of the book instead of the pre-extraction `where: { userId, isDefault: true }` — same end state, redundant writes inside the order tx, contradicting the documented "no behavior change" | Scoped clause restored; interface narrowed; the session-18 pin extended to assert the default-only where (S19-2, `session19-hardening.test.ts`). |
+| 78 | Delivered (session 19) | Admin coupon-management UI (the carried feature increment — "with no admin coupon UI, DB state is the only state", seed.ts) | `/admin/coupons` (role-gated by the admin layout): list with usage/expiry/cap badges + Add/Edit dialog (percent/fixed value, min subtotal, end-of-day-UTC expiry, redemption cap, active toggle) + delete confirm, via `upsertCouponAction`/`deleteCouponAction` (requireAdmin, `couponInputSchema`, uppercase code normalization matching `findActiveCoupon`, S8-13 P2002/P2025 mappings, S13-2 catch contract). Orders keep their discount snapshot across deletes. Unit-pinned (`session19-hardening.test.ts`) + e2e CRUD loop (`admin-coupons.spec.ts`). S19-3 (the checkout call site discards the save outcome — skip-save is emergent and unit-pinned; reviewed, accepted) and S19-4 (a rate-limited track-order lookup renders the anti-enumeration not-found shell; deliberate) recorded as dispositions, no change. |
 
 ---
 
@@ -496,21 +502,22 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | `src/lib/password.ts` | scrypt hash/verify |
 | `src/lib/cart.ts` / `wishlist.ts` | Token-cookie guest carts, login merge, summaries |
 | `src/lib/order-money.ts` | The single checkout-money truth (unit-pinned) |
-| `src/lib/coupons.ts` | Coupon lookup + pure discount math |
+| `src/lib/coupons.ts` | Coupon lookup + pure discount math + the `couponLabel` display helper (S19-5) |
 | `src/lib/settings.ts` | StoreSetting key/value → typed settings |
 | `src/lib/products.ts` | JSON column parsers, card projection, storefront query |
 | `src/lib/validation.ts` | Every Zod schema + enum vocabularies |
 | `src/lib/csp.ts` + `src/proxy.ts` | CSP builder + per-request nonce proxy |
 | `src/lib/actions/auth.ts` | `useActionState` login/register/logout/profile |
-| `src/lib/actions/admin.ts` | 11 guarded admin mutations |
+| `src/lib/actions/admin.ts` | 13 guarded admin mutations (products, categories, coupons ×2, carousel, orders, tracking, settings) |
 | `src/lib/admin-categories.ts` | The S17-1 guarded category delete (`deleteCategoryIfEmpty` — pre-count fast-fail + P2003 race mapping) |
 | `src/lib/cart-quantity.ts` | `MAX_CART_QUANTITY` (the single-sourced 99 ceiling) + `clampPurchaseQuantity` |
 | `src/app/globals.css` | Tailwind v4 theme tokens + trap pins |
 | `src/components/store/store-provider.tsx` | Shared UI state + hydration sentinel |
 | `src/components/store/mobile-nav.tsx` | The Tailwind-v4-safe mobile menu |
 | `src/components/store/store-chrome.tsx` | Sticky header + mobile panel + cart drawer |
+| `src/app/(storefront)/admin/coupons/` | The S19-5 coupon-management surface (page + dialog island) |
 | `prisma/schema.prisma` / `seed.ts` | 18 models / idempotent seed |
-| `tests/unit/*` · `tests/e2e/*` | 334 unit · 63 e2e (incl. the v4 guard + tracking access contract + the session-11..18 hardening pins) |
+| `tests/unit/*` · `tests/e2e/*` | 360 unit · 64 e2e (incl. the v4 guard + tracking access contract + the session-11..19 hardening pins) |
 | `playwright.config.ts` / `vitest.config.ts` | Suite wiring (standalone webServer; iPhone-13-on-Chromium project) |
 
 ---

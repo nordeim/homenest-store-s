@@ -228,6 +228,67 @@ export const categoryInputSchema = z.object({
   isActive: z.boolean().default(true),
 });
 
+// Session-19 S19-5 — the admin coupon-management boundary schema. The code
+// charset mirrors the redemption lookup's normalization space (letters,
+// digits, dashes — the ACTION uppercases, exactly like `findActiveCoupon`).
+// `value` is percent 1..100 or integer cents ≥ 1 (the percent ceiling is the
+// superRefinement); `minSubtotal` and fixed `value` share the product price
+// cap. `expiresAt` is a parseable date STRING or null — the caller owns the
+// instant (the dialog sends end-of-day UTC for a date-only pick), the action
+// converts to Date once, after the schema has guaranteed parseability.
+export const couponInputSchema = z
+  .object({
+    code: z
+      .string()
+      .trim()
+      .min(3, "Code must be at least 3 characters")
+      .max(40, "Code must be 40 characters or fewer")
+      .regex(/^[A-Za-z0-9-]+$/, "Code can only contain letters, numbers and dashes"),
+    type: z.enum(["percent", "fixed"], { message: "Choose a discount type" }),
+    value: z
+      .number()
+      .int("Value must be a whole number")
+      .min(1, "Value must be positive")
+      .max(MAX_PRICE_CENTS, "Value must be under $1,000,000"),
+    description: z.string().trim().max(200).default(""),
+    minSubtotal: z
+      .number()
+      .int("Minimum subtotal must be a whole number")
+      .min(0, "Minimum subtotal cannot be negative")
+      .max(MAX_PRICE_CENTS, "Minimum subtotal must be under $1,000,000")
+      .default(0),
+    isActive: z.boolean().default(true),
+    expiresAt: z
+      .string()
+      .trim()
+      .max(40)
+      .nullable()
+      .default(null)
+      .refine((s) => s === null || !Number.isNaN(Date.parse(s)), "Expiry must be a valid date"),
+    maxRedemptions: z
+      .number()
+      .int("Redemption cap must be a whole number")
+      .min(1, "Redemption cap must be at least 1")
+      .max(1_000_000, "Redemption cap must be under 1,000,000")
+      .nullable()
+      .default(null),
+  })
+  .superRefine((data, ctx) => {
+    if (data.type === "percent" && data.value > 100) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["value"],
+        message: "Percent discounts are limited to 100%.",
+      });
+    }
+  });
+
+// NOTE: no re-exports from "@/lib/coupons" here — validation.ts is imported
+// by client islands, and coupons.ts reaches the server-only db client; one
+// transitive edge would pull @prisma/client (node:fs) into a browser chunk
+// (the Turbopack "does not support external modules" panic). The display
+// label lives in coupons.ts; import it from there directly.
+
 // Internal path (no protocol-relative "//") or absolute http(s) URL — blocks
 // `javascript:`/`data:`-style injection through the admin carousel form.
 export const safeLinkSchema = z

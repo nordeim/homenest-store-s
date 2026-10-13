@@ -154,7 +154,7 @@ export interface CheckoutAddressSavingClient {
   address: {
     count: (args: { where: { userId: string } }) => Promise<number>;
     updateMany: (args: {
-      where: { userId: string };
+      where: { userId: string; isDefault: true };
       data: { isDefault: boolean };
     }) => Promise<{ count: number }>;
     create: (args: {
@@ -203,8 +203,12 @@ export async function saveCheckoutAddressInTx(
 ): Promise<"saved" | "at-cap"> {
   try {
     await assertAddressCap(client, userId);
+    // Session-19 S19-2: the unset targets ONLY the previous defaults — the
+    // exact clause the pre-extraction checkout block used (touching every
+    // row of the book was a subtle S18-1 extraction delta; restoring the
+    // scoped shape keeps the checkout tx's writes minimal).
     await client.address.updateMany({
-      where: { userId },
+      where: { userId, isDefault: true },
       data: { isDefault: false },
     });
     await client.address.create({

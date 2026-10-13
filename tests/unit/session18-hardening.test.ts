@@ -63,7 +63,10 @@ describe("saveCheckoutAddressInTx (S18-1 / C8)", () => {
     const outcome = await saveCheckoutAddressInTx(client, "user-1", DRAFT);
     expect(outcome).toBe("saved");
     expect(calls.updateMany).toHaveBeenCalledWith({
-      where: { userId: "user-1" },
+      // Session-19 S19-2: the unset targets ONLY the previous defaults (the
+      // pre-extraction clause; the S19 pin in session19-hardening.test.ts
+      // owns the full assertion).
+      where: { userId: "user-1", isDefault: true },
       data: { isDefault: false },
     });
     expect(calls.create).toHaveBeenCalledWith({
