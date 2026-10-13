@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth";
 import { clampPurchaseQuantity } from "@/lib/cart-quantity";
 import { findCartId, getOrCreateCart, getCartSummary } from "@/lib/cart";
 import { db } from "@/lib/db";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
-import { cartMutateSchema, firstError } from "@/lib/validation";
+import { cartLinePatchSchema, cartMutateSchema, firstError } from "@/lib/validation";
 
 /** Parse a JSON body — malformed payloads are a client error (400), not a 500. */
 async function parseJsonBody(request: NextRequest): Promise<unknown> {
@@ -90,9 +89,7 @@ export async function PATCH(request: NextRequest) {
 
     const body = await parseJsonBody(request);
     if (body === null) return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
-    const parsed = z
-      .object({ lineId: z.string().min(1), quantity: z.number().int().min(0).max(99) })
-      .safeParse(body);
+    const parsed = cartLinePatchSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: firstError(parsed.error) }, { status: 400 });
     }

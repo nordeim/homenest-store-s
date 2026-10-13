@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { Prisma } from "@prisma/client";
 
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
-import { assertWishlistCap, WishlistCapError, getOrCreateWishlist } from "@/lib/wishlist";
-
-const wishlistToggleSchema = z.object({
-  productId: z.string().min(1),
-});
+import { assertWishlistCap, WishlistCapError, createWishlistItemInTx, getOrCreateWishlist } from "@/lib/wishlist";
+import { wishlistToggleSchema } from "@/lib/validation";
 
 /** POST /api/wishlist — toggle a product in the caller's wishlist. */
 export async function POST(request: NextRequest) {
@@ -54,7 +50,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ inWishlist: false });
     }
     // Session-8 S8-6: the wishlist is a bounded surface (mirrors the address
-    // book cap) — the cap is checked on the creating path with a friendly 409.
+    // book cap) — the pre-create check is the fast-fail UX path (friendly 409
+    // before doing work). The AUTHORITATIVE gate (session-16 S16-1, the S11-6
+    // shape) runs inside the create transaction below: on SQLite the write
+    // lock lands at the first WRITE, so concurrent POSTs at cap − 1 serialize
+    // past this read — the tx creates first, counts under the lock, and rolls
+    // the create back when over.
     try {
       await assertWishlistCap(db, wishlistId);
     } catch (error) {
@@ -64,10 +65,16 @@ export async function POST(request: NextRequest) {
       throw error;
     }
     try {
-      await db.wishlistItem.create({ data: { wishlistId, productId } });
+      await db.$transaction((tx) => createWishlistItemInTx(tx, wishlistId, productId));
     } catch (error) {
-      // A double-click races the check-then-create: the concurrent request
-      // already created the item. That IS the desired end state.
+      if (error instanceof WishlistCapError) {
+        // The post-create count under the write lock caught a concurrent
+        // creator — our create rolled back with the transaction.
+        return NextResponse.json({ error: error.message }, { status: 409 });
+      }
+      // A double-click races the create: the concurrent request already
+      // created the item (P2002 rolls OUR create back). That IS the desired
+      // end state — the item exists, answer inWishlist: true.
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
         return NextResponse.json({ inWishlist: true });
       }

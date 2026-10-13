@@ -290,7 +290,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 **Two suites, one gate:** `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e` — all must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 299 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 313 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
@@ -326,7 +326,10 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 | `api-boundaries.test.ts` | Route-boundary mappings with a mocked `db` (+ mocked `next/headers` cookies for the checkout flow): health ok/degraded-503; newsletter malformed-JSON/invalid-body/429 + `Retry-After`; contact 429 + `Retry-After`; checkout 429 + `Retry-After` with the strengthened in-budget assertion (S15-1); the order-number allocation-exhaustion pin (five P2002s on the NUMBER → 500, replay branch never consulted — C1) |
 | `toaster.test.tsx` | S14-1 the suite's FIRST COMPONENT TEST (`.tsx` + `@vitest-environment jsdom` docblock, fake timers): auto-dismiss at 4s, manual close CANCELS the pending timer (`vi.getTimerCount()` back to baseline — the pre-fix orphan pin), unmount clears every pending timer |
 
-### 8.2 E2E (Playwright — 62 tests, `tests/e2e/`)
+| `session16-hardening.test.ts` | S16-1/C3/C4: the authoritative wishlist-cap tx gate — `createWishlistItemInTx` create-first ordering + the overflow throw; the wishlist POST route boundary (at-cap-overflow → friendly 409 via the tx gate, P2002-in-tx → `{ inWishlist: true }`, happy create) with a mocked `db` + `next/headers` guest token |
+| `hero-carousel.test.tsx` | S16-4/C5 (jsdom + fake timers + per-test `vi.resetModules()`): exactly ONE MediaQueryList construction across mount + auto-rotate re-renders + prop rerender (the S15-5 regression guard); auto-rotation advances the active slide; `prefers-reduced-motion` freezes it |
+
+### 8.2 E2E (Playwright — 63 tests, `tests/e2e/`)
 
 Two projects: `mobile-navigation` (iPhone-13 device emulation on Chromium — WebKit is not installable in the target sandbox) and `desktop-chromium` (1440×900). The config first runs `scripts/restore-demo-stock.ts` (S14-4 — e2e checkouts permanently drain the traffic-owned demo stock) and then boots the standalone production build on :3100 with `/api/health` as the readiness probe (reusing an existing healthy server, whose state is already restored).
 
@@ -466,6 +469,9 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | 64 | Fixed (session 15) | The storefront e2e cardinality pins hard-coupled to absolute demo-DB row counts (the S14-4 data-depletion class, no restore guard for `isActive`) | Restore harness re-activates deactivated seed products; e2e pins the count FORMAT + seeded slugs; the exact seed constants moved to `seed-catalog.test.ts` (S15-2) |
 | 65 | Fixed (session 15) | The hero carousel constructed a fresh MediaQueryList on every `getSnapshot` read | Module-level lazy MQL cache (S15-5) |
 | 66 | Accepted | The order-number allocation-exhaustion (5× P2002 on the NUMBER → 500) and the sitemap DB-failure fallback were unpinned | Both pinned in session 15 (C1 mocked-`$transaction` exhaustion pin; C2 sitemap fallback/product-URL pins). Remaining carried debt: checkout `saveAddress` at-cap skip-save integration seam, review action two-tier gate pin, route-level 429 wiring beyond the representatives. |
+| 67 | Fixed (session 16) | The wishlist cap was check-then-create — concurrent POSTs at cap − 1 both counted 99 and both created (the loser's P2002 mapped to `inWishlist: true`), permanently overshooting `MAX_WISHLIST_ITEMS` | `createWishlistItemInTx`: the tx creates FIRST (taking SQLite's write lock), counts under the lock, throws `WishlistCapError` over the cap (create rolls back; friendly 409) — the S11-6 shape applied to the one remaining create path (S16-1). Route boundary + ordering pinned (`session16-hardening.test.ts`). |
+| 68 | Fixed (session 16) | The open cart drawer declared `aria-modal="true"` but background content stayed keyboard-tabbable (the carried S8-7 deferral) | `StoreChrome` renders the whole page shell (`page-shell`) with `inert={cartDrawerOpen}`; a Tab-wrap handler cycles focus inside the drawer (Chromium drops to browser chrome at the last control instead of wrapping); focus moves to the close button on open and returns to the opener on close (S16-3). E2e-pinned (open-state modal case). |
+| 69 | Accepted (session 16) | The S15-5 MediaQueryList cache was implemented but unpinned (a regression would pass all tests); three JSON bodies parsed through route-local Zod schemas | C5 jsdom component test pins ONE MQL construction + rotation + reduced-motion; the schemas hoisted into `validation.ts` (`wishlistToggleSchema` / `cartLinePatchSchema` / `couponApplySchema`) with unit pins (S16-2/S16-4). Remaining carried debt: login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, checkout `saveAddress` at-cap skip-save integration pin, review action two-tier gate pin, admin coupon-management UI, real mailer/payment epics. |
 
 ---
 

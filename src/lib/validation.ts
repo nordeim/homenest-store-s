@@ -84,6 +84,27 @@ export const cartBulkSchema = z.object({
     .max(100),
 });
 
+/**
+ * Session-16 S16-2: hoisted from route-local definitions so every external
+ * body parses through the same single-source boundary module. The wishlist
+ * toggle guards `/api/wishlist` POST; the cart-line PATCH schema keeps the
+ * PATCH-specific 0-deletes-line floor (the POST schema above requires ≥ 1 —
+ * a zero quantity on POST is meaningless, on PATCH it removes the line).
+ */
+export const wishlistToggleSchema = z.object({
+  productId: z.string().min(1),
+});
+
+export const cartLinePatchSchema = z.object({
+  lineId: z.string().min(1),
+  quantity: z.number().int().min(0).max(99),
+});
+
+/** Mirrors the 40-char coupon cap of `checkoutSchema.couponCode`. */
+export const couponApplySchema = z.object({
+  code: z.string().trim().min(1, "Enter a coupon code").max(40, "That code is too long"),
+});
+
 export const checkoutSchema = z.object({
   email: emailSchema,
   customerName: z.string().trim().min(2, "Full name is required").max(80),

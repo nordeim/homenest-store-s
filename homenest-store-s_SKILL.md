@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.12.0
+version: 1.13.0
 last_updated: 2026-10-13
-project_state: "299 unit tests · 62 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-15)"
+project_state: "313 unit tests · 63 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-16)"
 tags:
   - nextjs16
   - react19
@@ -1080,6 +1080,45 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   product-URL pins (mocked `db.product.findMany`).
 - 299 unit + 62 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/README/
   PAD/SKILL/DEPLOYMENT aligned; run narrative at `docs/session_23.md`.
+
+
+### Session 16 — modal-integrity hardening + boundary single-sourcing (2026-10-13, v1.13.0)
+
+- Re-validated session-15 on the pulled tree (`e327c82`): all gates green
+  (299 unit / 62 e2e), live-reference parity re-verified (reference
+  unchanged — same nav/hero/categories, Damascus-first order; mobile menu
+  open → 7-link panel → navigate → auto-close on the production build; zero
+  console errors).
+- Fresh deep audit (read-only subagent 17-a + own file:line verification):
+  session-15 fixes 6/7 WIRED + 1 PARTIAL (S15-5 implemented but unpinned →
+  S16-4); older-fix spot-checks 7/7 WIRED; new findings **0 CRITICAL /
+  0 HIGH / 0 MEDIUM / 2 LOW / 2 NIT / 0 doc-drift** — the fourth
+  consecutive session without a CRITICAL/HIGH/MEDIUM.
+- Fixes (TDD — RED first): **S16-1** the wishlist cap was check-then-create
+  (concurrent POSTs at cap − 1 both created; the P2002 loser mapped to
+  `inWishlist: true`, permanently overshooting the cap) — the AUTHORITATIVE
+  gate moved inside the create transaction (`createWishlistItemInTx`:
+  create FIRST, count under the write lock, `WishlistCapError` rolls the
+  create back; the S11-6 shape; the pre-create check is fast-fail UX only);
+  **S16-3** the open cart drawer declared `aria-modal` but the background
+  stayed keyboard-tabbable (the carried S8-7 deferral) — `StoreChrome` now
+  renders the whole page shell (`page-shell`) with `inert={cartDrawerOpen}`
+  (the layout passes main/footer through the client component as props),
+  plus a Tab-wrap handler (Chromium drops focus to browser chrome at the
+  last control instead of wrapping) and opener-capture/focus-restore dialog
+  semantics; **S16-2** the three route-local Zod schemas hoisted into
+  validation.ts (`wishlistToggleSchema`, `cartLinePatchSchema` — keeping
+  the PATCH 0-deletes-line floor — `couponApplySchema`); **S16-4** the
+  S15-5 MQL cache pinned by the suite's second component test
+  (`hero-carousel.test.tsx`: jsdom + fake timers + per-test
+  `vi.resetModules()` for the module-level cache; next/image/link stubbed).
+- Coverage pins: C3/C4 wishlist route boundary + create-first ordering
+  (mocked `db` + `next/headers`, unique single-hop XFF per request); C5
+  carousel cache/motion pins. E2e: the S16-3 open-drawer modal pin
+  (shell inert, 25 Tabs stay inside the drawer, Escape → focus returns to
+  the header cart toggle).
+- 313 unit + 63 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/README/
+  PAD/SKILL/DEPLOYMENT aligned; run narrative at `docs/session_25.md`.
 
 
 ## Appendix C — Quick Reference Card

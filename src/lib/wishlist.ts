@@ -51,6 +51,38 @@ export async function assertWishlistCap(
   }
 }
 
+/** Minimal transaction-client shape `createWishlistItemInTx` touches. */
+export interface WishlistTxClient {
+  wishlistItem: {
+    create: (args: { data: { wishlistId: string; productId: string } }) => Promise<unknown>;
+    count: (args: { where: { wishlistId: string } }) => Promise<number>;
+  };
+}
+
+/**
+ * Create a wishlist item with the AUTHORITATIVE cap gate (session-16 S16-1,
+ * mirroring the address book's post-create gate — session-11 S11-6): on
+ * SQLite the write lock lands at the first WRITE, so a pre-create count lets
+ * concurrent POSTs at cap − 1 serialize past their reads and both create.
+ * The transaction creates FIRST (taking the lock), counts UNDER the lock,
+ * and throws `WishlistCapError` when over — the interactive transaction rolls
+ * the create back, and the route maps the error to the same friendly 409.
+ * The pre-create `assertWishlistCap` on `db` stays as the fast-fail UX check
+ * only. Unit-pinned (create-first ordering + the overflow throw) in
+ * `tests/unit/session16-hardening.test.ts`.
+ */
+export async function createWishlistItemInTx(
+  tx: WishlistTxClient,
+  wishlistId: string,
+  productId: string,
+): Promise<void> {
+  await tx.wishlistItem.create({ data: { wishlistId, productId } });
+  const postCreateCount = await tx.wishlistItem.count({ where: { wishlistId } });
+  if (postCreateCount > MAX_WISHLIST_ITEMS) {
+    throw new WishlistCapError(MAX_WISHLIST_ITEMS);
+  }
+}
+
 /**
  * Plan the guest→user wishlist merge (session-10 S10-4). The old merge
  * upserted EVERY guest item unconditionally — the one create path outside

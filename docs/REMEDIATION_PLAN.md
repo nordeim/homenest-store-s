@@ -1133,3 +1133,64 @@ Live-reference parity re-verified against the LIVE reference (agent-browser, log
 - [x] Screenshots refreshed; docs sweep; worklog updated
 
 **Post-remediation totals (session 15):** see the session-15 run narrative (`docs/session_23.md`) for the final counts.
+
+---
+
+# Session 16 — Post-push audit & modal-integrity hardening (2026-10-13)
+
+> **Status:** PLANNED → executed this run (run 17; narrative in `docs/session_25.md`)
+> **Scope:** Session-16 cycle on the session-15-completed tree (`e327c82` + operator `session_24.md`). Read-only subagent audit (17-a) over `src/`, `prisma/`, `scripts/`, `tests/`, root configs via the repo `code-review-checklist` skill; every finding personally re-verified with file:line evidence before planning. `skills/` excluded throughout.
+
+## 1. Re-validation (all session-15 gates green on the pulled tree)
+
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · **299/299 unit** ✓ · build ✓ · **62/62 e2e** ✓ (sandbox `DATABASE_URL` shadow converged via the documented symlink `/home/z/my-project/db → <repo>/db`; `.env` carries the `file:../db/custom.db` contract; `db/custom.db` pushed + seeded: 16 products / 8 categories).
+
+Live-reference parity re-verified against the LIVE reference (agent-browser): reference unchanged — same nav anatomy, same hero ("New Arrivals" / "Elevate Your Kitchen" / "Sale Up to 40% Off"), same 8 category tiles, same featured set (Damascus Steel Chef Knife Set first on Featured AND New Arrivals, −29% / 412 / $199.99), mobile panel = the 5 main links + search + X close. Clone re-verified on the production build (iPhone 390×844): **mobile menu open → 7-link panel → navigate → auto-close/unmount** (Tailwind v4 conditional-mount intact); `/products` renders Damascus-first; zero console errors.
+
+## 2. Session-15 fix verification (read-only subagent 17-a + spot-checks)
+
+**6/7 WIRED · 1 PARTIAL · 0 MISSING.** S15-1 in-budget assertion (`api-boundaries.test.ts:166-167`), S15-2 restore-`isActive` + format pins + seed-catalog pin, S15-3 all-14 `Retry-After`, S15-4 `clampSearchTerm` ×4 consumers, C1 exhaustion pin, C2 sitemap fallback pin — all WIRED with file:line evidence. **S15-5 PARTIAL**: the MQL cache is implemented (`hero-carousel.tsx:32-36`) but pinned by no test → S16-4 closes it. Older-fix spot-checks **7/7 WIRED** (S13-3, S13-1, S13-4, S12-4, S9-1, S8-6/S10-4, S6-8/S7-2).
+
+## 3. Session-16 audit findings (evidence-based)
+
+**0 CRITICAL / 0 HIGH / 0 MEDIUM / 2 LOW / 2 NIT / 0 doc-drift** — counts re-verified (299 unit · 62 e2e · 18 models · 16 products · 11/11 admin actions requireAdmin'd · 8/8 POST bodies Zod-gated). Fourth consecutive session without a CRITICAL/HIGH/MEDIUM.
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| S16-1 | LOW | **The wishlist cap is still check-then-create** — concurrent POSTs at cap−1 both count 99 and both create (the loser's P2002 maps to `inWishlist: true`), permanently overshooting `MAX_WISHLIST_ITEMS` (nothing trims). Session-11 S11-6 fixed the IDENTICAL SQLite race for addresses by creating first and counting post-create under the write lock; the wishlist POST is the one create path still on the older pattern (the login merge IS cap-truncated via `planWishlistMerge`). Impact bounded (a few rows over 100, hidden behind the page's `take`), no security effect. | `src/app/api/wishlist/route.ts:58-75` vs `src/app/api/addresses/route.ts:79-81` |
+| S16-2 | NIT | **Three JSON bodies parse through route-local Zod schemas instead of `src/lib/validation.ts` exports** — the "single-source boundary" invariant is drifted: `wishlistToggleSchema` (route-local), `applySchema` (route-local, duplicates the 40-char coupon cap already in `checkoutSchema.couponCode`), and the cart PATCH's inline `z.object`. All inputs still Zod-gated before Prisma (zero security impact) — consistency/duplication only. | `api/wishlist/route.ts:10-12`, `api/coupon/apply/route.ts:15-17`, `api/cart/route.ts:93-95` |
+| S16-3 | LOW | **The open cart drawer declares `aria-modal="true"` but the background stays keyboard-tabbable.** The `<aside role="dialog">` is `inert` only when CLOSED (S13-3); while open, nothing inert-izes the page behind it, so Tab walks out of the "modal" into background content — a screen-reader/keyboard mismatch. **This IS the carried S8-7 deferral** (drawer OPEN-state focus containment), now evidence-classified. Escape + close button work; only the containment is missing. | `src/components/store/store-chrome.tsx:163-179` |
+| S16-4 | NIT | **S15-5 has no test pin** (the audit's only PARTIAL): a regression back to per-read `matchMedia` would pass all 361 tests. The suite's jsdom component-test pattern (`toaster.test.tsx`) can pin the cache: exactly ONE MediaQueryList construction across mount + timer-driven re-renders + prop rerenders. | `hero-carousel.tsx:32-36`; only component test is `toaster.test.tsx` |
+
+### Doc drift this session: none
+
+(README badge 299/62 + 18 models = actual; AGENTS.md limiter grid + 13 admin catch blocks + all-14-Retry-After = actual; SKILL.md project_state current.)
+
+### Coverage pins added this session (from the audit's gap list)
+
+| # | Gap | Pin |
+|---|---|---|
+| C3 | **Wishlist POST route boundary** (at-cap 409 via the TX gate, P2002-in-tx → `inWishlist: true`, normal create) unpinned at route level | Unit (mocked `db` + `next/headers`, api-boundaries pattern): pre-check 99 → tx count 101 → 409 friendly message; tx create P2002 → 200 `{ inWishlist: true }`; happy path → 200 |
+| C4 | **`createWishlistItemInTx` create-first ordering** unpinned | Unit (fake tx client): create called before count; count > cap rejects `WishlistCapError` AFTER the create; count === cap resolves |
+| C5 | **Hero carousel MQL cache + motion behavior** unpinned (S16-4) | jsdom component test: one `matchMedia` construction across mount + auto-rotate re-renders + rerender; auto-rotation advances slides; reduced-motion freezes them |
+
+**Accepted / carried deferrals (unchanged except S8-7):** drawer OPEN-state focus containment **CLOSED this session by S16-3**; remaining — login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, checkout saveAddress at-cap skip-save integration pin, review action two-tier gate pin (actions not import-safe in Vitest), route-level 429 wiring pins beyond the S14-2 representatives, checkout coupon-cap concurrency harness, review two-tier budgets e2e, 404-shell CSP nonce, `__Host-` prefix, shared-store limiter, admin coupon-management UI, real mailer/payment epics.
+
+## 4. Remediation plan (TDD)
+
+1. **S16-1** — pure `createWishlistItemInTx(tx, wishlistId, productId)` in `src/lib/wishlist.ts` (minimal `WishlistTxClient` interface): create FIRST, then post-create `count` under the write lock, throw `WishlistCapError` when `> MAX_WISHLIST_ITEMS` (the interactive tx rolls the create back). The wishlist POST wires it through `db.$transaction`; the pre-create `assertWishlistCap` stays as the fast-fail UX 409; the tx catch maps `WishlistCapError` → the same friendly 409 and P2002 → `{ inWishlist: true }` (preserved S8-4 double-click semantics).
+2. **S16-2** — hoist `wishlistToggleSchema`, `cartLinePatchSchema` (int 0..99 — PATCH's 0-deletes-line semantics, unlike POST's 1..99), and `couponApplySchema` (trim + min-1 + 40-char cap) into `src/lib/validation.ts`; the three routes import them; route-local `z` plumbing removed.
+3. **S16-3** — restructure the storefront layout so `StoreChrome` (client) renders the page shell: `<div data-testid="page-shell" inert={cartDrawerOpen} className="flex min-h-screen flex-col">` wraps header + MobileNav + `children` (main) + `footer` (passed as props — server-rendered nodes through a client component); the backdrop + drawer render OUTSIDE it. Native focus containment (inert skips in tab order — no JS trap loop, no display-utility toggling). CartDrawer's a11y effect also captures the opener at open and restores focus on close (native dialog semantics). SSR/hydration-safe: the context starts `false` on both sides.
+4. **S16-4** — `tests/unit/hero-carousel.test.tsx` (jsdom docblock + fake timers + `vi.resetModules()` per test for the module-level cache): `matchMedia` spy construction count === 1 across mount + interval re-renders + rerender; auto-rotation advances the active slide; reduced-motion freezes it. `next/image`/`next/link` stubbed (assertions are on cache + slide state, not media).
+5. **C3/C4** — `tests/unit/session16-hardening.test.ts`: fake-tx ordering pins + the wishlist-route boundary pins (mocked `db` + `next/headers` guest wishlist token; unique rightmost-XFF hop per request — the api-boundaries limiter-isolation convention; `session.deleteMany` stubbed for the void sweep).
+6. **C5-e2e** — `tests/e2e/shopping-flow.spec.ts` gains an S16-3 modal pin: open drawer → `page-shell` carries `inert`; 25 Tabs from the close button stay inside `[data-testid="cart-drawer"]`; Escape closes → shell un-inerted + focus restored to the header cart toggle.
+7. **DOC** — AGENTS.md (wishlist-cap invariant updated to the S11-6 shape + the S16-3 shell-inert invariant + S8-7 closed), CLAUDE.md (coverage lists + layout note), README (badge counts + wishlist/features rows), PAD (§8 tables + known-issues ledger), SKILL.md v1.13.0 (project_state + Appendix B), DEPLOYMENT.md (unchanged unless the sweep surfaces drift), `.env.example` unchanged, `docs/session_25.md` (run-17 narrative), worklog, screenshots refreshed.
+
+## 5. Execution log (session 16)
+
+- [ ] RED — `tests/unit/session16-hardening.test.ts` (C3/C4) + validation schema pins
+- [ ] RED — e2e S16-3 modal pin against the pre-fix standalone build
+- [ ] GREEN — S16-1 tx gate + route wiring; S16-2 schema hoist ×3; S16-3 shell restructure + focus restore
+- [ ] Coverage — hero-carousel component test (C5)
+- [ ] Full gate chain re-run green; manual agent-browser verification (drawer modal behavior, mobile menu regression check, wishlist toggle)
+- [ ] Screenshots refreshed; docs sweep; worklog updated

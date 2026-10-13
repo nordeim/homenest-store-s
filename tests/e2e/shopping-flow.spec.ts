@@ -32,6 +32,40 @@ test.describe("shopping flow", () => {
     await expect(drawer).toHaveAttribute("inert", "");
   });
 
+  test("the open cart drawer is a real modal (S16-3)", async ({ page }) => {
+    await gotoHydrated(page, "/products");
+    await page.locator("article").first().getByRole("button", { name: "Add to Cart" }).click();
+    await expect(page.getByTestId("cart-count")).toHaveText("1");
+
+    const drawer = page.getByTestId("cart-drawer");
+    const shell = page.getByTestId("page-shell");
+    // RED pre-fix: the shell carried no inert attribute while the drawer was
+    // open — the aria-modal dialog left the whole page keyboard-reachable.
+    await page.getByRole("button", { name: /^Cart/ }).click();
+    await expect(drawer).toBeVisible();
+    await expect(shell).toHaveAttribute("inert", "");
+
+    // Native focus containment: with every background control inert, Tab from
+    // the close button can only cycle INSIDE the dialog (25 presses must wrap
+    // the drawer's own focusables, never escape them).
+    await drawer.getByRole("button", { name: "Close cart" }).focus();
+    for (let i = 0; i < 25; i += 1) await page.keyboard.press("Tab");
+    const focusInsideDrawer = await page.evaluate(
+      () => Boolean(document.activeElement?.closest('[data-testid="cart-drawer"]')),
+    );
+    expect(focusInsideDrawer).toBe(true);
+
+    // Escape closes; the shell un-inerts and focus returns to the opener
+    // (the header cart toggle) — native dialog semantics.
+    await page.keyboard.press("Escape");
+    await expect(drawer).toHaveAttribute("inert", "");
+    await expect(shell).not.toHaveAttribute("inert");
+    const restoredLabel = await page.evaluate(() =>
+      document.activeElement?.getAttribute("aria-label"),
+    );
+    expect(restoredLabel).toMatch(/^Cart/);
+  });
+
   test("full guest checkout places an order", async ({ page }) => {
     await gotoHydrated(page, "/products");
     await page.locator("article").first().getByRole("button", { name: "Add to Cart" }).click();

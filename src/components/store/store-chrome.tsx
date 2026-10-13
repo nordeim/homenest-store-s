@@ -13,33 +13,54 @@ import { MobileNav } from "./mobile-nav";
 
 /**
  * StoreChrome — the sticky header wrapper (reference DOM order): sticky
- * header bar, then the mobile push-down nav panel. The cart drawer rides
- * at the end so it overlays everything.
+ * header bar, then the mobile push-down nav panel, then the page body and
+ * footer inside ONE inert-able shell, with the cart drawer riding at the end
+ * so it overlays everything.
  */
 export function StoreChrome({
   user,
   cartCount,
+  children,
+  footer,
 }: {
   user: { name: string; role: string } | null;
   cartCount: number;
+  children?: React.ReactNode;
+  footer?: React.ReactNode;
 }) {
   // The store's cartCount is null on BOTH the server and the client until the
   // first in-page mutation, so the SSR markup (and every fresh load) falls
   // back to the server-computed prop — no hydration guard (and no
   // set-state-on-mount effect) is needed. (Context type is `number | null`,
   // session-9 S9-1 — initializing at 0 made this fallback dead code.)
-  const { cartCount: liveCount } = useStore();
+  const { cartCount: liveCount, cartDrawerOpen } = useStore();
   const count = liveCount ?? cartCount;
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur">
-        <Header user={user} cartCount={count} />
-      </header>
-      <MobileNav
-        isAuthenticated={Boolean(user)}
-        isAdmin={user?.role === "admin"}
-      />
+      {/* Session-16 S16-3: while the cart drawer is open (role="dialog" +
+          aria-modal="true") the page behind it must be inert — the dialog
+          declared modal semantics but the background stayed keyboard-tabbable
+          (the carried S8-7 deferral, closed here). `inert` is a boolean
+          attribute, not a display utility, so the Tailwind v4 trap does not
+          apply; the SSR/client contexts both start closed, so hydration is
+          unaffected. Native focus containment: inert content is skipped by
+          Tab, so focus cycles inside the dialog with no JS trap loop. */}
+      <div
+        data-testid="page-shell"
+        inert={cartDrawerOpen}
+        className="flex min-h-screen flex-col"
+      >
+        <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur">
+          <Header user={user} cartCount={count} />
+        </header>
+        <MobileNav
+          isAuthenticated={Boolean(user)}
+          isAdmin={user?.role === "admin"}
+        />
+        {children}
+        {footer}
+      </div>
       <CartDrawer />
     </>
   );
@@ -86,14 +107,51 @@ function CartDrawer() {
     };
   }, [cartDrawerOpen, setCartCount]);
 
-  // a11y: Escape closes the dialog, and focus moves to the close button when
-  // the drawer opens (keyboard users land somewhere meaningful, not at body).
+  // a11y: Escape closes the dialog; focus moves to the close button when the
+  // drawer opens, and returns to the opener when it closes (native dialog
+  // semantics — the shell is no longer inert by then; S16-3). While open,
+  // Tab wraps INSIDE the dialog: the shell's `inert` keeps background content
+  // out of the tab order, but Chromium drops focus to browser chrome at the
+  // drawer's last control instead of wrapping — the wrap handler closes that
+  // gap (the S8-7 OPEN-state focus trap, in its native-behavior form).
   const closeRef = React.useRef<HTMLButtonElement>(null);
+  const openerRef = React.useRef<HTMLElement | null>(null);
+  const drawerRef = React.useRef<HTMLElement>(null);
   React.useEffect(() => {
-    if (!cartDrawerOpen) return;
+    if (!cartDrawerOpen) {
+      openerRef.current?.focus();
+      openerRef.current = null;
+      return;
+    }
+    openerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setCartDrawerOpen(false);
+      if (event.key === "Escape") {
+        setCartDrawerOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const scope = drawerRef.current;
+      if (!scope) return;
+      const focusables = scope.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (!first || !last) return;
+      const current = document.activeElement;
+      const inside = current instanceof HTMLElement && scope.contains(current);
+      if (event.shiftKey) {
+        if (!inside || current === first) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (!inside || current === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -165,6 +223,7 @@ function CartDrawer() {
         aria-modal="true"
         aria-label="Shopping cart"
         data-testid="cart-drawer"
+        ref={drawerRef}
         // Session-13 S13-3: the panel is always mounted for the transform
         // animation (the Tailwind v4-safe pattern), but a transform does NOT
         // remove elements from the tab order or the accessibility tree — a

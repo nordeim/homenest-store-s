@@ -41,7 +41,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
   const websiteJsonLd = buildWebsiteJsonLd({ baseUrl: siteUrl, name: settings.storeName });
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div>
       {/* Site-wide structured data (schema.org Organization + WebSite).
           Data blocks — CSP script-src does not apply to ld+json. Serialized
           through jsonLdScript (session-7 S7-9): `<` and line separators are
@@ -54,21 +54,32 @@ export default async function StorefrontLayout({ children }: { children: React.R
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdScript(websiteJsonLd) }}
       />
-      <StoreChrome user={user} cartCount={cartCount} />
-      <main className="flex-1">{children}</main>
-      <Footer
-        settings={{
-          storeName: settings.storeName,
-          tagline: settings.tagline,
-          contactEmail: settings.contactEmail,
-          contactPhone: settings.contactPhone,
-          address: settings.address,
-          socialFacebook: settings.socialFacebook,
-          socialInstagram: settings.socialInstagram,
-          socialPinterest: settings.socialPinterest,
-          socialTikTok: settings.socialTikTok,
-        }}
-      />
+      {/* Session-16 S16-3: StoreChrome renders the page shell (header + nav +
+          main + footer) so the whole background can be inert while the cart
+          drawer — its aria-modal dialog — is open. Server-rendered nodes pass
+          through the client component as props (main as children, footer as
+          the `footer` prop). */}
+      <StoreChrome
+        user={user}
+        cartCount={cartCount}
+        footer={
+          <Footer
+            settings={{
+              storeName: settings.storeName,
+              tagline: settings.tagline,
+              contactEmail: settings.contactEmail,
+              contactPhone: settings.contactPhone,
+              address: settings.address,
+              socialFacebook: settings.socialFacebook,
+              socialInstagram: settings.socialInstagram,
+              socialPinterest: settings.socialPinterest,
+              socialTikTok: settings.socialTikTok,
+            }}
+          />
+        }
+      >
+        <main className="flex-1">{children}</main>
+      </StoreChrome>
     </div>
   );
 }

@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   addressSchema,
   clampSearchTerm,
+  cartLinePatchSchema,
   cartMutateSchema,
   checkoutSchema,
   contactSchema,
+  couponApplySchema,
   firstError,
   loginSchema,
   registerSchema,
@@ -13,6 +15,7 @@ import {
   trackOrderSchema,
   carouselSlideInputSchema,
   productInputSchema,
+  wishlistToggleSchema,
 } from "@/lib/validation";
 
 describe("registerSchema", () => {
@@ -279,5 +282,48 @@ describe("clampSearchTerm (S15-4)", () => {
 
   it("honors a custom cap", () => {
     expect(clampSearchTerm("abcdefghij", 4)).toBe("abcd");
+  });
+});
+
+describe("wishlistToggleSchema (S16-2 hoist)", () => {
+  it("requires a non-empty productId", () => {
+    expect(wishlistToggleSchema.safeParse({ productId: "p1" }).success).toBe(true);
+    expect(wishlistToggleSchema.safeParse({ productId: "" }).success).toBe(false);
+    expect(wishlistToggleSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("cartLinePatchSchema (S16-2 hoist)", () => {
+  it("keeps the PATCH 0-deletes-line semantics the POST schema forbids", () => {
+    expect(cartLinePatchSchema.safeParse({ lineId: "l1", quantity: 0 }).success).toBe(true);
+    expect(cartMutateSchema.safeParse({ productId: "p1", quantity: 0 }).success).toBe(false);
+  });
+
+  it("bounds quantity to integer 0..99", () => {
+    expect(cartLinePatchSchema.safeParse({ lineId: "l1", quantity: 99 }).success).toBe(true);
+    expect(cartLinePatchSchema.safeParse({ lineId: "l1", quantity: 100 }).success).toBe(false);
+    expect(cartLinePatchSchema.safeParse({ lineId: "l1", quantity: 1.5 }).success).toBe(false);
+    expect(cartLinePatchSchema.safeParse({ lineId: "l1", quantity: -1 }).success).toBe(false);
+    expect(cartLinePatchSchema.safeParse({ lineId: "", quantity: 1 }).success).toBe(false);
+  });
+});
+
+describe("couponApplySchema (S16-2 hoist)", () => {
+  it("trims and enforces the same 40-char cap as checkoutSchema.couponCode", () => {
+    const parsed = couponApplySchema.safeParse({ code: "  WELCOME10  " });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.code).toBe("WELCOME10");
+
+    const long = "x".repeat(41);
+    const tooLong = couponApplySchema.safeParse({ code: long });
+    expect(tooLong.success).toBe(false);
+    if (!tooLong.success) expect(firstError(tooLong.error)).toBe("That code is too long");
+    expect(couponApplySchema.safeParse({ code: "x".repeat(40) }).success).toBe(true);
+  });
+
+  it("gives the friendly empty-code message", () => {
+    const empty = couponApplySchema.safeParse({ code: "   " });
+    expect(empty.success).toBe(false);
+    if (!empty.success) expect(firstError(empty.error)).toBe("Enter a coupon code");
   });
 });

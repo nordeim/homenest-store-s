@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { findCartId, getCartSummary } from "@/lib/cart";
 import { applyCouponCode, findActiveCoupon } from "@/lib/coupons";
-import { firstError } from "@/lib/validation";
+import { couponApplySchema, firstError } from "@/lib/validation";
 
 /** The payload CouponBox / checkout render from. */
 export type CouponApplyResponse =
   | { ok: true; code: string; discount: number; label: string; description: string }
   | { ok: false; error: string };
-
-const applySchema = z.object({
-  code: z.string().trim().min(1, "Enter a coupon code").max(40, "That code is too long"),
-});
 
 /**
  * POST /api/coupon/apply — validate a coupon code against the caller's cart.
@@ -32,7 +27,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json<CouponApplyResponse>({ ok: false, error: "Invalid JSON body." }, { status: 400 });
   }
   try {
-    const parsed = applySchema.safeParse(body);
+    const parsed = couponApplySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json<CouponApplyResponse>({ ok: false, error: firstError(parsed.error) });
     }
