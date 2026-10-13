@@ -15,10 +15,10 @@ import { useToast } from "@/components/ui/toaster";
 export const COUPON_STORAGE_KEY = "homenest_coupon";
 
 type CouponApplyResponse =
-  | { ok: true; code: string; discount: number; label: string; description: string }
+  | { ok: true; code: string; discount: number; label: string; description: string; freeShipping?: true }
   | { ok: false; error: string };
 
-type AppliedCoupon = { code: string; discount: number; label: string; description: string };
+type AppliedCoupon = { code: string; discount: number; label: string; description: string; freeShipping?: true };
 
 /**
  * CouponBox — coupon code entry for the cart summary card. Applies via
@@ -147,7 +147,9 @@ export function CouponBox({ className }: { className?: string }) {
           {error}
         </p>
       )}
-      <p className="mt-2 text-xs text-muted-foreground">Try WELCOME10, SAVE20 or FREESHIP</p>
+      {/* Session-20 S20-7: only the evergreen codes are advertised — SAVE20
+          caps at 500 redemptions and would dead-end the hint once burned. */}
+      <p className="mt-2 text-xs text-muted-foreground">Try WELCOME10 or FREESHIP</p>
     </div>
   );
 }

@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.16.0
+version: 1.17.0
 last_updated: 2026-10-13
-project_state: "360 unit tests · 64 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-19; admin coupon management delivered)"
+project_state: "379 unit tests · 65 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-20; admin coupon management + the first-class free_shipping coupon type delivered)"
 tags:
   - nextjs16
   - react19
@@ -1205,7 +1205,6 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   (no new env vars); run narrative at `docs/session_29.md`.
 
 ### Session 19 — coupon management + module-graph trap (2026-10-13, v1.16.0)
-
 - Re-validated session-18 on a fresh clone (`9a3d22e` = `67861e3` + operator
   `session_30.md`): all gates green (334 unit / 63 e2e). Environment: the
   prior sessions' convergence symlink was found DANGLING (an old workspace
@@ -1255,6 +1254,66 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   `15b-admin-coupons`); AGENTS/CLAUDE/README/PAD/SKILL aligned;
   DEPLOYMENT.md drift-free; `.env.example` unchanged; run narrative at
   `docs/session_31.md`.
+
+### Session 20 — free_shipping engine + e2e isolation (2026-10-13, v1.17.0)
+
+- Re-validated session-19 on a fresh clone (`9ed652d` = `9dad2fc` +
+  operator `session_32.md`): gates green EXCEPT one e2e failure
+  (`admin-coupons.spec.ts:46`) — investigated, root-caused, and turned into
+  the session's first finding (below). Environment: the sandbox re-exports
+  `DATABASE_URL=file:/home/z/my-project/db/custom.db` and the convergence
+  symlink pointed at the fresh clone's db dir — the FIRST `db:push` with an
+  explicit `DATABASE_URL=file:../db/custom.db` override created
+  `<repo>/db/custom.db`, and the pre-existing symlink resolved both paths
+  onto one inode (seed verified 16/8/3/2 constants).
+- Live-reference parity re-verified via agent-browser (reference unchanged
+  — mobile panel = 5 links + close; logged in with the provided
+  credentials); clone verified: mobile menu open → 7 links → navigate →
+  auto-close/unmount; sitemap = 25 public URLs; robots + JSON-LD; desktop
+  parity; zero console errors.
+- Fresh deep audit (read-only subagent 21-a + own file:line verification):
+  session-19 fixes **ALL WIRED** (incl. the Turbopack trap staying closed);
+  older-fix spot-checks **10/10 WIRED** (14/14 Retry-After, 4/4
+  clampSearchTerm, all seven guarded helpers, credential boundary, v4
+  pattern, MAX_CART_QUANTITY single-sourcing); static counts re-verified
+  (360/38 files · 64/13 specs · 18 models · 13 requireAdmin · 14 metered
+  sites · 16 catch blocks across SIX files); new findings **0 CRITICAL /
+  0 HIGH / 0 MEDIUM / 1 LOW code + 1 LOW doc / 2 NIT / 4 Informational** —
+  the eighth consecutive session without a CRITICAL/HIGH/MEDIUM.
+- **S20-1 (High, test reliability — the observed failure)**: the
+  admin-coupons spec pinned an absolute cart-badge "1" on the DURABLE admin
+  cart (a Playwright actionability re-dispatch double-fired the Add-to-Cart
+  POST — badge "2"→"3" observed live) and was not idempotent (an aborted
+  prior run left an active SESSION5 breaking the next create). Fixed: the
+  cart is seeded through the `request` fixture with a snapshot-restore
+  cleanup, the setup self-heals a leftover code via delete-before-create,
+  and the cart-line leak is gone ("as found" holds). The two observed
+  failures WERE the RED evidence; the isolation convention is documented in
+  AGENTS.md.
+- **S20-2 (Low, the audit's F1)**: the coupon active-toggle round-tripped
+  EVERY field from the rendered snapshot through `upsertCouponAction`
+  (silent lost-update + expiry renormalization) — replaced with the narrow
+  `toggleCouponActiveAction` (writes ONLY `isActive`, P2025 narrowed,
+  unknown rethrown; the `toggleProductActiveAction` precedent), unit-pinned
+  in `session20-hardening.test.ts`.
+- **S20-6 (feature — the audit's I1 at the engine level)**: the
+  first-class `free_shipping` coupon type — `couponLabel` → "Free
+  shipping", `couponDiscount` → discount 0 + `freeShipping: true`
+  (minSubtotal enforced), `computeOrderMoney.couponFreeShipping` zeroes
+  shipping for BOTH methods independent of the spend threshold, the
+  checkout mirror + `CouponApplyResponse` carry the flag, `couponInputSchema`
+  pins value at 0, the dialog offers the type (value hidden; value reset on
+  type switch — S20-5), the seed row ships the real type (create-only:
+  fresh DBs get it; existing DBs keep the fixed row — both work), and the
+  checkout increment's atomic guard gains the always-on `isActive` clause
+  (`couponRedemptionFilter` — the audit's I4). The cart hint drops the
+  capped SAVE20 (S20-7). S20-3/S20-4 close the doc-drift items (catch count
+  13→16 across six files; the stale seed comment).
+- 379 unit + 65 e2e green (the new `free-shipping-coupon.spec.ts` pins the
+  full money path through the SERVER-derived receipt's "FREE"); 24
+  screenshots refreshed; AGENTS/CLAUDE/README/PAD/SKILL aligned;
+  DEPLOYMENT.md drift-free; `.env.example` unchanged; run narrative at
+  `docs/session_33.md`.
 
 
 ## Appendix C — Quick Reference Card

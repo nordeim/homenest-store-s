@@ -99,3 +99,29 @@ describe("computeOrderMoney", () => {
     expect(money).toEqual({ taxable: 17999, shipping: 0, tax: 1350, total: 19349 });
   });
 });
+
+describe("computeOrderMoney — couponFreeShipping (session-20 S20-6)", () => {
+  it("forces $0 shipping for BOTH methods, independent of the spend threshold", () => {
+    const belowThreshold = { ...BASE, subtotal: 4299, discount: 0, shippingMethod: "standard" as const, couponFreeShipping: true };
+    expect(computeOrderMoney(belowThreshold).shipping).toBe(0);
+    const express = { ...belowThreshold, shippingMethod: "express" as const };
+    expect(computeOrderMoney(express).shipping).toBe(0);
+  });
+
+  it("keeps tax on the taxable amount and totals taxable + tax (no shipping)", () => {
+    const money = computeOrderMoney({ ...BASE, subtotal: 4299, discount: 0, shippingMethod: "standard", couponFreeShipping: true });
+    expect(money.taxable).toBe(4299);
+    expect(money.tax).toBe(322);
+    expect(money.total).toBe(4299 + 322);
+  });
+
+  it("interacts correctly with a merchandise discount (taxable floors at 0)", () => {
+    const money = computeOrderMoney({ ...BASE, subtotal: 19999, discount: 2000, shippingMethod: "express", couponFreeShipping: true });
+    expect(money).toEqual({ taxable: 17999, shipping: 0, tax: 1350, total: 19349 });
+  });
+
+  it("changes nothing when the flag is absent (regression guard)", () => {
+    const money = computeOrderMoney({ ...BASE, subtotal: 4299, discount: 0, shippingMethod: "standard" });
+    expect(money.shipping).toBe(695);
+  });
+});

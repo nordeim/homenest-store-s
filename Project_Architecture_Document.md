@@ -290,7 +290,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 **Two suites, one gate:** `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e` — all must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 360 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 379 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
@@ -298,6 +298,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 | `db-path.test.ts` | The `DATABASE_URL` resolution contract: relative-vs-anchor resolution, standalone detection, absolute + non-SQLite passthrough |
 | `order-money.test.ts` | Checkout math: threshold, express/standard, tax rounding, negative-guard, a worked reference order |
 | `coupons.test.ts` | Percent/fixed discounts, min-subtotal, cap-at-subtotal, invalid configs; lifecycle gate (`isCouponRedeemable`: inactive/expired/cap-reached); the atomic redemption-cap filter (`couponRedemptionWhere`) |
+| `session20-hardening.test.ts` | S20-2 narrow `toggleCouponActiveAction` (writes ONLY `isActive`; P2025 narrowed; unknown rethrown); the `couponRedemptionFilter` truth table (the checkout increment's always-on `isActive` guard beside the cap clause); the free_shipping engine pins (label, discount 0 + `freeShipping: true`, minSubtotal enforced) |
 | `password.test.ts` | scrypt format, verify/reject, unique salts, malformed-hash safety |
 | `validation.test.ts` | Zod schemas incl. enum vocabularies and bounds + the image-URL scheme rule (root-relative only; `javascript:`/`data:`/protocol-relative/absolute-http rejected), price `.max` bounds, bulk-cart schema, address-default schema |
 | `products.test.ts` | JSON column parsing + card projection |
@@ -354,7 +355,8 @@ Two projects: `mobile-navigation` (iPhone-13 device emulation on Chromium — We
 | `wishlist.spec.ts` | Hearts toggle, page lists the saved items, one-request Add All lands both lines in the cart (S8-6) |
 | `cart-badge.spec.ts` | The header badge shows the **server-rendered count after a full page reload** and survives client-side navigation into the cart (S9-1) |
 | `contact-newsletter.spec.ts` | The support/marketing capture surfaces (C5): contact form success toast + the `/api/contact` 400 boundary (invalid email, short message), newsletter subscribe success + the `/api/newsletter` 400 boundary (invalid email, malformed JSON) |
-| `admin-coupons.spec.ts` | The session-19 S19-5 coupon-management loop: the 3 seeded coupons render, a new coupon is created through the dialog, APPLIED at the cart, deactivated (the same code then rejects at the same surface), deleted — the spec cleans up after itself |
+| `admin-coupons.spec.ts` | The session-19 S19-5 coupon-management loop: the 3 seeded coupons render, a new coupon is created through the dialog, APPLIED at the cart, deactivated (the same code then rejects at the same surface), deleted — the spec cleans up after itself. **S20-1 hardened**: the cart is seeded through the `request` fixture with a snapshot-restore cleanup (never an absolute badge pin on the durable admin cart) and the setup self-heals a leftover code from an aborted prior run |
+| `free-shipping-coupon.spec.ts` | S20-6: FREESHIP zeroes shipping below the spend threshold through the full money path — the cart's applied label, the checkout mirror, and the SERVER-derived receipt's "FREE" |
 
 **E2E conventions:** `gotoHydrated(page, url)` before any interaction (the `data-hydrated` sentinel from `StoreProvider` — clicking before hydration falls back to native GET, a real bug class this suite caught); async cart effects asserted via the `data-testid="cart-count"` badge before navigating; off-canvas drawers assert `not.toBeInViewport()` + `pointer-events-none` (the always-mounted translate pattern is invisible to `toBeHidden`); DB-mutating specs tolerate re-runs (seed is idempotent, order numbers increment).
 
@@ -489,6 +491,9 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | 76 | Fixed (session 19) | The QuantityStepper's default `max = 99` parameter retyped the S17-2 ceiling literal (unreachable today — its only consumer always passes an explicit max — but a drift vector the single-sourcing invariant bans) | The default binds the imported `MAX_CART_QUANTITY`; pinned by a jsdom test that MOCKS the constant to 7 and requires the default-max "+" to disable at 7 (`tests/unit/quantity-stepper.test.tsx`) — impossible with a retyped literal (S19-1). |
 | 77 | Fixed (session 19) | The S18-1 extraction subtly changed the checkout save's unset-defaults scope: `where: { userId }` touches EVERY row of the book instead of the pre-extraction `where: { userId, isDefault: true }` — same end state, redundant writes inside the order tx, contradicting the documented "no behavior change" | Scoped clause restored; interface narrowed; the session-18 pin extended to assert the default-only where (S19-2, `session19-hardening.test.ts`). |
 | 78 | Delivered (session 19) | Admin coupon-management UI (the carried feature increment — "with no admin coupon UI, DB state is the only state", seed.ts) | `/admin/coupons` (role-gated by the admin layout): list with usage/expiry/cap badges + Add/Edit dialog (percent/fixed value, min subtotal, end-of-day-UTC expiry, redemption cap, active toggle) + delete confirm, via `upsertCouponAction`/`deleteCouponAction` (requireAdmin, `couponInputSchema`, uppercase code normalization matching `findActiveCoupon`, S8-13 P2002/P2025 mappings, S13-2 catch contract). Orders keep their discount snapshot across deletes. Unit-pinned (`session19-hardening.test.ts`) + e2e CRUD loop (`admin-coupons.spec.ts`). S19-3 (the checkout call site discards the save outcome — skip-save is emergent and unit-pinned; reviewed, accepted) and S19-4 (a rate-limited track-order lookup renders the anti-enumeration not-found shell; deliberate) recorded as dispositions, no change. |
+| 79 | Fixed (session 20) | The admin-coupons e2e spec pinned an absolute cart-badge "1" on the DURABLE admin cart and was not idempotent — the run-20 suite failure (observed twice): a Playwright actionability re-dispatch double-fired the Add-to-Cart POST, and a previously aborted run left an active SESSION5 coupon breaking the next create | The spec seeds its cart line through the `request` fixture (one deterministic POST), snapshots the pre-spec quantity and restores it in the cleanup (delete when absent), and self-heals a leftover SESSION5 via delete-before-create (S20-1). The e2e-isolation convention documented in AGENTS.md. |
+| 80 | Fixed (session 20) | The coupon active-toggle round-tripped EVERY field from the page's rendered snapshot through `upsertCouponAction` — a concurrent admin's edit was silently reverted and a stored expiry was renormalized to end-of-day UTC (the audit's F1 lost-update finding) | The narrow `toggleCouponActiveAction(id, isActive)` (the `toggleProductActiveAction` precedent) writes ONLY `isActive`; P2025 narrowed, unknown rethrown (S20-2). Unit-pinned in `session20-hardening.test.ts`. |
+| 81 | Delivered (session 20) | FREESHIP was a fixed-$6.95-off coupon named/described as free shipping — the engine subtracted from the merchandise subtotal and still charged full shipping below the spend threshold (the audit's I1 overpromise) | The first-class `free_shipping` coupon type (S20-6): `couponLabel` → "Free shipping", `couponDiscount` → discount 0 + `freeShipping: true` (minSubtotal enforced), `computeOrderMoney.couponFreeShipping` zeroes shipping for both methods independent of the threshold, the checkout mirror + `CouponApplyResponse` carry the flag, the dialog offers the type (value hidden, value reset on type switch — S20-5), the seed row ships the real type (create-only: fresh DBs get it; existing DBs keep the fixed row — both work), and the checkout increment's atomic guard gains the always-on `isActive` clause (`couponRedemptionFilter` — the audit's I4 hardening). Pinned by `session20-hardening.test.ts`, `order-money.test.ts`, `validation.test.ts` and the new `free-shipping-coupon.spec.ts` (through the server-derived receipt). |
 
 ---
 
@@ -502,13 +507,13 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | `src/lib/password.ts` | scrypt hash/verify |
 | `src/lib/cart.ts` / `wishlist.ts` | Token-cookie guest carts, login merge, summaries |
 | `src/lib/order-money.ts` | The single checkout-money truth (unit-pinned) |
-| `src/lib/coupons.ts` | Coupon lookup + pure discount math + the `couponLabel` display helper (S19-5) |
+| `src/lib/coupons.ts` | Coupon lookup + pure discount math + the `couponLabel` display helper (S19-5) + the free_shipping type + `couponRedemptionFilter` (S20-6) |
 | `src/lib/settings.ts` | StoreSetting key/value → typed settings |
 | `src/lib/products.ts` | JSON column parsers, card projection, storefront query |
 | `src/lib/validation.ts` | Every Zod schema + enum vocabularies |
 | `src/lib/csp.ts` + `src/proxy.ts` | CSP builder + per-request nonce proxy |
 | `src/lib/actions/auth.ts` | `useActionState` login/register/logout/profile |
-| `src/lib/actions/admin.ts` | 13 guarded admin mutations (products, categories, coupons ×2, carousel, orders, tracking, settings) |
+| `src/lib/actions/admin.ts` | 14 guarded admin mutations (products, categories, coupons ×3, carousel, orders, tracking, settings) |
 | `src/lib/admin-categories.ts` | The S17-1 guarded category delete (`deleteCategoryIfEmpty` — pre-count fast-fail + P2003 race mapping) |
 | `src/lib/cart-quantity.ts` | `MAX_CART_QUANTITY` (the single-sourced 99 ceiling) + `clampPurchaseQuantity` |
 | `src/app/globals.css` | Tailwind v4 theme tokens + trap pins |
@@ -517,7 +522,7 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | `src/components/store/store-chrome.tsx` | Sticky header + mobile panel + cart drawer |
 | `src/app/(storefront)/admin/coupons/` | The S19-5 coupon-management surface (page + dialog island) |
 | `prisma/schema.prisma` / `seed.ts` | 18 models / idempotent seed |
-| `tests/unit/*` · `tests/e2e/*` | 360 unit · 64 e2e (incl. the v4 guard + tracking access contract + the session-11..19 hardening pins) |
+| `tests/unit/*` · `tests/e2e/*` | 379 unit · 65 e2e (incl. the v4 guard + tracking access contract + the session-11..20 hardening pins) |
 | `playwright.config.ts` / `vitest.config.ts` | Suite wiring (standalone webServer; iPhone-13-on-Chromium project) |
 
 ---

@@ -14,15 +14,18 @@ export type CouponInfo = {
 };
 
 export type CouponApplication =
-  | { ok: true; code: string; discount: number; label: string }
+  | { ok: true; code: string; discount: number; label: string; freeShipping?: true }
   | { ok: false; error: string };
 
 /**
  * Pure display label for a coupon's discount (session-19 S19-5) — the one
  * source of truth the coupon engine (`couponDiscount`), the admin coupon
  * list and any future surface share. `fixed` values are integer cents.
+ * Session-20 S20-6: `free_shipping` carries no value — the label IS the
+ * benefit.
  */
 export function couponLabel(type: string, value: number): string {
+  if (type === "free_shipping") return "Free shipping";
   if (type === "fixed") return `$${(value / 100).toFixed(2)} off`;
   return `${value}% off`;
 }
@@ -53,6 +56,19 @@ export function couponDiscount(coupon: CouponInfo, subtotal: number): CouponAppl
       code: coupon.code,
       discount: Math.min(coupon.value, subtotal),
       label: couponLabel(coupon.type, coupon.value),
+    };
+  }
+  if (coupon.type === "free_shipping") {
+    // Session-20 S20-6: the benefit is the SHIPPING, not the merchandise —
+    // the discount stays 0 (tax math unchanged) and the freeShipping flag
+    // drives `computeOrderMoney`'s shipping override. The value field is
+    // meaningless for this type (validation pins it at 0).
+    return {
+      ok: true,
+      code: coupon.code,
+      discount: 0,
+      label: couponLabel(coupon.type, coupon.value),
+      freeShipping: true,
     };
   }
   return { ok: false, error: "Invalid coupon configuration." };
@@ -112,4 +128,19 @@ export async function applyCouponCode(code: string, subtotal: number): Promise<C
  */
 export function couponRedemptionWhere(maxRedemptions: number | null): { timesUsed?: { lt: number } } {
   return maxRedemptions === null ? {} : { timesUsed: { lt: maxRedemptions } };
+}
+
+/**
+ * Session-20 S20-6 (audit I4): the checkout transaction's increment
+ * where-clause — the cap guard PLUS the always-on `isActive` guard. A coupon
+ * deactivated (or expired past the cap semantics) in the sub-second window
+ * between the in-tx read and the increment now makes `count === 0` → the tx
+ * rolls back with the friendly 409, completing the atomic redemption guard
+ * instead of trusting the pre-increment read alone. Pure and unit-tested.
+ */
+export function couponRedemptionFilter(
+  code: string,
+  maxRedemptions: number | null,
+): { code: string; isActive: true; timesUsed?: { lt: number } } {
+  return { code, isActive: true, ...couponRedemptionWhere(maxRedemptions) };
 }

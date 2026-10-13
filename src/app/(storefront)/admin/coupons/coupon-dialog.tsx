@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 
-import { deleteCouponAction, upsertCouponAction } from "@/lib/actions/admin";
+import { deleteCouponAction, toggleCouponActiveAction, upsertCouponAction } from "@/lib/actions/admin";
 import { parseDollarsToCents } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toaster";
@@ -31,8 +31,9 @@ import { Textarea } from "@/components/ui/textarea";
 export type CouponFormValues = {
   id: string | null;
   code: string;
-  type: "percent" | "fixed";
-  /** percent: integer 1..100 · fixed: a dollar string parsed to cents. */
+  type: "percent" | "fixed" | "free_shipping";
+  /** percent: integer 1..100 · fixed: a dollar string parsed to cents ·
+   *  free_shipping: ignored (always submitted as 0). */
   value: string;
   description: string;
   /** Dollar string; "" / "0" = no minimum. */
@@ -95,7 +96,8 @@ export function CouponDialogButton({
 
     // Type-aware value parsing: percent takes a whole 1..100 integer; fixed
     // takes a dollar amount parsed to integer cents (the product-form
-    // convention). Both land as `value` (cents for fixed) in the action.
+    // convention); free_shipping carries no value (S20-6 — submitted as 0).
+    // Both land as `value` (cents for fixed) in the action.
     let parsedValue: number;
     if (form.type === "percent") {
       parsedValue = Number(form.value);
@@ -103,6 +105,8 @@ export function CouponDialogButton({
         setError("Percent discount must be a whole number between 1 and 100.");
         return;
       }
+    } else if (form.type === "free_shipping") {
+      parsedValue = 0;
     } else {
       const cents = parseDollarsToCents(form.value);
       if (cents === null || cents < 1) {
@@ -211,7 +215,17 @@ export function CouponDialogButton({
               <Label htmlFor="coupon-type">Type</Label>
               <Select
                 value={form.type}
-                onValueChange={(value) => setField("type", value as CouponFormValues["type"])}
+                onValueChange={(value) => {
+                  const nextType = value as CouponFormValues["type"];
+                  setForm((prev) => ({
+                    ...prev,
+                    type: nextType,
+                    // S20-5: a type switch invalidates the typed value — a
+                    // pre-filled "10" percent silently means $10.00 fixed
+                    // (a 10× semantic jump). Reset it so the admin retypes.
+                    value: "",
+                  }));
+                }}
               >
                 <SelectTrigger id="coupon-type">
                   <SelectValue />
@@ -219,35 +233,38 @@ export function CouponDialogButton({
                 <SelectContent>
                   <SelectItem value="percent">Percent off</SelectItem>
                   <SelectItem value="fixed">Fixed amount off</SelectItem>
+                  <SelectItem value="free_shipping">Free shipping</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="coupon-value">
-                {form.type === "percent" ? "Percent off (1–100)" : "Amount off (USD)"}
-              </Label>
-              <div className="relative">
-                {form.type === "fixed" && (
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                    $
-                  </span>
-                )}
-                <Input
-                  id="coupon-value"
-                  type="number"
-                  min={form.type === "percent" ? 1 : 0.01}
-                  max={form.type === "percent" ? 100 : undefined}
-                  step={form.type === "percent" ? 1 : 0.01}
-                  value={form.value}
-                  onChange={(e) => setField("value", e.target.value)}
-                  required
-                  className={form.type === "fixed" ? "pl-7" : undefined}
-                />
+            {form.type !== "free_shipping" && (
+              <div className="space-y-2">
+                <Label htmlFor="coupon-value">
+                  {form.type === "percent" ? "Percent off (1–100)" : "Amount off (USD)"}
+                </Label>
+                <div className="relative">
+                  {form.type === "fixed" && (
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                      $
+                    </span>
+                  )}
+                  <Input
+                    id="coupon-value"
+                    type="number"
+                    min={form.type === "percent" ? 1 : 0.01}
+                    max={form.type === "percent" ? 100 : undefined}
+                    step={form.type === "percent" ? 1 : 0.01}
+                    value={form.value}
+                    onChange={(e) => setField("value", e.target.value)}
+                    required
+                    className={form.type === "fixed" ? "pl-7" : undefined}
+                  />
+                </div>
               </div>
-            </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="coupon-min-subtotal">Minimum subtotal (USD)</Label>
               <div className="relative">
@@ -402,10 +419,18 @@ export function CouponDeleteButton({ id, code }: { id: string; code: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Active toggle (via guarded upsert — round-trips the STORED values)
+// Active toggle — session-20 S20-2: the NARROW action. The session-19 toggle
+// round-tripped the page's rendered snapshot through upsertCouponAction,
+// silently reverting a concurrent admin's edit and renormalizing a stored
+// expiry (the audit's F1 lost-update finding). It now writes ONLY isActive.
 // ---------------------------------------------------------------------------
 
-export function CouponToggleButton({ coupon }: { coupon: CouponFormValues }) {
+export function CouponToggleButton({
+  coupon,
+}: {
+  /** The toggle only renders for EXISTING rows — the id is always present. */
+  coupon: Pick<CouponFormValues, "code" | "isActive"> & { id: string };
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [pending, setPending] = React.useState(false);
@@ -413,26 +438,7 @@ export function CouponToggleButton({ coupon }: { coupon: CouponFormValues }) {
   async function handleToggle() {
     setPending(true);
     try {
-      const result = await upsertCouponAction({
-        id: coupon.id,
-        code: coupon.code,
-        type: coupon.type,
-        // The page's form values carry the display shapes: percent is already
-        // a whole number; fixed is a dollar string parsed back to cents.
-        value:
-          coupon.type === "fixed"
-            ? parseDollarsToCents(coupon.value) ?? -1
-            : Number(coupon.value),
-        description: coupon.description,
-        minSubtotal:
-          coupon.minSubtotalDollars.trim() === ""
-            ? 0
-            : parseDollarsToCents(coupon.minSubtotalDollars) ?? 0,
-        isActive: !coupon.isActive,
-        expiresAt: coupon.expiresAtDate ? `${coupon.expiresAtDate}T23:59:59.999Z` : null,
-        maxRedemptions:
-          coupon.maxRedemptions.trim() === "" ? null : Number(coupon.maxRedemptions),
-      });
+      const result = await toggleCouponActiveAction(coupon.id, !coupon.isActive);
       if (result.ok) {
         toast({
           title: coupon.isActive ? "Coupon deactivated" : "Coupon activated",

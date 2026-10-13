@@ -537,7 +537,10 @@ const COUPONS = [
   // isCouponRedeemable at coupon-lookup and inside the checkout transaction.
   { code: "WELCOME10", type: "percent", value: 10, description: "10% off your first order", minSubtotal: 0, expiresAt: null, maxRedemptions: null },
   { code: "SAVE20", type: "percent", value: 20, description: "20% off orders over $100", minSubtotal: 10000, expiresAt: null, maxRedemptions: 500 },
-  { code: "FREESHIP", type: "fixed", value: 695, description: "Standard shipping on us", minSubtotal: 3000, expiresAt: null, maxRedemptions: null },
+  // Session-20 S20-6: a first-class free_shipping coupon — zeroes shipping
+  // outright. (Fresh databases get this row; an EXISTING database keeps its
+  // earlier fixed-type FREESHIP — the seed is create-only, both work.)
+  { code: "FREESHIP", type: "free_shipping", value: 0, description: "Free standard shipping on orders over $30", minSubtotal: 3000, expiresAt: null, maxRedemptions: null },
 ];
 
 const REVIEW_TEMPLATES = [
@@ -692,8 +695,9 @@ async function main() {
     await prisma.coupon.upsert({
       where: { code: coupon.code },
       // Create-only: a reseed must never reset live redemption bookkeeping
-      // (timesUsed / expiresAt / maxRedemptions) — with no admin coupon UI,
-      // DB state is the only state.
+      // (timesUsed / expiresAt / maxRedemptions) — that state is admin- and
+      // traffic-owned once the coupon exists (the admin coupon UI manages
+      // it; reseeds only top up missing codes).
       update: {},
       create: coupon,
     });

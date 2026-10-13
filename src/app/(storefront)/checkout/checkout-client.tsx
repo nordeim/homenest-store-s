@@ -51,10 +51,10 @@ export type ShippingConfig = {
   taxRatePercent: number;
 };
 
-type AppliedCoupon = { code: string; discount: number; label: string; description: string };
+type AppliedCoupon = { code: string; discount: number; label: string; description: string; freeShipping?: true };
 
 type CouponApplyResponse =
-  | { ok: true; code: string; discount: number; label: string; description: string }
+  | { ok: true; code: string; discount: number; label: string; description: string; freeShipping?: true }
   | { ok: false; error: string };
 
 const PAYMENT_OPTIONS: Array<{ id: PaymentMethod; label: string; description: string; icon: typeof CreditCard }> = [
@@ -163,8 +163,11 @@ export function CheckoutClient({
   // ---- Derived money (mirrors the server-side math in /api/checkout) ----
   const discount = coupon?.discount ?? 0;
   const taxable = Math.max(0, subtotal - discount);
+  // Session-20 S20-6: a free_shipping coupon zeroes shipping outright — the
+  // same override the server's computeOrderMoney applies.
+  const couponFreeShipping = coupon?.freeShipping === true;
   const shippingCost =
-    taxable >= shipping.freeThresholdCents
+    couponFreeShipping || taxable >= shipping.freeThresholdCents
       ? 0
       : shippingMethod === "express"
         ? shipping.expressCents

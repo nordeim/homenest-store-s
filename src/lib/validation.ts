@@ -244,11 +244,11 @@ export const couponInputSchema = z
       .min(3, "Code must be at least 3 characters")
       .max(40, "Code must be 40 characters or fewer")
       .regex(/^[A-Za-z0-9-]+$/, "Code can only contain letters, numbers and dashes"),
-    type: z.enum(["percent", "fixed"], { message: "Choose a discount type" }),
+    type: z.enum(["percent", "fixed", "free_shipping"], { message: "Choose a discount type" }),
     value: z
       .number()
       .int("Value must be a whole number")
-      .min(1, "Value must be positive")
+      .min(0, "Value must be zero or positive")
       .max(MAX_PRICE_CENTS, "Value must be under $1,000,000"),
     description: z.string().trim().max(200).default(""),
     minSubtotal: z
@@ -274,11 +274,27 @@ export const couponInputSchema = z
       .default(null),
   })
   .superRefine((data, ctx) => {
-    if (data.type === "percent" && data.value > 100) {
+    if (data.type === "percent" && (data.value > 100 || data.value < 1)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["value"],
-        message: "Percent discounts are limited to 100%.",
+        message: data.value > 100 ? "Percent discounts are limited to 100%." : "Percent discounts must be positive (1–100%).",
+      });
+    }
+    if (data.type === "fixed" && data.value < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["value"],
+        message: "Fixed discounts must be a positive amount.",
+      });
+    }
+    if (data.type === "free_shipping" && data.value !== 0) {
+      // Session-20 S20-6: the free_shipping benefit has no value component —
+      // the seed/admin dialog always sends 0.
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["value"],
+        message: "Free shipping coupons take no value.",
       });
     }
   });

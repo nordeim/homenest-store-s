@@ -160,6 +160,30 @@ export async function toggleProductActiveAction(id: string, isActive: boolean): 
   return { ok: true };
 }
 
+// Session-20 S20-2: the coupon toggle is NARROW on purpose — it writes ONLY
+// `isActive`. The session-19 toggle round-tripped every field from the
+// page's rendered snapshot through upsertCouponAction, silently reverting a
+// concurrent admin's edit and renormalizing a stored expiry to end-of-day
+// UTC (the audit's F1 lost-update finding). Same shape as the product
+// toggle above: absolute boolean flip, P2025 narrowed, unknown rethrown.
+export async function toggleCouponActiveAction(id: string, isActive: boolean): Promise<AdminActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return { ok: false, error: denied };
+  if (!id || typeof isActive !== "boolean") return { ok: false, error: "Invalid request." };
+
+  try {
+    await db.coupon.update({ where: { id }, data: { isActive } });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return { ok: false, error: "Coupon not found. Refresh the list and try again." };
+    }
+    throw error;
+  }
+
+  revalidatePath("/admin/coupons");
+  return { ok: true };
+}
+
 // ---------------------------------------------------------------------------
 // Categories
 // ---------------------------------------------------------------------------

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { saveCheckoutAddressInTx } from "@/lib/addresses";
 import { cartClearFilter, findCartId, getCartSummary, readCartToken, type CartLine } from "@/lib/cart";
-import { applyCouponCode, couponDiscount, couponRedemptionWhere, isCouponRedeemable } from "@/lib/coupons";
+import { applyCouponCode, couponDiscount, couponRedemptionFilter, isCouponRedeemable } from "@/lib/coupons";
 import { db } from "@/lib/db";
 import { computeOrderMoney } from "@/lib/order-money";
 import { orderAccessToken, replayAuthorized, resolveReplay, ReplayDeniedError } from "@/lib/order-access";
@@ -279,6 +279,7 @@ async function placeOrderTx(orderNumber: string, args: PlaceOrderArgs): Promise<
     const subtotal = orderItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 
     let discount = 0;
+    let couponFreeShipping = false;
     if (args.couponCode) {
       const couponRow = await tx.coupon.findUnique({ where: { code: args.couponCode } });
       if (!couponRow || !isCouponRedeemable(couponRow)) {
@@ -298,14 +299,18 @@ async function placeOrderTx(orderNumber: string, args: PlaceOrderArgs): Promise<
         throw new CheckoutError(409, applied.error);
       }
       discount = applied.discount;
+      couponFreeShipping = applied.freeShipping === true;
       // Redemption bookkeeping commits with the order — a lost order can
       // never burn a coupon use, and a placed order always does. The guard
-      // is ATOMIC: `updateMany` only fires while `timesUsed < maxRedemptions`,
-      // so a concurrent checkout that hits the cap first makes `count === 0`
-      // and rolls this whole transaction back (closes the read-then-write
-      // TOCTOU window that `isCouponRedeemable` alone leaves open).
+      // is ATOMIC (session-20 S20-6: `couponRedemptionFilter` adds the
+      // always-on `isActive` guard to the cap clause — a coupon deactivated
+      // between the in-tx read and this increment also makes `count === 0`),
+      // so a concurrent checkout that hits the cap (or an admin who just
+      // deactivated the code) rolls this whole transaction back (closes the
+      // read-then-write TOCTOU window that `isCouponRedeemable` alone
+      // leaves open).
       const redeemed = await tx.coupon.updateMany({
-        where: { code: couponRow.code, ...couponRedemptionWhere(couponRow.maxRedemptions) },
+        where: couponRedemptionFilter(couponRow.code, couponRow.maxRedemptions),
         data: { timesUsed: { increment: 1 } },
       });
       if (redeemed.count === 0) {
@@ -321,6 +326,7 @@ async function placeOrderTx(orderNumber: string, args: PlaceOrderArgs): Promise<
       standardShippingCents: args.settings.standardShippingCents,
       expressShippingCents: args.settings.expressShippingCents,
       taxRatePercent: args.settings.taxRatePercent,
+      couponFreeShipping,
     });
 
     const order = await tx.order.create({

@@ -1549,3 +1549,89 @@ CRITICAL/HIGH/MEDIUM.
       reject → delete)
 - [x] Full gate chain re-run green; manual verification (agent-browser)
 - [x] Screenshots refreshed; docs sweep; worklog updated
+
+---
+
+# Session 20 (run 21) — Remediation Plan
+
+> **Status:** EXECUTED (see the Execution Log at the end)
+> **Date:** 2026-10-13
+> **Scope:** Fresh clone at `9ed652d` (= `9dad2fc`, the run-20/session-19 commit, + the operator-committed `docs/session_32.md` raw log). Gates re-validated on the pulled tree (lint ✓ · typecheck ✓ · typecheck:tests ✓ · 360/360 unit ✓ · build ✓ · 63/64 e2e — the one failure investigated below), live-reference parity re-verified via agent-browser (reference unchanged; mobile menu / SEO / desktop parity / demo login all green), then a read-only deep audit (subagent 21-a + operator file:line verification).
+
+## 1. Audit summary (evidence-based)
+
+Session-19 fixes **ALL WIRED** (S19-1 stepper constant binding + mocked-constant pin; S19-2 scoped unset clause + narrowed interface; S19-5 all six sub-items — schema without server-only re-exports, pure `couponLabel`, 2 guarded actions, role-gated surface with 3 S13-2 catch blocks, nav item, e2e). Older-fix spot-checks **10/10 WIRED** (14/14 Retry-After sites, 4/4 `clampSearchTerm` consumers, all seven guarded helpers at their call sites, demo-mode boundary, mobile-nav conditional mount, JSON-LD escaping ×3 sites, noindex set, CSP nonce, `MAX_CART_QUANTITY` single-sourcing, `TRUST_CF_CONNECTING_IP` opt-out). Static counts re-verified: 360 unit (38 files) / 64 e2e (13 specs) / 18 models / 16+8+3 seed constants / **13 requireAdmin'd actions** (+2 coupon) / 14 metered sites / **16 admin catch blocks across SIX files** / zero `any`/`eval`/unescaped HTML.
+
+**Result: 0 CRITICAL / 0 HIGH / 0 MEDIUM / 1 HIGH-severity *test-reliability* finding (observed live twice) / 1 LOW code + 1 LOW doc / 2 NIT / 4 Informational — the eighth consecutive session without a CRITICAL/HIGH/MEDIUM code defect.**
+
+## 2. Findings → work items
+
+### S20-1 (High — e2e suite reliability; observed twice this run) — `admin-coupons.spec.ts` is not isolated against the durable admin cart or its own past failures
+
+- **Evidence:** the full-suite run failed `admin-coupons.spec.ts:46` (`await expect(page.getByTestId("cart-count")).toHaveText("1")`), and the single-spec re-run failed at the same line with the badge resolving "2"→"3" (13 polls). DB inspection after the runs: the admin cart held Damascus ×3 and a leftover ACTIVE `SESSION5` coupon the spec had created but never cleaned up (the test aborted before its delete step).
+- **Root cause chain (two independent defects, both reproduced):**
+  1. **Absolute badge pin on a DURABLE account cart.** The admin cart is persistent DB state (and cart POSTs MERGE by product). Playwright's actionability machinery can re-dispatch a click whose hit-target verification is interrupted by the post-click re-render (observed on a fresh DB: one click → two POSTs → ×2). Any pre-existing/accumulated/double-added content breaks `toHaveText("1")`. Guest-cart specs (shopping-flow, cart-badge, auth) pin "1" safely because guest tokens are per-context fresh; the ADMIN cart is shared durable state.
+  2. **Non-idempotent setup + cart-line leak.** A previously failed run leaves `SESSION5` ACTIVE (breaking the next run's create step via the P2002 clash) and the added cart line is never removed — violating the spec's own "leaves the seed data as found" contract.
+- **Fix (TDD — the two observed failures ARE the RED evidence):**
+  1. Seed the cart through the **API** (the `request` fixture shares the admin session cookies; one deterministic POST `/api/cart`) instead of clicking Add-to-Cart and pinning the badge — the coupon-redeems-at-cart surface is the behavior under test, not the add-to-cart flow (pinned by six other specs).
+  2. **Self-healing setup:** before creating, delete any leftover `SESSION5` (the same delete-confirm flow the spec already exercises).
+  3. **Full cleanup:** remove the seeded cart line at the end (`Remove … from cart` button), leaving the DB as found.
+  4. **Reproduction harness before the fix:** pollute the state (SESSION5 + admin cart ×1) and watch the OLD spec fail; after the fix, the same pollution self-heals and the spec passes.
+
+### S20-2 (LOW) — `CouponToggleButton` rewrites the whole row from a rendered snapshot
+
+- **Evidence:** `coupon-dialog.tsx:408-451` flips `isActive` by round-tripping EVERY field (`value`, `minSubtotal`, `expiresAt`, `maxRedemptions`, `description`, `code`) through `upsertCouponAction` from the page's render-time snapshot. Impact: (1) admin B's edit between A's render and A's click is silently reverted; (2) a stored `expiresAt` not already end-of-day-UTC is silently renormalized (~24h extension). The repo already has the correct precedent: `toggleProductActiveAction` (admin.ts:139-161) writes ONLY `isActive`.
+- **Fix (TDD):** new narrow `toggleCouponActiveAction(id, isActive)` — requireAdmin → scoped conditional `updateMany({ where: { id, isActive: <flip> }, ... })` with `count === 0` → P2025-style "Coupon not found" (the S13-5/S11-4 pattern) → unknown rethrow → `revalidatePath("/admin/coupons")`. Unit-pinned in `tests/unit/session20-hardening.test.ts` (denial / success-shape / P2025 / rethrow, mocked `db`/`next/cache`); the toggle button consumes it.
+
+### S20-3 (LOW, doc drift) — AGENTS.md S13-2 catch-count stale
+
+- **Evidence:** `AGENTS.md:102` says "13 catch blocks across five dialog/form files"; actual = **16 across six** (coupon-dialog ×3 added in session 19; F2 of the audit).
+- **Fix:** update the invariant text (one line).
+
+### S20-4 (NIT, doc drift in code) — `prisma/seed.ts:694-696` stale rationale
+
+- **Evidence:** "…with no admin coupon UI, DB state is the only state" — the UI exists since session 19. The create-only policy itself stays.
+- **Fix:** reword to reflect the real rationale (redemption bookkeeping is admin- and traffic-owned).
+
+### S20-5 (NIT) — percent↔fixed type switch silently reinterprets the pre-filled value
+
+- **Evidence:** `coupon-dialog.tsx:100-113/:241-247` — switching type keeps `form.value` ("10" percent → "$10.00" fixed, a 10× semantic jump; the reverse fails validation until retyped). Guarded by validation both sides; pure UX.
+- **Fix:** reset the value field when the type changes (folded into the S20-6 dialog work; verified manually + schema pins).
+
+### S20-6 (Feature increment — resolves audit I1 at the engine level) — the `free_shipping` coupon type
+
+- **Evidence (I1):** `FREESHIP` is a fixed-$6.95-off coupon named/described as free shipping. `couponDiscount` subtracts from the merchandise subtotal; `computeOrderMoney` then charges full shipping unless the DISCOUNTED subtotal reaches the threshold — a $30 cart (min $30 met, threshold $50 not) gets $6.95 off and STILL pays full shipping. The display label ("$6.95 off") is honest; the seed description ("Standard shipping on us") and the code name overpromise.
+- **Fix (TDD):** a first-class `free_shipping` type so the coupon does what its name says:
+  1. `src/lib/coupons.ts` — `couponLabel`: "Free shipping"; `CouponApplication` ok-branch gains `freeShipping?: true`; `couponDiscount` branch (discount 0, `minSubtotal` still enforced, value ignored). NEW pure `couponRedemptionFilter(code, maxRedemptions)` = `{ code, isActive: true, ...couponRedemptionWhere(maxRedemptions) }` — the audit's I4 hardening (a coupon deactivated in the sub-second window between the in-tx read and the increment now makes `count === 0` → 409 → rollback, completing the atomic guard) with a unit truth table.
+  2. `src/lib/order-money.ts` — `OrderMoneyInput.couponFreeShipping?: boolean`; shipping forced to 0 when set (both methods; independent of the spend threshold).
+  3. `src/app/api/checkout/route.ts` — the in-tx increment consumes `couponRedemptionFilter`; `computeOrderMoney` receives `couponFreeShipping: applied.freeShipping === true`.
+  4. `src/app/api/coupon/apply/route.ts` — `CouponApplyResponse` gains `freeShipping?: true` passthrough.
+  5. Client mirrors — `coupon-box.tsx` + `checkout-client.tsx` `AppliedCoupon` types + the checkout's shipping mirror (`couponFreeShipping || taxable >= threshold ? 0 : …`); the summary already renders "FREE" at `$0`.
+  6. `src/lib/validation.ts` — `couponInputSchema` type enum + `free_shipping`; superRefinement: `value` must be 0 for `free_shipping` (percent/fixed rules unchanged).
+  7. `coupon-dialog.tsx` — type select gains "Free shipping"; the value input hides; type switch resets the value (S20-5).
+  8. `prisma/seed.ts` — `FREESHIP` seeds as `type: "free_shipping", value: 0, description: "Free standard shipping on orders over $30"`. CREATE-ONLY seed policy: fresh databases get the real type; EXISTING databases keep their `fixed` row (both work; the delta is documented).
+  9. Tests (RED first): `coupons.test.ts` (label + discount branch + minSubtotal enforcement + `couponRedemptionFilter` truth table incl. the always-true `isActive`), `order-money.test.ts` (freeShipping forces $0 shipping both methods; threshold interplay unchanged without it), `validation.test.ts` (free_shipping boundary table: value must be 0; percent/fixed regressions), `session20-hardening.test.ts` (S20-2 action pins).
+  10. E2E: extend the checkout coverage — apply `FREESHIP` at checkout on a qualifying cart and pin the order summary's shipping renders "FREE" (the server-derived money is authoritative).
+
+### S20-7 (Informational I2, copy hygiene) — the static cart hint can advertise a dead code
+
+- **Evidence:** `coupon-box.tsx:150` hardcodes "Try WELCOME10, SAVE20 or FREESHIP"; SAVE20 caps at 500 redemptions (seed) and would still be suggested once exhausted (the apply error is immediate and correct — impact cosmetic).
+- **Fix:** drop SAVE20 from the hint (the two evergreen codes stay); a live-state hint would need an API fetch for marginal benefit — not taken.
+
+### Dispositions (no change, recorded)
+
+- **I3 (allowScripts exact pins vs caret ranges):** verified the lockfile resolves exactly `@prisma/engines@6.19.3` / `esbuild@0.28.2` / `unrs-resolver@1.12.2` / `prisma@6.19.3` / `@prisma/client@6.19.3` — the allowlist is CORRECT for the committed lockfile; a future bump re-triggering npm's approval prompt is the documented workflow (README Troubleshooting). Accepted as-is.
+- **S19-3 / S19-4 (Informational, session 19):** dispositions unchanged.
+- **Carried deferrals (unchanged):** login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, review action two-tier gate pin, `/track-order` page-limiter wiring pin, and the external-service epics (real email delivery, OAuth, real payments — blocked on sandbox-external credentials/SMTP).
+
+## 3. Execution log (session 20)
+
+- [x] RED — reproduction harness: polluted state (SESSION5 + admin cart ×1) breaks the old spec; new spec self-heals
+- [x] RED — `tests/unit/session20-hardening.test.ts` fails on the missing `toggleCouponActiveAction` / `couponRedemptionFilter` exports + contract pins
+- [x] RED — `coupons.test.ts` / `order-money.test.ts` / `validation.test.ts` extensions fail on the missing `free_shipping` behavior
+- [x] GREEN — S20-2 narrow toggle action + toggle wiring
+- [x] GREEN — S20-6 free_shipping type end-to-end (engine → money → API → mirrors → dialog → seed)
+- [x] GREEN — S20-1 hardened admin-coupons spec (API-seeded cart, self-healing setup, full cleanup)
+- [x] S20-3 / S20-4 / S20-7 — doc + comment + copy corrections
+- [x] Full gate chain re-run green; manual verification (agent-browser: checkout with FREESHIP → shipping FREE; admin coupon dialog type option; mobile menu re-check)
+- [x] Screenshots refreshed; docs sweep; worklog updated

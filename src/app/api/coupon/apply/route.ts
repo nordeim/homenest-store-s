@@ -8,8 +8,8 @@ import { couponApplySchema, firstError } from "@/lib/validation";
 
 /** The payload CouponBox / checkout render from. */
 export type CouponApplyResponse =
-  | { ok: true; code: string; discount: number; label: string; description: string }
-  | { ok: false; error: string };
+  | { ok: true; code: string; discount: number; label: string; description: string; freeShipping?: true }
+  | { ok: false, error: string };
 
 /**
  * POST /api/coupon/apply — validate a coupon code against the caller's cart.
@@ -61,6 +61,8 @@ export async function POST(request: NextRequest) {
       discount: applied.discount,
       label: applied.label,
       description: coupon?.description ?? "",
+      // Session-20 S20-6: the checkout mirror needs the shipping override.
+      ...(applied.freeShipping ? { freeShipping: true } : {}),
     });
   } catch {
     return NextResponse.json<CouponApplyResponse>(

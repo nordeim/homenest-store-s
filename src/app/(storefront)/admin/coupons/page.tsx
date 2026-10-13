@@ -41,9 +41,12 @@ export default async function AdminCouponsPage() {
           const formValues: CouponFormValues = {
             id: coupon.id,
             code: coupon.code,
-            type: coupon.type === "fixed" ? "fixed" : "percent",
+            // Pass the stored type through; "percent" is the fallback for any
+            // unknown legacy value (the dialog re-pins it on edit).
+            type: coupon.type === "fixed" ? "fixed" : coupon.type === "free_shipping" ? "free_shipping" : "percent",
             // Display shapes: fixed values are stored in cents and shown as
             // dollars — the same convention the dialog parses back.
+            // free_shipping carries value 0 (the dialog hides the field).
             value: coupon.type === "fixed" ? (coupon.value / 100).toFixed(2) : String(coupon.value),
             description: coupon.description,
             minSubtotalDollars: (coupon.minSubtotal / 100).toFixed(2),
@@ -112,7 +115,7 @@ export default async function AdminCouponsPage() {
               </dl>
 
               <div className="mt-auto flex items-center justify-end gap-1">
-                <CouponToggleButton coupon={formValues} />
+                <CouponToggleButton coupon={{ id: coupon.id, code: coupon.code, isActive: coupon.isActive }} />
                 <CouponDialogButton coupon={formValues} />
                 <CouponDeleteButton id={coupon.id} code={coupon.code} />
               </div>

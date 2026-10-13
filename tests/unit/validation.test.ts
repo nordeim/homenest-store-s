@@ -8,6 +8,7 @@ import {
   checkoutSchema,
   contactSchema,
   couponApplySchema,
+  couponInputSchema,
   firstError,
   loginSchema,
   registerSchema,
@@ -339,5 +340,41 @@ describe("MAX_CART_QUANTITY single-sourcing (S17-2)", () => {
     expect(
       cartLinePatchSchema.safeParse({ lineId: "l1", quantity: MAX_CART_QUANTITY + 1 }).success,
     ).toBe(false);
+  });
+});
+
+describe("couponInputSchema free_shipping (session-20 S20-6)", () => {
+  it("accepts a free_shipping coupon with value 0 and applies the defaults", () => {
+    const parsed = couponInputSchema.safeParse({ code: "FREESHIP", type: "free_shipping", value: 0 });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.minSubtotal).toBe(0);
+      expect(parsed.data.isActive).toBe(true);
+      expect(parsed.data.maxRedemptions).toBeNull();
+    }
+  });
+
+  it("rejects a free_shipping coupon carrying a non-zero value", () => {
+    // Positive values hit the free_shipping-specific refinement copy…
+    for (const value of [1, 695]) {
+      const parsed = couponInputSchema.safeParse({ code: "FREESHIP", type: "free_shipping", value });
+      expect(parsed.success).toBe(false);
+      if (!parsed.success) expect(parsed.error.issues[0]?.message).toMatch(/free shipping/i);
+    }
+    // …while a negative value is already caught by the base non-negative bound.
+    expect(couponInputSchema.safeParse({ code: "FREESHIP", type: "free_shipping", value: -5 }).success).toBe(false);
+  });
+
+  it("keeps the percent and fixed positive bounds (regression guard)", () => {
+    const zeroPercent = couponInputSchema.safeParse({ code: "SAVE0", type: "percent", value: 0 });
+    expect(zeroPercent.success).toBe(false);
+    if (!zeroPercent.success) expect(zeroPercent.error.issues[0]?.message).toMatch(/positive/i);
+    const zeroFixed = couponInputSchema.safeParse({ code: "BIG0", type: "fixed", value: 0 });
+    expect(zeroFixed.success).toBe(false);
+    if (!zeroFixed.success) expect(zeroFixed.error.issues[0]?.message).toMatch(/positive/i);
+  });
+
+  it("rejects an unknown type", () => {
+    expect(couponInputSchema.safeParse({ code: "ODD", type: "mystery", value: 1 }).success).toBe(false);
   });
 });

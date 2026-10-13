@@ -13,6 +13,7 @@ export type OrderMoneyInput = {
   standardShippingCents: number;
   expressShippingCents: number;
   taxRatePercent: number; // e.g. 7.5
+  couponFreeShipping?: boolean; // session-20 S20-6: a free_shipping coupon zeroes shipping outright
 };
 
 export type OrderMoney = {
@@ -25,16 +26,19 @@ export type OrderMoney = {
 /**
  * Derive checkout totals. Shipping becomes FREE the moment the discounted
  * subtotal reaches the free-shipping threshold (both methods — the threshold
- * is a spend gate, not a method property).
+ * is a spend gate, not a method property), or outright when the applied
+ * coupon is a `free_shipping` coupon (session-20 S20-6 — the coupon IS the
+ * shipping benefit, independent of the spend gate).
  */
 export function computeOrderMoney(input: OrderMoneyInput): OrderMoney {
   const taxable = Math.max(0, Math.round(input.subtotal - input.discount));
   const meetsThreshold = taxable >= input.freeShippingThresholdCents;
-  const shipping = meetsThreshold
-    ? 0
-    : input.shippingMethod === "express"
-      ? input.expressShippingCents
-      : input.standardShippingCents;
+  const shipping =
+    input.couponFreeShipping || meetsThreshold
+      ? 0
+      : input.shippingMethod === "express"
+        ? input.expressShippingCents
+        : input.standardShippingCents;
   const tax = Math.round((taxable * input.taxRatePercent) / 100);
   return { taxable, shipping, tax, total: taxable + shipping + tax };
 }
