@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.9.0
-last_updated: 2026-10-14
-project_state: "257 unit tests · 59 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-12)"
+version: 1.10.0
+last_updated: 2026-10-13
+project_state: "277 unit tests · 61 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-13)"
 tags:
   - nextjs16
   - react19
@@ -984,6 +984,37 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   README/PAD/SKILL/DEPLOYMENT aligned; run narrative at
   `docs/session_17.md`.
 
+### Session 13 — drawer-a11y/bundle-hygiene completion (2026-10-13, v1.10.0)
+
+- Re-validated session-12 on the pulled tree (`8439105`): all gates green
+  (257 unit / 59 e2e), live-reference parity re-verified (logged in with the
+  operator credentials; the session-12 authored-order fix holds on both
+  sides), mobile menu re-verified on the production build.
+- Fresh deep audit (read-only subagent + own file:line verification):
+  session-12 fixes 4/4 WIRED; new findings 0 CRITICAL / 0 HIGH / 1 MEDIUM /
+  4 LOW / 2 NIT.
+- Fixes (TDD — RED first): **S13-3** the closed cart drawer gains
+  `inert={!open}` + `aria-hidden` (a transform does NOT remove elements from
+  the tab order/a11y tree; `inert` is a boolean attribute, not a display
+  utility); **S13-1** demo credentials moved behind a server boundary
+  (`demoModeEnabled` in `src/lib/demo-mode.ts`, credentials passed as props
+  ONLY when enabled — the built chunk no longer contains `Admin123!`);
+  **S13-2** every awaited admin-server-action carries a `catch` → inline
+  error + destructive toast; **S13-4** the review insert folds into the
+  aggregate-growth transaction; **S13-7** `clientIp` gains the
+  `TRUST_CF_CONNECTING_IP="false"` opt-out (default preserves the session-6
+  invariant); **S13-5** three admin catches narrowed to P2025 + rethrow;
+  **S13-6** `utcMonthStart` (UTC month boundary for the analytics KPI).
+- New pins: `session13-hardening.test.ts` (17 cases) +
+  `review-transactional.test.ts` (3 cases — REAL temp SQLite via
+  `datasourceUrl`: rollback semantics for the S13-4 fold) + e2e
+  (closed-drawer inert, production login bundle credential-free,
+  aborted-admin-save toast).
+- Lesson (Appendix B): a `"use client"` file's module scope still ships —
+  gating the JSX is not gating the data. Verify "hidden" secrets against the
+  BUILT CHUNK, not the source.
+
+
 ## Appendix C — Quick Reference Card
 
 ```bash
@@ -1007,7 +1038,7 @@ npm run start & curl localhost:3000/api/health
 python3 docs/ssh_git_wrapper_v3.py push origin main
 ```
 
-Key files: `src/lib/db-path.ts` · `src/lib/money.ts` ·
+Key files: `src/lib/demo-mode.ts` · `src/lib/settings-schema.ts` · `src/lib/db-path.ts` · `src/lib/money.ts` ·
 `src/lib/order-money.ts` · `src/lib/rate-limit.ts` (incl. `clientIp`) ·
 `src/lib/order-tracking.ts` · `src/lib/order-access.ts` ·
 `src/lib/order-status.ts` · `src/lib/coupons.ts` (incl.

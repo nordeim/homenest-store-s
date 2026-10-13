@@ -114,3 +114,39 @@ Stage Summary:
 - Session-12 remediation complete and pushed: remote main advanced 2d3af58 → this commit (fast-forward, main only, no new branches). All user checklist items satisfied.
 - Codebase state: 257 unit + 59 e2e green; catalog-order parity + demo-hygiene + checkout-sweep integrity (session 12); docs fully aligned.
 - Carried deferrals unchanged: drawer focus trap (S8-7), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, real payment/email epics, admin coupon UI.
+
+---
+Task ID: 14-a
+Agent: read-only deep audit subagent
+Task: Session-13 deep audit (read-only) — 12-category scan + session-12 fix verification
+
+Work Log:
+- Read worklog.md + skills/code-review-checklist/SKILL.md (12-category tactical scan); audited ONLY src/**, prisma/schema.prisma, prisma/seed.ts, tests/**, and root configs (skills/, node_modules/, .next/, docs/, db/ excluded per operator contract).
+- PART 1 (session-12 fixes): all 4 verified WIRED with file:line evidence — cartClearFilter consumed by the checkout in-tx sweep (cart.ts:43-45 → checkout/route.ts:368); DEMO_MODE expression truth-table correct for all 5 env cases (login-form.tsx:32-34); /checkout/success verifies the HMAC token BEFORE the DB read (success/page.tsx:96→98); productSeedCreatedAt backdating is create-only via productSeedUpdate (seed.ts:645, seed-policy.ts:24-32) and home featured/new-arrivals run createdAt desc (page.tsx:39,45).
+- PART 2: read every lib module, all 11 API route handlers, both auth/review/admin action files, admin pages + analytics queries, storefront pages/components (a11y pass), prisma schema, seed idempotency, unit+e2e suites (static count: 257 unit / 59 e2e — matches README badge), configs. Verified one finding against the BUILT production chunk (.next/static/chunks/1qoa…js contains the seeded demo passwords despite the hidden box).
+- Clean areas (no findings): admin authorization (requireAdmin on every action), money bounds (productInputSchema ≤ $1M), guarded status/tracking writes, order-access anti-enumeration, coupon TOCTOU guard, settings/money/format edge cases, seed reseed discipline, CSP/proxy/headers, SEO builders + sitemap/robots, rate-limiter math, address/wishlist caps + race patterns, e2e pins (no stale assumptions found in the specs read).
+- New findings: 0 CRITICAL / 0 HIGH / 1 MEDIUM / 4 LOW / 2 NIT; 5 coverage gaps; 3 doc-drift items (README.md:55 stale test counts; CLAUDE.md:49 randomUUID vs newRequestId; CLAUDE.md:90 "every async action has error handling" vs the catch-less admin dialogs).
+
+Stage Summary:
+- Session-12 fixes: 4/4 WIRED, 0 PARTIAL, 0 MISSING.
+- Verdict: no blocking defects; the one MEDIUM is a keyboard-accessibility gap (closed cart drawer stays in the tab order / a11y tree — adjacent to but distinct from the deferred S8-7 open-state focus trap). LOWs: seeded credentials ship in the prod bundle, admin dialogs swallow thrown actions, review insert+aggregate not atomic, cf-connecting-ip trust on direct deploys.
+
+---
+Task ID: 14 (session 14 — homenest-store-s)
+Agent: audit + remediation agent (Super Z)
+Task: Full audit/remediation cycle on homenest-store-s — refresh workspace, review docs (session_17/18, REMEDIATION_PLAN, worklog), re-validate gates, live-reference parity + mobile menu, fresh deep audit (session 13), TDD remediation, docs/screenshots, commit + SSH push to main.
+
+Work Log:
+- git pull → 8439105 (= 15eb5f9 + docs/session_18.md); reviewed all project docs + session logs + the uploaded coding_agent_prompt.md; sandbox DATABASE_URL shadow converged via the pre-existing symlink.
+- Gates re-validated: lint/typecheck/typecheck:tests ✓ · 257/257 unit ✓ · build ✓ · 59/59 e2e ✓.
+- Live reference parity verified via agent-browser (logged in with the operator credentials): reference unchanged, the session-12 authored-order fix holds on BOTH sides, clone remains the superset; mobile menu re-verified (open → 7-link panel → navigate → auto-close; Tailwind v4 conditional-mount intact).
+- Fresh deep audit (read-only subagent 14-a + own file:line verification): session-12 fixes 4/4 WIRED / 0 PARTIAL / 0 MISSING; new findings 0 CRITICAL / 0 HIGH / 1 MEDIUM / 4 LOW / 2 NIT; 3 doc-drift items.
+- TDD remediation S13-1..S13-7 (plan appended to docs/REMEDIATION_PLAN.md; RED confirmed at 257 + new-file failures + 3 failing e2e against the old build): closed cart drawer inert+aria-hidden (S13-3 — a transform never removed the invisible controls from the tab order/a11y tree), demo credentials moved behind a server boundary (S13-1 — demoModeEnabled unit-pinned; the built chunk no longer contains Admin123!), 12 catch blocks across the five admin islands (S13-2 — failures now surface inline + destructive toast), review insert folded into the aggregate-growth transaction (S13-4 — temp-SQLite rollback semantics pinned), clientIp TRUST_CF_CONNECTING_IP opt-out (S13-7 — session-6 invariant preserved by default), three admin catches narrowed to P2025+rethrow (S13-5), utcMonthStart for the analytics KPI (S13-6), settingsPatchSchema exported pure + pinned (C8).
+- Coverage pins: session13-hardening.test.ts (17 cases) + review-transactional.test.ts (3 cases, REAL temp SQLite via datasourceUrl — the repo's first DB-integration unit pin) + 3 e2e additions (closed-drawer inert, production login bundle credential-free, aborted-save toast).
+- Final gates: lint/typecheck/typecheck:tests ✓ · 277/277 unit ✓ · build ✓ · 61/61 e2e ✓; manual agent-browser + curl verification (closed drawer refuses programmatic focus + carries inert/aria-hidden, open drops both; login payload credential-free; mobile menu open/navigate/close); 23 screenshots refreshed.
+- Docs aligned: AGENTS.md (4 new invariants + S12-2 strengthened), CLAUDE.md (module list + coverage + newRequestId wording), README.md (277/61 + env rows), PAD (§8 tables, known issues #51–56), SKILL.md v1.10.0, DEPLOYMENT.md (TRUST_CF_CONNECTING_IP + credential-boundary rows), .env.example (rate-limiting block), docs/session_19.md (run narrative), worklog.md.
+
+Stage Summary:
+- Session-13 remediation complete and pushed: remote main advanced 8439105 → this commit (fast-forward, main only, no new branches). All user checklist items satisfied.
+- Codebase state: 277 unit + 61 e2e green; drawer-a11y/bundle-hygiene/transactional hardening (session 13); docs fully aligned.
+- Carried deferrals unchanged: drawer OPEN-state focus trap (S8-7 — the closed-state leak is now closed), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, real payment/email epics, admin coupon UI.

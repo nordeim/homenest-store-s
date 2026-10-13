@@ -9,42 +9,34 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const DEMO_ACCOUNTS = [
-  {
-    label: "Customer demo",
-    email: "demo@homenestkitchen.com",
-    password: "Demo1234!",
-  },
-  {
-    label: "Admin demo",
-    email: "admin@homenestkitchen.com",
-    password: "Admin123!",
-  },
-] as const;
-
-/**
- * Demo quick-fill is an evaluation affordance for development builds. Session-12
- * S12-2: a production build ships with the box OFF by default (the box names
- * the seeded ADMIN credentials) and operators opt in for evaluation deploys
- * with NEXT_PUBLIC_DEMO_MODE="true"; in dev the box stays on unless explicitly
- * disabled. See .env.example and docs/DEPLOYMENT.md.
- */
-const DEMO_MODE =
-  process.env.NEXT_PUBLIC_DEMO_MODE === "true" ||
-  (process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEMO_MODE !== "false");
+/** A demo quick-fill entry. The strings are OWNED BY THE SERVER: the (server)
+ * login page passes them as props only when demo mode is enabled
+ * (src/lib/demo-mode.ts), so production builds ship no credentials in the
+ * client bundle (session-13 S13-1 — pinned by the auth e2e bundle guard). */
+export type DemoAccount = {
+  label: string;
+  email: string;
+  password: string;
+};
 
 /**
  * Sign-in form — `useActionState` + the server action: works without JS
  * (native POST fallback), pending is framework-owned (no hydration race),
  * failures render inline, and success redirects inside the action.
  */
-export function LoginForm({ contactEmail = "hello@homenest.com" }: { contactEmail?: string }) {
+export function LoginForm({
+  contactEmail = "hello@homenest.com",
+  demoAccounts,
+}: {
+  contactEmail?: string;
+  demoAccounts?: readonly DemoAccount[];
+}) {
   const [state, formAction, pending] = React.useActionState(loginAction, {
     error: null,
   });
   const error = state.error;
 
-  function fillDemoAccount(demo: (typeof DEMO_ACCOUNTS)[number]) {
+  function fillDemoAccount(demo: DemoAccount) {
     const form = document.getElementById("login-form") as HTMLFormElement | null;
     if (!form) return;
     const emailInput = form.elements.namedItem("email");
@@ -106,13 +98,14 @@ export function LoginForm({ contactEmail = "hello@homenest.com" }: { contactEmai
         </Button>
       </form>
 
-      {/* Demo accounts helper — mirrors the reference SPA's quick-fill box */}
-      {DEMO_MODE && (
+      {/* Demo accounts helper — mirrors the reference SPA's quick-fill box.
+          Rendered only when the server passed credentials (demo mode ON). */}
+      {demoAccounts && demoAccounts.length > 0 && (
         <div className="mt-5 rounded-xl border border-border bg-secondary/60 p-3.5">
           <p className="text-xs font-semibold text-secondary-foreground">Demo accounts</p>
           <p className="mt-0.5 text-xs text-muted-foreground">Explore the store with a pre-seeded account.</p>
           <div className="mt-2.5 flex flex-wrap gap-2">
-            {DEMO_ACCOUNTS.map((demo) => (
+            {demoAccounts.map((demo) => (
               <button
                 key={demo.email}
                 type="button"

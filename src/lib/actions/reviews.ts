@@ -56,24 +56,29 @@ export async function submitReviewAction(
     // Attribute the review to the signed-in user when there is one; guests
     // can still review (userId stays null).
     const user = await getCurrentUser();
-    await db.review.create({
-      data: {
-        productId: pid,
-        rating: safeRating,
-        title: safeTitle,
-        comment: safeComment,
-        author: safeAuthor,
-        userId: user?.id ?? null,
-        verified: false,
-      },
-    });
 
-    // Grow the denormalized rating fields from their current baseline (see
-    // review-aggregate.ts for why a from-scratch recompute is wrong here).
-    // Session-8 S8-2: the read-merge-write runs inside ONE transaction — two
-    // concurrent submissions outside one would both read reviewCount = N and
-    // one increment would be lost.
-    await db.$transaction(async (tx) => growReviewAggregate(tx, pid, safeRating));
+    // Session-13 S13-4: the insert and the aggregate growth share ONE
+    // transaction — the pre-fix shape (create outside the tx) left an
+    // uncounted orphan row behind whenever the aggregate write failed, and
+    // the retry it invited double-inserted. Session-8 S8-2: the read-merge-
+    // write runs inside the caller's transaction — two concurrent
+    // submissions outside one would both read reviewCount = N and one
+    // increment would be lost (see review-aggregate.ts for why a
+    // from-scratch recompute is wrong here).
+    await db.$transaction(async (tx) => {
+      await tx.review.create({
+        data: {
+          productId: pid,
+          rating: safeRating,
+          title: safeTitle,
+          comment: safeComment,
+          author: safeAuthor,
+          userId: user?.id ?? null,
+          verified: false,
+        },
+      });
+      await growReviewAggregate(tx, pid, safeRating);
+    });
 
     revalidatePath(`/product/${pid}`);
     return { ok: true };

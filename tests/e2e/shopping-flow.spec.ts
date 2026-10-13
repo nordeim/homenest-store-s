@@ -10,20 +10,26 @@ test.describe("shopping flow", () => {
   test("add to cart updates the header badge and mini drawer", async ({ page }) => {
     await gotoHydrated(page, "/products");
 
+    // S13-3: the CLOSED drawer must be inert — invisible off-screen controls
+    // must not stay in the tab order or the accessibility tree.
+    const drawer = page.getByTestId("cart-drawer");
+    await expect(drawer).toHaveAttribute("inert", "");
+
     await page.locator("article").first().getByRole("button", { name: "Add to Cart" }).click();
     await expect(page.getByTestId("cart-count")).toBeVisible();
     await expect(page.getByTestId("cart-count")).toHaveText("1");
 
     // Open the mini drawer and verify the line.
     await page.getByRole("button", { name: /^Cart/ }).click();
-    const drawer = page.getByTestId("cart-drawer");
     await expect(drawer).toBeVisible();
+    await expect(drawer).not.toHaveAttribute("inert");
     await expect(drawer.getByText("Subtotal")).toBeVisible();
     await drawer.getByRole("button", { name: "Close cart" }).click();
     // The drawer is an always-mounted translate-x panel (the Tailwind v4-safe
     // pattern) — assert off-viewport + inert rather than DOM removal.
     await expect(drawer).not.toBeInViewport();
     await expect(drawer).toHaveClass(/pointer-events-none/);
+    await expect(drawer).toHaveAttribute("inert", "");
   });
 
   test("full guest checkout places an order", async ({ page }) => {

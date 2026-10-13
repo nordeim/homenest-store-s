@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { ArrowRightLeft, Package, ReceiptText, Wallet } from "lucide-react";
 
-import { foldItemAggregates, topProducts } from "@/lib/analytics";
+import { foldItemAggregates, topProducts, utcMonthStart } from "@/lib/analytics";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 
@@ -25,7 +25,9 @@ function truncateLabel(name: string, max = 22): string {
 
 export default async function AdminAnalyticsPage() {
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  // Session-13 S13-6: the month window shares the chart's UTC day buckets —
+  // local getters disagreed with the SQL fold on non-UTC hosts.
+  const monthStart = utcMonthStart(now);
 
   const [revenueAgg, nonCancelledCount, customers, monthAgg, itemGroups, statusGroups] = await Promise.all([
     db.order.aggregate({ _sum: { total: true }, where: { status: { not: "cancelled" } } }),

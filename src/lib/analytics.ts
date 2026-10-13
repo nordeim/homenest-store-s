@@ -103,3 +103,14 @@ export function buildRevenueChart(rows: RevenueDayRow[], now: Date): RevenuePoin
   }
   return points;
 }
+
+/**
+ * UTC midnight of the first of `now`'s UTC month — the "Revenue This Month"
+ * window. Session-13 S13-6: every admin money surface must bucket by UTC day
+ * (the SQL buckets fold `date(placedAt/1000,'unixepoch')`, which is UTC), so
+ * the month start is derived with UTC getters instead of the host-local ones
+ * a bare `new Date(y, m, 1)` would use. Pure, unit-pinned.
+ */
+export function utcMonthStart(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+}

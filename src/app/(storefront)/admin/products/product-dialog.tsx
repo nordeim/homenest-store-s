@@ -195,6 +195,11 @@ export function ProductDialogButton({
         setError(result.error);
         toast({ title: "Could not save product", description: result.error, variant: "destructive" });
       }
+    } catch {
+      // Session-13 S13-2: the action deliberately rethrows unknown errors (DB
+      // outage) — surface them instead of failing silently.
+      setError("Something went wrong. Please try again.");
+      toast({ title: "Something went wrong", description: "The product did not save. Please try again.", variant: "destructive" });
     } finally {
       setPending(false);
     }
@@ -473,6 +478,9 @@ export function ProductDeleteButton({ id, name }: { id: string; name: string }) 
       } else {
         toast({ title: "Could not delete product", description: result.error, variant: "destructive" });
       }
+    } catch {
+      // Session-13 S13-2: unknown errors must be visible, never silent.
+      toast({ title: "Something went wrong", description: "The product was not deleted. Please try again.", variant: "destructive" });
     } finally {
       setPending(false);
     }
@@ -542,6 +550,9 @@ export function ProductToggleActiveButton({
       } else {
         toast({ title: "Could not update product", description: result.error, variant: "destructive" });
       }
+    } catch {
+      // Session-13 S13-2: unknown errors must be visible, never silent.
+      toast({ title: "Something went wrong", description: "The product was not updated. Please try again.", variant: "destructive" });
     } finally {
       setPending(false);
     }

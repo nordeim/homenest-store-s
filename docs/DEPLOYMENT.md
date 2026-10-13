@@ -49,7 +49,8 @@ automatically by the limiter (`src/lib/rate-limit.ts`).
 | `DATABASE_URL` | Yes | SQLite connection string. See §5. |
 | `AUTH_SECRET` | **Yes in production** | HMAC secret for session cookies and receipt/order-access tokens. Generate with `openssl rand -base64 32`. The server **refuses to start** in production without a strong value (`src/lib/auth-secret.ts` throws at module load). |
 | `NEXT_PUBLIC_SITE_URL` | Recommended | Canonical public origin, used for metadata URLs, `sitemap.xml`, `robots.txt`, and JSON-LD (e.g. `https://shop.example.com`). |
-| `NEXT_PUBLIC_DEMO_MODE` | Optional | The login page's demo-credentials quick-fill box. **Production builds hide it by default** (it names the seeded admin account); set `true` to opt in for an evaluation deploy. In development the box is shown unless explicitly `false`. |
+| `NEXT_PUBLIC_DEMO_MODE` | Optional | The login page's demo-credentials quick-fill box. **Production builds hide it by default** (it names the seeded admin account); set `true` to opt in for an evaluation deploy. In development the box is shown unless explicitly `false`. Since session-13 (S13-1) the credentials are passed server-side as props only when enabled — a default production build ships **no credential strings** in the client bundle at all. |
+| `TRUST_CF_CONNECTING_IP` | Optional (default: trust) | Session-13 (S13-7): set `"false"` on **direct deployments** (no Cloudflare edge) so the client-forgeable `cf-connecting-ip` header cannot rotate per-IP rate-limit buckets. Keep the default (or unset) behind Cloudflare. |
 
 Start from `.env.example` (`cp .env.example .env`) — it documents every
 variable above.

@@ -164,4 +164,33 @@ test.describe("auth", () => {
     await expect(page.getByRole("link", { name: firstProduct }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: secondProduct }).first()).toBeVisible();
   });
+
+  test("the production login page ships no demo credentials in its scripts (S13-1)", async ({
+    page,
+  }) => {
+    // S13-1's regression guard: the quick-fill box is hidden in production
+    // builds, and since session 13 the credential STRINGS must not even
+    // reach the client — neither in the page HTML (the RSC payload included)
+    // nor in any referenced script chunk.
+    const response = await page.goto("/login");
+    const html = (await response?.text()) ?? "";
+    await page.waitForSelector('html[data-hydrated="true"]', { timeout: 20_000 });
+
+    const scriptUrls = await page.evaluate(() =>
+      Array.from(document.querySelectorAll("script[src]"))
+        .map((s) => (s as HTMLScriptElement).src)
+        .filter((src) => src.startsWith(window.location.origin)),
+    );
+    expect(scriptUrls.length).toBeGreaterThan(0);
+
+    const bodies = await Promise.all(
+      scriptUrls.map((src) => page.request.get(src).then((r) => r.text())),
+    );
+    for (const secret of ["Admin123!", "Demo1234!"]) {
+      expect(html).not.toContain(secret);
+      for (const body of bodies) {
+        expect(body).not.toContain(secret);
+      }
+    }
+  });
 });

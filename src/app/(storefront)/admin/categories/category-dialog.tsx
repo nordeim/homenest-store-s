@@ -137,6 +137,10 @@ export function CategoryDialogButton({
         setError(result.error);
         toast({ title: "Could not save category", description: result.error, variant: "destructive" });
       }
+    } catch {
+      // Session-13 S13-2: unknown errors must be visible, never silent.
+      setError("Something went wrong. Please try again.");
+      toast({ title: "Something went wrong", description: "The category did not save. Please try again.", variant: "destructive" });
     } finally {
       setPending(false);
     }
@@ -312,6 +316,9 @@ export function CategoryDeleteButton({ id, name }: { id: string; name: string })
       } else {
         toast({ title: "Could not delete category", description: result.error, variant: "destructive" });
       }
+    } catch {
+      // Session-13 S13-2: unknown errors must be visible, never silent.
+      toast({ title: "Something went wrong", description: "The category was not deleted. Please try again.", variant: "destructive" });
     } finally {
       setPending(false);
     }
@@ -380,6 +387,9 @@ export function CategoryToggleButton({ category }: { category: CategoryFormValue
       } else {
         toast({ title: "Could not update category", description: result.error, variant: "destructive" });
       }
+    } catch {
+      // Session-13 S13-2: unknown errors must be visible, never silent.
+      toast({ title: "Something went wrong", description: "The category was not updated. Please try again.", variant: "destructive" });
     } finally {
       setPending(false);
     }

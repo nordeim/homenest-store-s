@@ -917,3 +917,83 @@ Visual parity re-verified against the LIVE reference (agent-browser, logged in):
 - [x] Screenshots refreshed; docs sweep; worklog updated
 
 **Post-remediation totals (session 12):** see the session-12 run narrative (`docs/session_17.md`) for the final counts.
+
+---
+
+# Session 13 — Post-push audit & drawer-a11y/bundle-hygiene completion (2026-10-13)
+
+> **Status:** EXECUTED (see the Session-13 Execution Log at the end)
+> **Scope:** Re-validation of the session-12 deliverables on the pulled tree (`8439105` = `15eb5f9` + `docs/session_18.md`), a **live-reference parity re-verification** (agent-browser, logged in with the operator credentials), a fresh read-only deep audit (repo `code-review-checklist` 12-category scan over `src/`, `prisma/`, `tests/`, root configs — `skills/` excluded), and TDD remediation of the newly identified findings (1 MEDIUM + 4 LOW + 2 NIT) plus test-coverage pins and three doc-drift repairs.
+> **Method:** unchanged — failing tests first, then the fix, then the full gate chain (`lint && typecheck && typecheck:tests && test && build && test:e2e`).
+
+## 1. Re-validation (all session-12 gates green on the pulled tree)
+
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · **257/257 unit** ✓ · build ✓ · **59/59 e2e** ✓ (sandbox `DATABASE_URL` shadow converged via the pre-existing symlink `/home/z/my-project/db → <repo>/db`; `.env` carries the `file:../db/custom.db` contract with a fresh `AUTH_SECRET`; `db/custom.db` seeded at the repo root; health `db:up`).
+
+Visual parity re-verified against the LIVE reference (agent-browser, logged in): reference unchanged — same nav anatomy, same hero slides, same trust badges, same 8 category tiles, same featured set and authored order (Damascus first on `/products` "Newest", home Featured and New Arrivals alike — the session-12 order fix holds on both sides), same login copy, account page covered by the clone's superset. **Mobile menu re-verified** on the clone's production build (iPhone 390×844: open → `expanded=true` → `navigation "Mobile"` with all links → navigate to `/products` → auto-close) — the Tailwind v4 conditional-mount pattern is intact.
+
+## 2. Session-12 fix verification (read-only subagent + spot-checks)
+
+**4/4 WIRED · 0 PARTIAL · 0 MISSING.** (a) `cartClearFilter` (`cart.ts:43-45`) consumed by the in-tx sweep (`checkout/route.ts:368`); (b) demo quick-fill OFF by default in production (`login-form.tsx:32-34`, truth table verified for all five env cells; residual → S13-1); (c) token verified BEFORE the DB read (`checkout/success/page.tsx:96` precedes the lookup at :98, timing-safe verify in `order-access.ts:35-39`); (d) seed backdating create-only via `productSeedCreatedAt` (`seed.ts:645`; `productSeedUpdate` excludes `createdAt`) with home featured `desc` (`page.tsx:39,45`).
+
+## 3. Session-13 audit findings (evidence-based)
+
+**0 CRITICAL / 0 HIGH / 1 MEDIUM / 4 LOW / 2 NIT** — the twelfth pass re-confirmed clean: all 11 route handlers (body-parse separation, status codes, limiter keys, ownership checks), `actions/admin.ts` authorization surface, auth/session (scrypt, hashed-token sessions, HMAC cookie, sweep), money/coupon/settings edge cases, seed idempotency + policy, headers/CSP/nonce flow, SEO (sitemap/robots/JSON-LD/canonicals), validation schemas, Prisma schema indexes. Every finding below was personally re-verified with file:line evidence before planning.
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| S13-3 | MEDIUM | **The closed cart drawer remains keyboard-reachable and exposed to assistive tech.** The `<aside role="dialog" aria-modal="true">` is always mounted; the closed state is only `pointer-events-none translate-x-full` (a transform — which does NOT remove elements from the tab order or the accessibility tree). Its close button, per-line steppers, and Checkout/View Cart links stay focusable when closed: with items in the cart a keyboard user tabs through ~5+ invisible off-screen controls on every page, and screen readers meet an `aria-modal` dialog that is never open. Adjacent to but distinct from the deferred S8-7 (open-state focus trap). Violates the WCAG 2.2 AA claim in CLAUDE.md. | `src/components/store/store-chrome.tsx:163-171` (closed state at :169); interactive children :174-182, :219-238, :259-268 |
+| S13-1 | LOW | **The seeded demo credentials ship in the production client bundle despite the hidden box.** S12-2 gated the quick-fill JSX, but `DEMO_ACCOUNTS` is module scope in a `"use client"` file, so both passwords are compiled into the shipped chunks: the built artifact contains `…{label:"Admin demo",email:"admin@homenestkitchen.com",password:"Admin123!"}…`. The "production hides the admin credentials" property is visual only — view-source reveals them. Fix: server boundary — the (server) login page computes the flag and passes `demoAccounts` as props ONLY when enabled; the client file carries no credential strings. | `src/app/(auth)/login/login-form.tsx:12-23` + built chunk `.next/static/chunks/1qoat3oyc3j12.js` |
+| S13-2 | LOW | **The five admin client islands have no catch around awaited server actions — failures are silent.** All mutation handlers are `try { await action() } finally { setPending(false) }` with zero catch (grep-verified in all five files). The actions deliberately rethrow unknown errors (DB outage), so on rejection nothing renders: no toast, no inline error, dialog stays open — "nothing happened" — plus an unhandled promise rejection. The storefront islands do this correctly (profile-form, address-dialog, contact-form, add-all-button all catch) — the asymmetry contradicts CLAUDE.md's "every async action has error handling". | `product-dialog.tsx:169-200`, `category-dialog.tsx`, `slide-dialog.tsx`, `order-manage-dialog.tsx:122-163`, `settings-form.tsx:89-115` |
+| S13-4 | LOW | **The review insert and the aggregate growth are two separate transactions.** S8-2 made the read-merge-write transactional, but `db.review.create` stayed OUTSIDE the `$transaction`. If the grow tx fails after the insert commits, the row persists uncounted and the broad catch returns "Could not save your review" — a retry inserts a duplicate. Fix: fold the create into the same transaction as `growReviewAggregate`. | `src/lib/actions/reviews.ts:59-69` (create) vs :76 (tx) |
+| S13-7 | LOW | **`cf-connecting-ip` is trusted unconditionally by `clientIp`.** On the documented standalone direct deploy (no Cloudflare edge) that header is fully client-controlled: rotating it mints fresh `login-ip:`/`review-ip:`/`checkout:` per-IP buckets. The per-email budgets + scrypt burn still bound per-account abuse, and header-derived IPs are inherently advisory on direct deploys (a bare client can also send `x-forwarded-for`) — so the fix is an explicit **opt-out** (`TRUST_CF_CONNECTING_IP="false"`), NOT a default flip: flipping would break the documented session-6 invariant and CF-fronted deployments (whose rightmost-XFF fallback can include internal proxy hops). Default behavior unchanged; direct-deploy operators gain a one-line hardening switch. | `src/lib/rate-limit.ts:71-79` |
+| S13-5 | NIT | **Three admin actions map EVERY error — including a DB outage — to "not found".** Bare `catch { return { ok:false, error: "…not found…" } }` in `toggleProductActiveAction`, `upsertSlideAction`, `reorderSlidesAction`, unlike the sibling `upsertProductAction`/`upsertCategoryAction` which narrow P2002/P2025 and rethrow unknown. A transient failure tells the admin the row doesn't exist. Fix: mirror the sibling pattern. | `admin.ts:143-145, 265-267, 299-301` vs :93-103/:191-204 |
+| S13-6 | NIT | **"Revenue This Month" uses server-LOCAL month boundaries while the dashboard revenue chart buckets are UTC.** `new Date(now.getFullYear(), now.getMonth(), 1)` vs `buildRevenueChart`'s UTC day buckets (`Date.UTC(...)`): on a non-UTC host the two admin money surfaces disagree about "this month"/"today". Fix: pure `utcMonthStart(now)` helper, unit-pinned, consumed by the analytics page. | `src/app/(storefront)/admin/analytics/page.tsx:28-29` vs `src/lib/analytics.ts:95` |
+
+### Doc drift repaired this session
+
+| # | Drift | Repair |
+|---|---|---|
+| D1 | `README.md:55` tech-stack table still says "246 unit · 51 e2e" (badge + commands say 257/59) | Updated to the post-session totals |
+| D2 | `CLAUDE.md:49` says the checkout client mints keys via "crypto.randomUUID()" — the code uses `newRequestId()` (`random-id.ts`, non-secure-origin fallback; AGENTS.md:68 documents it correctly) | Wording corrected |
+| D3 | `CLAUDE.md:90` "every async action has error handling" — contradicted by S13-2 | Fixed the CODE (S13-2) so the doc claim becomes true; doc unchanged |
+
+### Coverage pins added this session (from the audit's gap list)
+
+| # | Gap | Pin |
+|---|---|---|
+| C1 | `demoModeEnabled` (S13-1 vehicle) — the five env cells previously only hand-verified | Unit truth table: prod+unset→off, prod+"true"→on, prod+"false"→off, dev+unset→on, dev+"false"→off |
+| C2 | `utcMonthStart` (S13-6 vehicle) unextracted | Unit: month-start instant, month rollover, timezone independence |
+| C3 | `clientIp` opt-out (S13-7 vehicle) unpinned | Unit: default preserves cf-first precedence; `trustCf:false` ignores the header and falls through XFF/direct |
+| C4 | Review create+grow atomicity (S13-4) has no DB-level pin | Integration unit (temp SQLite): a failed aggregate write inside the tx rolls back the review insert; success path grows the aggregate |
+| C5 | Closed-drawer keyboard reachability (S13-3) unpinned | E2E: closed drawer carries `inert` (and drops it while open) |
+| C6 | Production-bundle credential guard (S13-1) unpinned — would have caught S13-1 mechanically | E2E: the login page's HTML + every referenced script chunk contain no seeded password strings |
+| C7 | Admin island silent-failure (S13-2) unpinned | E2E (representative): an aborted settings-save surfaces the destructive toast |
+| C8 | `settingsPatchSchema` clamps (audit gap #1) unexported and unpinned | Export + unit: tax bounds, cents bounds, `javascript:` social URL rejection, whitespace trim |
+
+### Accepted / deferred (with justification)
+
+- **Audit coverage gaps #3–#5 accepted as documented debt**: `setOrderStatusAction` action-level tx wiring (the pure transition rules + guarded write are unit-pinned; a fake-tx harness would duplicate the DB integration pattern beyond this session's scope — C4 establishes the pattern), checkout coupon-cap rollback under concurrency (the guarded filter is unit-pinned; true concurrency needs the deferred integration harness), review two-tier budgets e2e (unchanged — monotonic demo aggregates, unit key shape pinned).
+- **Carried deferrals unchanged**: drawer OPEN-state focus trap (S8-7 — S13-3 fixes the closed-state leak only), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration test, 404-shell CSP nonce, `__Host-` prefix, shared-store limiter, admin coupon-management UI, real mailer, radiogroup roving focus, address content dedup.
+
+## 4. Remediation plan (TDD)
+
+1. **S13-3** — `store-chrome.tsx`: the drawer `<aside>` gains `inert={!cartDrawerOpen}` (React 19 boolean attribute; not a display utility — the Tailwind v4 no-display-toggle contract is untouched) + `aria-hidden={!cartDrawerOpen}`; transform animation preserved. E2E pin red-first in `shopping-flow.spec.ts` (closed → `inert` present; open → absent).
+2. **S13-1** — new pure `demoModeEnabled(env)` in `src/lib/demo-mode.ts` (unit RED-first, five cells); `login/page.tsx` computes the flag server-side and passes `demoAccounts` ONLY when enabled; `login-form.tsx` drops the module-scope `DEMO_ACCOUNTS` + the client `DEMO_MODE` const and renders from the prop. E2E pin: login HTML + every referenced script chunk are credential-free.
+3. **S13-2** — the five admin islands gain `catch` → inline `setError` where the state exists + the destructive toast ("Something went wrong…"), matching the storefront islands. E2E pin (representative): route-abort the settings action POST → destructive toast visible.
+4. **S13-4** — `reviews.ts`: fold `review.create` into the same `$transaction` as `growReviewAggregate`. Integration unit RED-first (temp SQLite via `datasourceUrl`): failed aggregate write rolls back the insert; success grows the aggregate.
+5. **S13-7** — `clientIp(headers, opts?)` gains an explicit `trustCf` override (default: module-level `TRUST_CF_CONNECTING_IP !== "false"` — the documented invariant unchanged); unit RED-first for both the default precedence and the opt-out; `.env.example` + DEPLOYMENT.md rows.
+6. **S13-5** — the three bare catches narrow to `P2025` → "not found" and rethrow unknown errors, mirroring the sibling pattern.
+7. **S13-6** — pure `utcMonthStart(now)` in `analytics.ts` (unit RED-first), consumed by the analytics page.
+8. **C8** — export `settingsPatchSchema`; unit-pin the clamps.
+9. **DOC** — README (counts + notes), CLAUDE.md (D2 wording, module list), AGENTS.md (three new invariants: drawer inert, credential server-boundary, clientIp opt-out), PAD (§8 tables + known-issues ledger), SKILL.md v1.10.0 (project_state + Appendix B), DEPLOYMENT.md (TRUST_CF_CONNECTING_IP row), `docs/session_19.md` (run-14 narrative), worklog entry, screenshots refreshed.
+
+## 5. Execution log (session 13)
+
+- [x] RED — `tests/unit/session13-hardening.test.ts` (`demoModeEnabled` ×5, `utcMonthStart` ×3, `clientIp` opt-out ×3, settings clamps ×6) + `tests/unit/review-transactional.test.ts` (integration ×3, temp SQLite via `datasourceUrl`) — failed on the missing exports/behavior with the existing 257 green
+- [x] RED — e2e: closed-drawer `inert` (shopping-flow), login-bundle credential-free (auth), admin aborted-save toast (admin) — failed against the old build
+- [x] GREEN — S13-3 `inert`/`aria-hidden` on the drawer; S13-1 server boundary + `demoModeEnabled`; S13-2 catches ×5 islands; S13-4 tx fold; S13-7 opt-out param; S13-5 narrowed catches ×3; S13-6 `utcMonthStart`; C8 schema export + pins
+- [x] Full gate chain re-run green (277/277 unit · 61/61 e2e); manual agent-browser verification (drawer closed focus/inert live, login box absent + credentials absent from view-source, admin toast on aborted save, mobile menu re-check)
+- [x] Screenshots refreshed; docs sweep; worklog updated
+
+**Post-remediation totals (session 13):** see the session-13 run narrative (`docs/session_19.md`) for the final counts.

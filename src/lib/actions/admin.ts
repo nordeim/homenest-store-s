@@ -16,6 +16,7 @@ import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { OrderGoneError, applyCarrierTracking } from "@/lib/order-tracking";
 import { applyOrderStatusTransition, canTransitionOrderStatus } from "@/lib/order-status";
+import { settingsPatchSchema, type SettingsPatch } from "@/lib/settings-schema";
 import { updateSettings } from "@/lib/settings";
 import {
   carouselSlideInputSchema,
@@ -140,8 +141,14 @@ export async function toggleProductActiveAction(id: string, isActive: boolean): 
 
   try {
     await db.product.update({ where: { id }, data: { isActive } });
-  } catch {
-    return { ok: false, error: "Product not found. Refresh the list and try again." };
+  } catch (error) {
+    // Session-13 S13-5: a concurrent delete is a P2025; anything else (DB
+    // outage) must not lie that the product is gone — mirror the sibling
+    // upsert action's narrowing and rethrow the unknown.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return { ok: false, error: "Product not found. Refresh the list and try again." };
+    }
+    throw error;
   }
 
   revalidatePath("/admin/products");
@@ -262,8 +269,13 @@ export async function upsertSlideAction(data: SlideUpsertInput): Promise<AdminAc
     } else {
       await db.carouselSlide.create({ data: dbData });
     }
-  } catch {
-    return { ok: false, error: "Slide not found. Refresh and try again." };
+  } catch (error) {
+    // Session-13 S13-5: narrow to the row-missing race; an outage is not a
+    // "slide not found".
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return { ok: false, error: "Slide not found. Refresh and try again." };
+    }
+    throw error;
   }
 
   revalidatePath("/admin/carousel");
@@ -296,8 +308,13 @@ export async function reorderSlidesAction(ids: string[]): Promise<AdminActionRes
     await db.$transaction(
       parsed.data.map((id, index) => db.carouselSlide.update({ where: { id }, data: { sortOrder: index } })),
     );
-  } catch {
-    return { ok: false, error: "Could not reorder slides. Refresh and try again." };
+  } catch (error) {
+    // Session-13 S13-5: narrow to the row-missing race; an outage is not a
+    // "could not reorder".
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return { ok: false, error: "Could not reorder slides. Refresh and try again." };
+    }
+    throw error;
   }
 
   revalidatePath("/admin/carousel");
@@ -409,64 +426,11 @@ export async function setTrackingAction(input: z.input<typeof trackingSchema>): 
 }
 
 // ---------------------------------------------------------------------------
-// Store settings
+// Store settings — the boundary schema lives in `@/lib/settings-schema`
+// (session-13 C8: pure, exported, unit-pinned); this action stays the writer.
 // ---------------------------------------------------------------------------
 
-/** Plain numeric string ("7.5", "42") clamped to a range. */
-function numericSetting(min: number, max: number) {
-  return z
-    .string()
-    .trim()
-    .refine((v) => /^\d+(\.\d+)?$/.test(v) && Number(v) >= min && Number(v) <= max, {
-      message: `Enter a number between ${min} and ${max}.`,
-    })
-    .transform((v) => String(Number(v)));
-}
-
-/** Whole-number string (cents amounts arriving from the dollars input). */
-function integerSetting(min: number, max: number) {
-  return z
-    .string()
-    .trim()
-    .refine((v) => /^\d+$/.test(v) && Number(v) >= min && Number(v) <= max, {
-      message: `Enter a whole number between ${min} and ${max}.`,
-    });
-}
-
-function socialSetting() {
-  return z
-    .string()
-    .trim()
-    .max(200, "URL is too long")
-    .refine((v) => v === "" || /^https?:\/\/\S+$/.test(v), "Enter a valid http(s) URL (or leave blank)")
-    .transform((v) => v);
-}
-
-const settingsPatchSchema = z
-  .object({
-    storeName: z.string().trim().min(1, "Store name is required").max(80).optional(),
-    tagline: z.string().trim().min(1, "Tagline is required").max(200).optional(),
-    contactEmail: z
-      .string()
-      .trim()
-      .min(3)
-      .max(120)
-      .refine((v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), "Enter a valid email address")
-      .optional(),
-    contactPhone: z.string().trim().min(3, "Phone is required").max(40).optional(),
-    address: z.string().trim().min(3, "Address is required").max(200).optional(),
-    taxRatePercent: numericSetting(0, 100).optional(),
-    standardShippingCents: integerSetting(0, 1000000).optional(),
-    expressShippingCents: integerSetting(0, 1000000).optional(),
-    freeShippingThresholdCents: integerSetting(0, 1000000).optional(),
-    socialInstagram: socialSetting().optional(),
-    socialPinterest: socialSetting().optional(),
-    socialFacebook: socialSetting().optional(),
-    socialTikTok: socialSetting().optional(),
-  })
-  .strip();
-
-export type SettingsPatchInput = z.input<typeof settingsPatchSchema>;
+export type SettingsPatchInput = SettingsPatch;
 
 export async function updateSettingsAction(patch: SettingsPatchInput): Promise<AdminActionResult> {
   const denied = await requireAdmin();

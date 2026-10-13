@@ -110,6 +110,10 @@ export function SettingsForm({ settings }: { settings: StoreSettings }) {
         setError(result.error);
         toast({ title: "Could not save settings", description: result.error, variant: "destructive" });
       }
+    } catch {
+      // Session-13 S13-2: unknown errors must be visible, never silent.
+      setError("Something went wrong. Please try again.");
+      toast({ title: "Something went wrong", description: "The settings did not save. Please try again.", variant: "destructive" });
     } finally {
       setPending(false);
     }

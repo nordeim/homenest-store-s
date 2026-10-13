@@ -165,6 +165,15 @@ function CartDrawer() {
         aria-modal="true"
         aria-label="Shopping cart"
         data-testid="cart-drawer"
+        // Session-13 S13-3: the panel is always mounted for the transform
+        // animation (the Tailwind v4-safe pattern), but a transform does NOT
+        // remove elements from the tab order or the accessibility tree — a
+        // closed drawer must be `inert` + `aria-hidden` so its close button,
+        // steppers and links are unreachable while invisible. `inert` is a
+        // boolean attribute, not a display utility, so the v4 display-toggle
+        // trap does not apply.
+        inert={!cartDrawerOpen}
+        aria-hidden={!cartDrawerOpen}
         className={`fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-card shadow-xl transition-transform duration-300 ease-out ${
           cartDrawerOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}

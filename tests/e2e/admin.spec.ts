@@ -126,4 +126,27 @@ test.describe("admin back office", () => {
     const emailInput = page.getByLabel(/contact email/i);
     await expect(emailInput).toHaveValue(/homenest\.com/);
   });
+
+  test("an aborted settings save surfaces a visible error instead of silence (S13-2)", async ({
+    page,
+  }) => {
+    await loginAsAdmin(page);
+    await gotoHydrated(page, "/admin/settings");
+
+    // Simulate an outage: abort every server-action POST. Before S13-2 the
+    // island swallowed the rejection (no toast, no inline error — the admin
+    // could not tell saved from failed).
+    await page.route("**/*", (route) => {
+      const request = route.request();
+      if (request.method() === "POST" && request.headers()["next-action"]) {
+        return route.abort("failed");
+      }
+      return route.fallback();
+    });
+
+    await page.getByLabel(/store name/i).fill("Aborted Save Probe");
+    await page.getByRole("button", { name: /save settings/i }).click();
+
+    await expect(page.getByText(/something went wrong/i).first()).toBeVisible({ timeout: 10_000 });
+  });
 });

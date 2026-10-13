@@ -109,6 +109,10 @@ export function SlideDialogButton({
         setError(result.error);
         toast({ title: "Could not save slide", description: result.error, variant: "destructive" });
       }
+    } catch {
+      // Session-13 S13-2: unknown errors must be visible, never silent.
+      setError("Something went wrong. Please try again.");
+      toast({ title: "Something went wrong", description: "The slide did not save. Please try again.", variant: "destructive" });
     } finally {
       setPending(false);
     }
@@ -253,6 +257,9 @@ export function SlideDeleteButton({ id, title }: { id: string; title: string }) 
       } else {
         toast({ title: "Could not delete slide", description: result.error, variant: "destructive" });
       }
+    } catch {
+      // Session-13 S13-2: unknown errors must be visible, never silent.
+      toast({ title: "Something went wrong", description: "The slide was not deleted. Please try again.", variant: "destructive" });
     } finally {
       setPending(false);
     }
@@ -321,6 +328,9 @@ export function SlideToggleButton({ slide }: { slide: SlideFormValues }) {
       } else {
         toast({ title: "Could not update slide", description: result.error, variant: "destructive" });
       }
+    } catch {
+      // Session-13 S13-2: unknown errors must be visible, never silent.
+      toast({ title: "Something went wrong", description: "The slide was not updated. Please try again.", variant: "destructive" });
     } finally {
       setPending(false);
     }
@@ -386,6 +396,9 @@ export function SlideMoveButton({
       } else {
         toast({ title: "Could not reorder slides", description: result.error, variant: "destructive" });
       }
+    } catch {
+      // Session-13 S13-2: unknown errors must be visible, never silent.
+      toast({ title: "Something went wrong", description: "The slide order was not saved. Please try again.", variant: "destructive" });
     } finally {
       setPending(false);
     }

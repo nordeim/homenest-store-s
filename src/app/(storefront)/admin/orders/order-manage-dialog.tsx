@@ -138,6 +138,9 @@ export function OrderManageButton({ order }: { order: OrderManageData }) {
       } else {
         toast({ title: "Could not update status", description: result.error, variant: "destructive" });
       }
+    } catch {
+      // Session-13 S13-2: unknown errors must be visible, never silent.
+      toast({ title: "Something went wrong", description: "The status was not updated. Please try again.", variant: "destructive" });
     } finally {
       setStatusPending(false);
     }
@@ -157,6 +160,9 @@ export function OrderManageButton({ order }: { order: OrderManageData }) {
       } else {
         toast({ title: "Could not save tracking", description: result.error, variant: "destructive" });
       }
+    } catch {
+      // Session-13 S13-2: unknown errors must be visible, never silent.
+      toast({ title: "Something went wrong", description: "Tracking was not saved. Please try again.", variant: "destructive" });
     } finally {
       setTrackingPending(false);
     }

@@ -67,10 +67,25 @@ export function resetRateLimiter(): void {
  * connections (no proxy headers — local dev, e2e) share the "direct" bucket.
  * Every call site keys budgets through this helper so they can never
  * disagree.
+ *
+ * Session-13 S13-7: on a DIRECT deploy (no Cloudflare edge) the
+ * `cf-connecting-ip` header is client-forgeable, so operators can opt out of
+ * trusting it with `TRUST_CF_CONNECTING_IP="false"` — the default keeps the
+ * documented session-6 invariant (CF-fronted deployments keep exact per-IP
+ * budgets). Header-derived IPs are inherently advisory on direct deploys
+ * (a bare client can also send `x-forwarded-for`); the per-email budgets and
+ * the scrypt burn remain the authoritative bound there.
  */
-export function clientIp(headers: Headers): string {
-  const cf = headers.get("cf-connecting-ip")?.trim();
-  if (cf) return cf;
+const TRUST_CF_BY_DEFAULT = process.env.TRUST_CF_CONNECTING_IP !== "false";
+
+export function clientIp(
+  headers: Headers,
+  opts: { trustCf?: boolean } = {},
+): string {
+  if ((opts.trustCf ?? TRUST_CF_BY_DEFAULT)) {
+    const cf = headers.get("cf-connecting-ip")?.trim();
+    if (cf) return cf;
+  }
 
   const xff = headers.get("x-forwarded-for")?.trim();
   if (!xff) return "direct";
