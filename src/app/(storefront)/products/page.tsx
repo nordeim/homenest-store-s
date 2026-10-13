@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { db } from "@/lib/db";
 import { siteBaseUrl } from "@/lib/seo";
 import { SORT_OPTIONS, queryProducts } from "@/lib/products";
+import { getWishlistIds } from "@/lib/wishlist";
 import { ProductCard } from "@/components/store/product-card";
 
 import { ProductsControls } from "./products-controls";
@@ -69,7 +70,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   const pageRaw = Number.parseInt(firstParam(sp.page) || "1", 10);
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.min(pageRaw, MAX_PAGE) : 1;
 
-  const [categories, result] = await Promise.all([
+  const [categories, result, wishlistIds] = await Promise.all([
     db.category.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: "asc" },
@@ -82,6 +83,8 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
       page,
       perPage: PER_PAGE,
     }),
+    // Session-11 S11-2: the grid hearts render the filled wishlist state.
+    getWishlistIds(),
   ]);
 
   // Snap a stale out-of-range page (?page=99) back to the last real page.
@@ -164,7 +167,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
       ) : (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {products.map((p, i) => (
-            <ProductCard key={p.id} product={p} priority={i < 4 && currentPage === 1} />
+            <ProductCard key={p.id} product={p} priority={i < 4 && currentPage === 1} inWishlist={wishlistIds.has(p.id)} />
           ))}
         </div>
       )}

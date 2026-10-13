@@ -141,5 +141,6 @@ The clean-check order in `AGENTS.md` is the deploy gate: every step must exit
 | 429s on login/checkout | Per-email (10/min) + per-IP (30/min) fixed-window limiter | Wait for `Retry-After`; in-memory buckets reset on restart (single-node) |
 | 429s on "Add All to Cart" with a huge wishlist | The bulk endpoint is limiter-budgeted at 10 requests/min (up to 100 lines each) | Wait for `Retry-After`; split unusually large operations |
 | 429s on the cart drawer loading behind a shared IP | `GET /api/cart-summary` is metered at 120 requests/min per IP (session-9 — the last unmetered public route) | Wait for `Retry-After`; raise the budget only alongside the limiter's other read budgets |
+| 429s on review submissions from one network | Reviews are two-tier metered (session-11): 20/min per IP (authoritative anti-spam ceiling) + 5/min per author per product | Wait for `Retry-After`; raise the per-IP ceiling only with a shared-store limiter decision |
 | `noindex` on pages you expected indexed | Session-8: cart/account/checkout/track-order/auth/wishlist/admin ship `robots: noindex` by design | Public catalog surfaces (`/`, `/products`, `/product/*`, `/about`, `/contact`, `/legal/*`) stay indexable |
 | `EADDRINUSE :3100` during e2e | A previous standalone server is alive (process renames to `next-server`) | `pkill -f next-server` |

@@ -10,6 +10,7 @@ import { parseImages, parseSpecs, parseTags, toCardData } from "@/lib/products";
 import { buildProductJsonLd, jsonLdScript, siteBaseUrl } from "@/lib/seo";
 import { getSettings } from "@/lib/settings";
 import { getCurrentUser } from "@/lib/auth";
+import { getWishlistIds } from "@/lib/wishlist";
 import { ProductCard } from "@/components/store/product-card";
 import { StarRating } from "@/components/store/star-rating";
 
@@ -75,7 +76,7 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
   ]);
   if (!product) notFound();
 
-  const [reviewCount, related] = await Promise.all([
+  const [reviewCount, related, wishlistIds] = await Promise.all([
     db.review.count({ where: { productId: product.id } }),
     db.product.findMany({
       where: { categoryId: product.categoryId, isActive: true, id: { not: product.id } },
@@ -83,6 +84,8 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
       take: 4,
       include: { category: { select: { name: true, slug: true } } },
     }),
+    // Session-11 S11-2: the related-grid hearts render the filled state.
+    getWishlistIds(),
   ]);
   // Honest pagination (session-6 S6-9): one page of reviews plus the real
   // total — never a silent cap that hides data. Out-of-range pages snap back
@@ -342,7 +345,7 @@ export default async function ProductDetailPage({ params, searchParams }: PagePr
           </h2>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             {related.map((p) => (
-              <ProductCard key={p.id} product={toCardData(p, p.category)} />
+              <ProductCard key={p.id} product={toCardData(p, p.category)} inWishlist={wishlistIds.has(p.id)} />
             ))}
           </div>
         </section>

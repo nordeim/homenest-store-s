@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimit, reviewRateLimitKeys } from "@/lib/rate-limit";
 import { growReviewAggregate } from "@/lib/review-aggregate";
 import { firstError, reviewSchema } from "@/lib/validation";
 
@@ -31,12 +31,16 @@ export async function submitReviewAction(
   const { productId: pid, rating: safeRating, title: safeTitle, comment: safeComment, author: safeAuthor } = parsed.data;
 
   // Guest-reachable write — keep the spam budget tight but human-friendly.
-  // The client IP (x-forwarded-for behind a proxy) pins the budget to a
-  // network origin: without it an attacker could rotate the author string to
-  // mint unlimited fresh budgets.
+  // Two-tier budget (session-11 S11-1): the PER-IP ceiling is the
+  // authoritative anti-spam gate — the author string is client-controlled
+  // free text, so keyed alone it would let an attacker rotate fresh budgets
+  // (and permanently skew the monotonic rating/reviewCount aggregates). The
+  // per-author key underneath keeps the tight 5/min budget for honest
+  // repeat submissions of one product.
   const h = await headers();
-  const limit = rateLimit(`review:${clientIp(h)}:${pid}:${safeAuthor.toLowerCase()}`, 5, 60_000);
-  if (!limit.ok) {
+  const ip = clientIp(h);
+  const { ipKey, authorKey } = reviewRateLimitKeys(ip, pid, safeAuthor);
+  if (!rateLimit(ipKey, 20, 60_000).ok || !rateLimit(authorKey, 5, 60_000).ok) {
     return { ok: false, error: "Too many reviews submitted. Please try again shortly." };
   }
 

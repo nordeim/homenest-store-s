@@ -77,3 +77,22 @@ export function clientIp(headers: Headers): string {
   const last = xff.split(",").map((hop) => hop.trim()).filter(Boolean).pop();
   return last || "direct";
 }
+
+/**
+ * Session-11 S11-1: the review budget is two-tier. The `author` field is
+ * client-controlled free text — keyed alone, rotating it mints fresh budgets
+ * — so the PER-IP ceiling (`ipKey`, no author/product component) is the
+ * authoritative anti-spam gate, and the per-author key (`authorKey`) only
+ * keeps the human-friendly tight budget for honest repeat submissions of one
+ * product. Both keys are evaluated for every submission (IP first).
+ */
+export function reviewRateLimitKeys(
+  ip: string,
+  productId: string,
+  author: string,
+): { ipKey: string; authorKey: string } {
+  return {
+    ipKey: `review-ip:${ip}`,
+    authorKey: `review:${ip}:${productId}:${author.toLowerCase()}`,
+  };
+}

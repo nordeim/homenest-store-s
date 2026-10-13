@@ -783,3 +783,67 @@ Visual parity re-verified against the LIVE reference (agent-browser): hero carou
 - [x] Screenshots refreshed (24 shots incl. the new account address state); docs sweep; worklog updated
 
 **Post-remediation totals (session 10):** 241/241 unit tests, 50/50 e2e tests, lint/typecheck/typecheck:tests/build clean.
+
+---
+
+# Session 11 — Post-push audit & limiter/heart-state completion (2026-10-13)
+
+> **Status:** EXECUTED (see the Session-11 Execution Log at the end)
+> **Scope:** Re-validation of the session-10 deliverables on the pulled tree (`98dc342` = `520c1fc` + `docs/session_14.md`), a fresh read-only deep audit (repo `code-review-checklist` 12-category scan over every `src/lib` module, all 11 API routes, all actions, every storefront/admin/auth page, components, configs, seed + schema, tests + docs), and TDD remediation of the newly identified findings (1 MEDIUM + 2 LOW + 3 NIT).
+> **Method:** unchanged — failing tests first, then the fix, then the full gate chain (`lint && typecheck && typecheck:tests && test && build && test:e2e`).
+
+## 1. Re-validation (all session-10 gates green on the pulled tree)
+
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · 240/240 unit ✓ · build ✓ · e2e **49/50 with 1 flake** on the first run, **50/50** on the immediate re-run (sandbox `DATABASE_URL` shadow converged via the pre-existing symlink; health `db:up`). The flake was root-caused (see S11-3) instead of dismissed: `wishlist.spec.ts:44` intermittently fails with a Playwright **strict-mode violation** — `getByText("Added to wishlist")` resolving to BOTH the toast title div AND Radix's `aria-live` announcement wrapper (`Notification Added to wishlist`) — the exact race the repo documented and fixed in `admin.spec.ts` (session-9) with the `.first()` convention. Reproduced 2× in full-suite/spec runs and 1× in 7 single-test runs before fixing.
+
+Visual parity re-verified against the LIVE reference (agent-browser): same nav anatomy, same hero slides (1: New Arrivals, 2: Elevate Your Kitchen, 3: Sale Up to 40% Off), same trust badges, same 8 category tiles, same featured products (Damascus Steel Chef Knife Set $199.99/428 reviews, Artisan Copper Frying Pan, Artisan Ceramic Dinner Set…) — reference unchanged; the clone remains the superset. **Mobile menu re-verified on the production build** (iPhone 390×844: open → `expanded=true`, `navigation "Mobile"` panel with all 7 links + circular close button; click Products → lands on `/products`, panel closed `expanded=false`) — the Tailwind v4 conditional-mount pattern is intact.
+
+## 2. Session-10 fix verification (read-only subagent + spot-checks)
+
+**5/5 WIRED · 0 PARTIAL · 0 MISSING.** Every fix verified with file:line evidence: (a) `reassignDefaultAfterDeleteInTx` (`addresses.ts:119-132`) called by DELETE `/api/addresses` inside its tx with scoped `deleteMany` + 404 on lost race; (b) `planWishlistMerge` consumed by the login merge tx (upserts only `plan.toAdd`); (c) `assertAddressCap` as the first statement of the POST tx, `AddressCapError` → friendly 409 (residual storage-model gap → S11-6); (d) cart PATCH scoped conditional writes ×3 with `count === 0` → 404; (e) bulk route reports `gone/inactive + soldOut` skips. Also re-verified drift-free: the `db-path.ts` relative-URL contract against `prisma/schema.prisma`.
+
+## 3. Session-11 audit findings (evidence-based)
+
+**1 MEDIUM / 2 LOW / 3 NIT. 0 HIGH** — the tenth pass found no security holes, money-integrity, IDOR, or data-corruption paths. Verified clean again: checkout critical path (in-tx snapshots + coupon re-validation + atomic stock + ownership-bound idempotency), ownership/IDOR scoping on every surface, the full rate-limiter grid + spoof-resistant clientIp, Zod boundaries incl. malformed-JSON → 400, guarded order transitions, race-safe address promote/reassign, SQL-aggregated dashboards, type strictness, SEO/noindex privacy, seed policy, React hygiene (no set-state-in-effect, useSyncExternalStore, hydration sentinel), a11y labels, no committed secrets.
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| S11-1 | MED | **Review rate limiter is bypassable by rotating the free-text `author` field.** The limiter key is `review:${ip}:${pid}:${author}` — every new author string mints a fresh 5/min budget and there is NO per-IP ceiling, so one client can inject unbounded Review rows (which permanently skew the monotonic `rating`/`reviewCount` aggregates, since recompute is deliberately forbidden). The code comment claims the opposite ("the client IP … pins the budget to a network origin"). Every other guest write endpoint is flat per-IP metered. | `src/lib/actions/reviews.ts:33-41` |
+| S11-2 | LOW | **AGENTS.md's heart invariant is false: "every product grid heart reads the wishlist state" — no heart does.** `AddToWishlistButton` never reads/receives wishlist state: the Heart is unconditionally unfilled and the aria-label is always "Add … to wishlist" even after adding (a screen-reader user toggling twice hears "Add" both times). `getWishlistIds()` exists and is consumed only by the wishlist page. Fix (superset direction): implement the filled state — pages pass `initialInWishlist` down through `ProductCard`; the button flips label + fill from the API's `inWishlist` response. | `AGENTS.md:73`; `add-to-cart-button.tsx:124-138`; `wishlist.ts:183-204` |
+| S11-3 | LOW | **`wishlist.spec.ts` toast assertions skip the documented `.first()` convention** — 3 unguarded `getByText` toast sites (strict-mode race against Radix's aria-live wrapper; observed live 3× this session) plus a misleading `.nth(1)` under duplicates. | `tests/e2e/wishlist.spec.ts:24,26,44,52` vs `admin.spec.ts:109-111` |
+| S11-4 | NIT | **`setTrackingAction` can leak a raw P2025** — pre-tx read + unconditional `order.update` with no try/catch; a concurrent order delete surfaces an opaque framework digest instead of the sibling actions' friendly message. | `src/lib/actions/admin.ts:388-403` |
+| S11-5 | NIT | **The login page's "Forgot password?" mailto hardcodes `hello@homenest.com`** — the only user-facing contact surface that ignores the admin-editable `settings.contactEmail` (the S7-5 sweep's leftover shadow). | `src/app/(auth)/login/login-form.tsx:73-78` |
+| S11-6 | NIT | **The in-tx address cap is still check-then-create; the comment overclaims.** On SQLite's deferred-transaction model the write lock lands only at the first write, so two concurrent POSTs at cap−1 can both pass both in-tx reads and serialize their creates → 21 rows. Fix: create-then-verify — the post-create count runs under the write lock (airtight for SQLite's single-writer model), over-cap → `AddressCapError` → rollback → the friendly 409. The pre-create `assertAddressCap` stays as fast-fail UX. | `src/app/api/addresses/route.ts:44-77` |
+
+### Deferred (with justification — carried unchanged)
+
+| # | Item | Why |
+|---|---|---|
+| 1 | Cart-drawer focus trap (S8-7) | Carried — dedicated a11y pass. |
+| 2 | Login limiter lockout tradeoff (S8-8) | Carried — needs an abuse-model decision. |
+| 3 | Checkout P2002 recovery-loop integration test | Carried — pure helpers unit-pinned; epic-grade testing investment with the lowest marginal risk. |
+| 4 | 404-shell CSP nonce, `__Host-` prefix, shared-store limiter, admin coupon UI, real mailer, radiogroup roving focus, address content dedup | Carried unchanged from sessions 5–10. |
+| 5 | ~~Wishlist filled-heart state~~ | **CLOSED this session (S11-2)** — implemented, not deferred. |
+
+## 4. Remediation plan (TDD)
+
+1. **S11-1** — new pure `reviewRateLimitKeys(ip, productId, author)` in `src/lib/rate-limit.ts` returning `{ ipKey, authorKey }`; the action evaluates the per-IP budget FIRST (`review-ip:`, 20/min) then the per-author key (5/min). Unit tests red-first: the IP key carries no author component, the author key keeps product scoping + lowercase. Comment rewritten to describe the two-tier budget honestly.
+2. **S11-2** — `AddToWishlistButton` gains `initialInWishlist?: boolean`; local `inWishlist` state initialized from the prop, flipped from the API's `inWishlist` response; label becomes `Remove ${productName} from wishlist` when filled; Heart renders `fill-primary text-primary` when filled. `ProductCard` passes it through. Pages that render grids (`/`, `/products`, `/product/[id]` related, `/wishlist`) call `getWishlistIds()` once and pass `inWishlist={ids.has(p.id)}`. E2E red-first: new wishlist case asserting the label flips to "Remove … from wishlist" after add (client flip), survives a reload (server truth), and flips back after removal.
+3. **S11-3** — `wishlist.spec.ts` toast assertions get `.first()` (lines 24/26/44/52) with the admin.spec convention comment; the second-toast `.nth(1)` becomes `.first()` (the subsequent "2 saved items" page assertion carries the correctness).
+4. **S11-4** — new `applyCarrierTracking(client, orderId, carrier, trackingNumber)` in `src/lib/order-tracking.ts` (structural client): interactive tx with scoped `updateMany({ where: { id } })` — `count === 0` → `OrderGoneError` → no event; the event create runs from the guarded winner. The action wraps it and maps the typed error to the friendly message. Unit tests red-first with a fake client (guard match → event; guard miss → typed error, no event).
+5. **S11-5** — `(auth)/login/page.tsx` reads `getSettings().contactEmail` and passes it to `LoginForm`; the mailto href uses the prop. Wiring-verified by the auth e2e staying green.
+6. **S11-6** — the POST tx gains the post-create authoritative verify (`count > MAX_ADDRESSES_PER_USER` → `AddressCapError`); comment rewritten (pre-create check = fast-fail UX; post-create count = authoritative gate under SQLite's single-writer model). Re-pinned by `addresses-cap.spec.ts`.
+7. **DOC** — AGENTS.md (review limiter invariant rewritten + heart invariant now TRUE + tracking scoped write + cap gate note), CLAUDE.md (modules + coverage), README (test-count badges), PAD (§8 tables + known-issues ledger), SKILL.md v1.8.0 (project_state + Appendix B), `docs/session_15.md` (run-12 narrative), worklog entry.
+
+## 5. Execution log (session 11)
+
+- [x] RED — `tests/unit/session11-hardening.test.ts` written first (`reviewRateLimitKeys` ×3, `applyCarrierTracking` ×3) — failed on the missing exports with the existing 240 green
+- [x] RED (e2e) — new wishlist filled-heart case failed against the current build (labels never flip)
+- [x] GREEN — `rate-limit.ts` += `reviewRateLimitKeys`; `reviews.ts` two-tier budget (per-IP 20/min → per-author 5/min) + honest comment
+- [x] GREEN — filled-heart state end-to-end (button + ProductCard + 4 pages via `getWishlistIds()`); wishlist.spec updated (S11-2 cases + S11-3 `.first()` convention)
+- [x] GREEN — `order-tracking.ts` += `applyCarrierTracking` (scoped updateMany + OrderGoneError + event from the guarded winner); `setTrackingAction` wired with try/catch
+- [x] GREEN — login page passes `settings.contactEmail` into the mailto; addresses POST create-then-verify cap gate
+- [x] Full gate chain re-run green; manual agent-browser verification (heart fill/label flip on the grid + product page, mobile menu open/navigate/close, review limiter smoke)
+- [x] Screenshots refreshed; docs sweep; worklog updated
+
+**Post-remediation totals (session 11):** see the session-11 run narrative (`docs/session_15.md`) for the final counts.

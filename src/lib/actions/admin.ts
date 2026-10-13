@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { OrderGoneError, applyCarrierTracking } from "@/lib/order-tracking";
 import { applyOrderStatusTransition, canTransitionOrderStatus } from "@/lib/order-status";
 import { updateSettings } from "@/lib/settings";
 import {
@@ -388,19 +389,18 @@ export async function setTrackingAction(input: z.input<typeof trackingSchema>): 
   const order = await db.order.findUnique({ where: { id: parsed.data.orderId }, select: { id: true } });
   if (!order) return { ok: false, error: "Order not found. Refresh the list." };
 
-  await db.$transaction([
-    db.order.update({
-      where: { id: order.id },
-      data: { carrier: parsed.data.carrier, trackingNumber: parsed.data.trackingNumber },
-    }),
-    db.orderEvent.create({
-      data: {
-        orderId: order.id,
-        type: "tracking_added",
-        note: `Tracking added: ${parsed.data.carrier} · ${parsed.data.trackingNumber}`,
-      },
-    }),
-  ]);
+  // Session-11 S11-4: the guarded write is its own gate (S9-2/S9-3 pattern) —
+  // a scoped conditional updateMany throws OrderGoneError on a concurrently
+  // deleted order (no event, no raw P2025 digest); the event is created from
+  // the guarded winner inside the same transaction.
+  try {
+    await db.$transaction((tx) =>
+      applyCarrierTracking(tx, order.id, parsed.data.carrier, parsed.data.trackingNumber),
+    );
+  } catch (error) {
+    if (error instanceof OrderGoneError) return { ok: false, error: error.message };
+    throw error;
+  }
 
   revalidatePath("/admin/orders");
   revalidatePath("/admin");

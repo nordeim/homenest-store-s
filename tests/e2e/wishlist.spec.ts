@@ -21,9 +21,11 @@ test.describe("wishlist", () => {
     expect(firstName).not.toBe("");
     expect(secondName).not.toBe("");
     await first.click();
-    await expect(page.getByText("Added to wishlist")).toBeVisible({ timeout: 10_000 });
+    // .first(): the toast title also lives inside the aria-live wrapper's
+    // text — a strict-mode race the suite has hit before (session-9).
+    await expect(page.getByText("Added to wishlist").first()).toBeVisible({ timeout: 10_000 });
     await second.click();
-    await expect(page.getByText("Added to wishlist").nth(1)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Added to wishlist").first()).toBeVisible({ timeout: 10_000 });
 
     // The wishlist page lists exactly the two saved items.
     await gotoHydrated(page, "/wishlist");
@@ -40,18 +42,56 @@ test.describe("wishlist", () => {
     await gotoHydrated(page, "/products");
     const heart = page.getByRole("button", { name: /to wishlist$/ }).first();
     const label = (await heart.getAttribute("aria-label")) ?? "";
+    const productName = label.replace(/^Add (.*) to wishlist$/, "$1");
+    expect(productName).not.toBe("");
     await heart.click();
-    await expect(page.getByText("Added to wishlist")).toBeVisible({ timeout: 10_000 });
+    // .first(): the toast title also lives inside the aria-live wrapper's
+    // text — a strict-mode race the suite has hit before (session-9).
+    await expect(page.getByText("Added to wishlist").first()).toBeVisible({ timeout: 10_000 });
 
     await gotoHydrated(page, "/wishlist");
     await expect(page.getByText(/1 saved item/)).toBeVisible({ timeout: 10_000 });
 
-    // Toggle the same product's heart again → removed.
+    // Toggle the same product's heart again → removed. After the reload the
+    // heart renders the filled "Remove …" state (S11-2 server truth).
     await gotoHydrated(page, "/products");
-    await page.getByRole("button", { name: label, exact: true }).first().click();
-    await expect(page.getByText("Removed from wishlist")).toBeVisible({ timeout: 10_000 });
+    const filled = page
+      .getByRole("button", { name: `Remove ${productName} from wishlist`, exact: true })
+      .first();
+    await expect(filled).toBeVisible({ timeout: 10_000 });
+    await filled.click();
+    await expect(page.getByText("Removed from wishlist").first()).toBeVisible({ timeout: 10_000 });
 
     await gotoHydrated(page, "/wishlist");
     await expect(page.getByText(/wishlist is empty/i)).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("grid hearts render the filled wishlist state and flip their label (S11-2)", async ({ page }) => {
+    await gotoHydrated(page, "/products");
+    const heart = page.getByRole("button", { name: /^Add .* to wishlist$/ }).first();
+    const label = (await heart.getAttribute("aria-label")) ?? "";
+    const productName = label.replace(/^Add (.*) to wishlist$/, "$1");
+    expect(productName).not.toBe("");
+
+    await heart.click();
+    await expect(page.getByText("Added to wishlist").first()).toBeVisible({ timeout: 10_000 });
+
+    // Client-side flip: the just-toggled heart reads "Remove …" immediately.
+    const removeHeart = page
+      .getByRole("button", { name: `Remove ${productName} from wishlist`, exact: true })
+      .first();
+    await expect(removeHeart).toBeVisible({ timeout: 10_000 });
+
+    // Server truth: a fresh render still shows the filled state.
+    await gotoHydrated(page, "/products");
+    await expect(
+      page
+        .getByRole("button", { name: `Remove ${productName} from wishlist`, exact: true })
+        .first(),
+    ).toBeVisible({ timeout: 10_000 });
+    // And the stale "Add …" label is gone for that product.
+    await expect(
+      page.getByRole("button", { name: `Add ${productName} to wishlist`, exact: true }),
+    ).toHaveCount(0);
   });
 });

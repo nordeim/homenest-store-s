@@ -34,7 +34,7 @@ const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE !== "false";
  * (native POST fallback), pending is framework-owned (no hydration race),
  * failures render inline, and success redirects inside the action.
  */
-export function LoginForm() {
+export function LoginForm({ contactEmail = "hello@homenest.com" }: { contactEmail?: string }) {
   const [state, formAction, pending] = React.useActionState(loginAction, {
     error: null,
   });
@@ -71,7 +71,7 @@ export function LoginForm() {
           <div className="flex items-center justify-between gap-2">
             <Label htmlFor="login-password">Password</Label>
             <a
-              href="mailto:hello@homenest.com?subject=Password%20reset%20request"
+              href={`mailto:${contactEmail}?subject=Password%20reset%20request`}
               className="text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
             >
               Forgot password?

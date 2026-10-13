@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { getSettings } from "@/lib/settings";
+
 import { LoginForm } from "./login-form";
 
 export const dynamic = "force-dynamic"; // per-request CSP nonce — see (auth)/layout.tsx
@@ -12,6 +14,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-export default function LoginPage() {
-  return <LoginForm />;
+export default async function LoginPage() {
+  // Session-11 S11-5: the "Forgot password?" mailto follows the admin-editable
+  // settings.contactEmail (the S7-5 sweep's last hardcoded shadow).
+  const settings = await getSettings().catch(() => null);
+  return <LoginForm contactEmail={settings?.contactEmail ?? "hello@homenest.com"} />;
 }

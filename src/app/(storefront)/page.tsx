@@ -7,6 +7,7 @@ import { siteBaseUrl } from "@/lib/seo";
 
 import { db } from "@/lib/db";
 import { toCardData } from "@/lib/products";
+import { getWishlistIds } from "@/lib/wishlist";
 import { CategoryCard } from "@/components/store/category-card";
 import { HeroCarousel } from "@/components/store/hero-carousel";
 import { NewsletterForm } from "@/components/store/newsletter-form";
@@ -26,7 +27,7 @@ const TRUST_BADGES = [
 ];
 
 export default async function HomePage() {
-  const [slides, categories, featured, newArrivals] = await Promise.all([
+  const [slides, categories, featured, newArrivals, wishlistIds] = await Promise.all([
     db.carouselSlide.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
     db.category.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
     // take: 8 — the home page renders 8 tiles per grid; don't read the world.
@@ -42,6 +43,8 @@ export default async function HomePage() {
       take: 8,
       include: { category: { select: { name: true, slug: true } } },
     }),
+    // Session-11 S11-2: the grid hearts render the filled wishlist state.
+    getWishlistIds(),
   ]);
 
   return (
@@ -99,7 +102,12 @@ export default async function HomePage() {
         </div>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {featured.slice(0, 8).map((p, i) => (
-            <ProductCard key={p.id} product={toCardData(p, p.category)} priority={i < 4} />
+            <ProductCard
+              key={p.id}
+              product={toCardData(p, p.category)}
+              priority={i < 4}
+              inWishlist={wishlistIds.has(p.id)}
+            />
           ))}
         </div>
       </section>
@@ -114,7 +122,7 @@ export default async function HomePage() {
         </div>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {newArrivals.slice(0, 8).map((p) => (
-            <ProductCard key={p.id} product={toCardData(p, p.category)} />
+            <ProductCard key={p.id} product={toCardData(p, p.category)} inWishlist={wishlistIds.has(p.id)} />
           ))}
         </div>
         <div className="mt-8 flex justify-center">

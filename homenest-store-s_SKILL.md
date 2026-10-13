@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.7.0
+version: 1.8.0
 last_updated: 2026-10-14
-project_state: "241 unit tests · 50 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-10)"
+project_state: "246 unit tests · 51 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-11)"
 tags:
   - nextjs16
   - react19
@@ -906,6 +906,40 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   goneInactive + soldOut` so the "added N of M" toast arithmetic adds up).
 - 241 unit + 50 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/
   README/PAD/SKILL aligned; run narrative at `docs/session_13.md`.
+
+### Session 11 — limiter/heart-state completion (2026-10-13, v1.8.0)
+
+- Re-validated session-10 on the pulled tree (`98dc342`): all gates green
+  (240 unit / 50 e2e — one e2e flake root-caused instead of dismissed: the
+  wishlist toast locators hit the strict-mode race admin.spec fixed in
+  session 9), visual parity + mobile menu re-verified against the LIVE
+  reference (hero slides 1-3, trust badges, 8 categories, featured
+  products identical; reference unchanged, clone remains the superset).
+- Fresh deep audit (read-only subagent + own file:line verification):
+  session-10 fixes 5/5 WIRED / 0 PARTIAL / 0 MISSING; new findings
+  1 MEDIUM / 2 LOW / 3 NIT · 0 HIGH.
+- TDD fixes (S11-1..S11-6): the review limiter is two-tier now
+  (S11-1 — `reviewRateLimitKeys` gives the authoritative per-IP
+  `review-ip:` 20/min ceiling that bounds author rotation + the per-author
+  5/min budget; the old key embedded the client-controlled author string
+  and let rotation mint fresh budgets while its comment claimed otherwise);
+  wishlist hearts render the server-truth filled state (S11-2 — pages pass
+  `initialInWishlist` via `getWishlistIds()` through `ProductCard`; the
+  heart shows `fill-primary` + `aria-pressed` + honest Add/Remove labels
+  and flips from the API response; the AGENTS.md invariant is now TRUE
+  instead of weakened); wishlist.spec toast assertions follow the
+  documented `.first()` convention (S11-3 — the flake that started the
+  session); admin carrier tracking is a guarded write (S11-4 —
+  `applyCarrierTracking`: scoped `updateMany`, `count === 0` →
+  `OrderGoneError` → friendly message, event only from the guarded
+  winner); the login "Forgot password?" mailto follows the admin-editable
+  `settings.contactEmail` (S11-5 — the S7-5 sweep's last hardcoded
+  shadow); the address cap's authoritative gate is the POST-CREATE count
+  (S11-6 — on SQLite the write lock lands at the first write, so
+  create-then-verify is airtight where check-then-create was not; the
+  pre-create check stays as fast-fail UX).
+- 246 unit + 51 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/
+  README/PAD/SKILL aligned; run narrative at `docs/session_15.md`.
 
 ## Appendix C — Quick Reference Card
 

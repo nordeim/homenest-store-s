@@ -84,6 +84,7 @@ export function AddToWishlistButton({
   productName,
   className,
   compact = false,
+  initialInWishlist = false,
 }: {
   productId: string;
   /** Session-7 S7-13: the label names the product — identical "Toggle wishlist"
@@ -91,8 +92,12 @@ export function AddToWishlistButton({
   productName?: string;
   className?: string;
   compact?: boolean;
+  /** Session-11 S11-2: server-rendered membership so the heart renders the
+   *  filled state and an honest label on first paint ("Add …" / "Remove …"). */
+  initialInWishlist?: boolean;
 }) {
   const [pending, setPending] = React.useState(false);
+  const [inWishlist, setInWishlist] = React.useState(initialInWishlist);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -109,6 +114,7 @@ export function AddToWishlistButton({
         toast({ title: "Could not update wishlist", description: data.error ?? "Please try again.", variant: "destructive" });
         return;
       }
+      setInWishlist(data.inWishlist ?? !inWishlist);
       toast({
         title: data.inWishlist ? "Added to wishlist" : "Removed from wishlist",
         variant: "success",
@@ -126,14 +132,21 @@ export function AddToWishlistButton({
       type="button"
       onClick={toggle}
       disabled={pending}
-      aria-label={productName ? `Add ${productName} to wishlist` : "Add to wishlist"}
+      aria-label={
+        productName
+          ? `${inWishlist ? "Remove" : "Add"} ${productName} ${inWishlist ? "from" : "to"} wishlist`
+          : inWishlist
+            ? "Remove from wishlist"
+            : "Add to wishlist"
+      }
+      aria-pressed={inWishlist}
       className={cn(
         "inline-flex items-center justify-center rounded-full bg-white/90 text-foreground shadow-sm backdrop-blur transition-all hover:bg-white hover:shadow hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
         compact ? "h-8 w-8" : "h-9 w-9",
         className,
       )}
     >
-      <Heart className={cn("h-4 w-4")} aria-hidden />
+      <Heart className={cn("h-4 w-4", inWishlist && "fill-primary text-primary")} aria-hidden />
     </button>
   );
 }

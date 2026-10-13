@@ -68,7 +68,7 @@ export default async function WishlistPage() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {products.map((p) => (
-          <ProductCard key={p.id} product={toCardData(p, p.category)} />
+          <ProductCard key={p.id} product={toCardData(p, p.category)} inWishlist={true} />
         ))}
       </div>
     </div>

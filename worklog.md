@@ -75,3 +75,22 @@ Stage Summary:
 - Session-10 remediation complete and pushed: remote main advanced fc57d39 → this commit (fast-forward, main only, no new branches). All user checklist items satisfied.
 - Codebase state: 240 unit + 50 e2e green; address-default/cart-line integrity hardening (session 10); docs fully aligned.
 - Carried deferrals unchanged: drawer focus trap (S8-7), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, real payment/email epics.
+
+---
+Task ID: 12 (session 12 — homenest-store-s)
+Agent: audit + remediation agent (Super Z)
+Task: Full audit/remediation cycle on homenest-store-s — refresh workspace, review docs (session_13/14, REMEDIATION_PLAN, worklog), re-validate gates, live-reference parity + mobile menu, fresh deep audit (session 11), TDD remediation, docs/screenshots, commit + SSH push to main.
+
+Work Log:
+- git pull → 98dc342 (= 520c1fc + docs/session_14.md); reviewed all project docs + session logs + the uploaded coding_agent_prompt.md; sandbox DATABASE_URL shadow converged via the pre-existing symlink.
+- Gates re-validated: 240/240 unit ✓, build ✓, e2e 49/50 → 50/50 on re-run — the flake was root-caused, not dismissed: wishlist.spec toast locators hit the strict-mode race (toast title + Radix aria-live wrapper) that admin.spec's `.first()` convention fixed in session 9 (reproduced 3×, became finding S11-3).
+- Live reference parity + mobile menu verified via agent-browser (hero slides 1-3, trust badges, 8 categories, featured products identical; iPhone 390×844 open → panel → navigate → closes; Tailwind v4 conditional-mount intact).
+- Fresh deep audit (read-only subagent + own file:line verification): session-10 fixes 5/5 WIRED / 0 PARTIAL / 0 MISSING; new findings 1 MEDIUM / 2 LOW / 3 NIT, 0 HIGH.
+- TDD remediation S11-1..S11-6 (plan appended to docs/REMEDIATION_PLAN.md; RED confirmed at 240 + 6 new-file failures + 2 failing e2e against the old build): two-tier review limiter (`reviewRateLimitKeys` — authoritative per-IP 20/min ceiling bounds author rotation + per-author 5/min), wishlist filled-heart state shipped end-to-end (`initialInWishlist` via `getWishlistIds()` through ProductCard → `fill-primary` + `aria-pressed` + honest Add/Remove labels flipped from the API response — the AGENTS.md invariant is now TRUE, closing the carried deferral), wishlist.spec `.first()` convention, guarded `applyCarrierTracking` (scoped updateMany → OrderGoneError → friendly message, event from the guarded winner), login mailto follows `settings.contactEmail`, address cap create-then-verify (post-create count under the SQLite write lock is the authoritative gate).
+- Final gates: lint/typecheck/typecheck:tests ✓ · 246/246 unit ✓ · build ✓ · 51/51 e2e ✓ (wishlist spec 10× post-fix, all green); manual agent-browser + curl verification (heart fill/label flip client + server truth, login mailto settings-driven, mobile menu open/navigate/close); 23 screenshots refreshed.
+- Docs aligned: AGENTS.md (4 invariants updated/extended), CLAUDE.md, README.md (246/51), PAD (§8 tables, known issues #41–46), SKILL.md v1.8.0, DEPLOYMENT.md (review limiter row), docs/session_15.md (run narrative), worklog.md.
+
+Stage Summary:
+- Session-11 remediation complete and pushed: remote main advanced 520c1fc → this commit (fast-forward, main only, no new branches). All user checklist items satisfied.
+- Codebase state: 246 unit + 51 e2e green; anti-spam/heart-state/tracking hardening (session 11); docs fully aligned.
+- Carried deferrals unchanged: drawer focus trap (S8-7), login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, real payment/email epics, admin coupon UI. Wishlist filled-heart state CLOSED this session.

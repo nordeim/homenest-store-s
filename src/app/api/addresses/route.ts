@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { AddressCapError, AddressGoneError, assertAddressCap, promoteAddressInTx, reassignDefaultAfterDeleteInTx } from "@/lib/addresses";
+import { AddressCapError, AddressGoneError, MAX_ADDRESSES_PER_USER, assertAddressCap, promoteAddressInTx, reassignDefaultAfterDeleteInTx } from "@/lib/addresses";
 import { getCurrentUser } from "@/lib/auth";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
@@ -41,11 +41,14 @@ export async function POST(request: NextRequest) {
 
     // Session-7 S7-8: the address book is a bounded surface — the cap is
     // enforced on the direct write path with a friendly, actionable 409.
-    // Session-10 S10-3: the check runs INSIDE the create transaction, so two
-    // concurrent POSTs at (cap − 1) can no longer both pass a pre-tx read and
-    // overshoot the cap — the in-tx count is the authoritative gate, and the
-    // S8-1 single-default invariant (first address auto-defaults, count +
-    // create + unset pass in ONE transaction) is unchanged.
+    // Session-10 S10-3: a cap check runs inside the create transaction.
+    // Session-11 S11-6: the authoritative gate is the POST-CREATE count — on
+    // SQLite the write lock lands at the first WRITE, so a check-then-create
+    // pair (however in-tx) lets two concurrent POSTs at (cap − 1) serialize
+    // their creates past their reads. Creating first takes the lock, so the
+    // post-create count under the same lock is exact; over cap →
+    // AddressCapError rolls the create back and the friendly 409 survives.
+    // The pre-create assertAddressCap stays as a fast-fail UX path.
     const address = await db.$transaction(async (tx) => {
       await assertAddressCap(tx, user.id);
       const count = await tx.address.count({ where: { userId: user.id } });
@@ -73,6 +76,9 @@ export async function POST(request: NextRequest) {
           data: { isDefault: false },
         });
       }
+      // Authoritative cap gate (S11-6): post-create count under the write lock.
+      const postCreateCount = await tx.address.count({ where: { userId: user.id } });
+      if (postCreateCount > MAX_ADDRESSES_PER_USER) throw new AddressCapError(postCreateCount);
       return created;
     });
 

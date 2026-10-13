@@ -12,7 +12,16 @@ import { AddToCartButton, AddToWishlistButton } from "./add-to-cart-button";
  * serif product name, amber stars + review count, bold price + struck
  * compare-at price.
  */
-export function ProductCard({ product, priority = false }: { product: ProductCardData; priority?: boolean }) {
+export function ProductCard({
+  product,
+  priority = false,
+  inWishlist = false,
+}: {
+  product: ProductCardData;
+  priority?: boolean;
+  /** Session-11 S11-2: server-rendered wishlist membership for the heart. */
+  inWishlist?: boolean;
+}) {
   const discount = discountPercent(product.price, product.compareAtPrice);
   return (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-lg">
@@ -43,7 +52,11 @@ export function ProductCard({ product, priority = false }: { product: ProductCar
         </div>
       </Link>
       <div className="absolute right-3 top-3 z-10">
-        <AddToWishlistButton productId={product.id} productName={product.name} />
+        <AddToWishlistButton
+          productId={product.id}
+          productName={product.name}
+          initialInWishlist={inWishlist}
+        />
       </div>
 
       <div className="flex flex-1 flex-col gap-1.5 p-4">
