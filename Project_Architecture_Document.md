@@ -290,7 +290,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 **Two suites, one gate:** `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e` — all must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 313 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 324 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
@@ -328,6 +328,10 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 | `session16-hardening.test.ts` | S16-1/C3/C4: the authoritative wishlist-cap tx gate — `createWishlistItemInTx` create-first ordering + the overflow throw; the wishlist POST route boundary (at-cap-overflow → friendly 409 via the tx gate, P2002-in-tx → `{ inWishlist: true }`, happy create) with a mocked `db` + `next/headers` guest token |
 | `hero-carousel.test.tsx` | S16-4/C5 (jsdom + fake timers + per-test `vi.resetModules()`): exactly ONE MediaQueryList construction across mount + auto-rotate re-renders + prop rerender (the S15-5 regression guard); auto-rotation advances the active slide; `prefers-reduced-motion` freezes it |
+
+| `session17-hardening.test.ts` | The S17-1 guarded category delete (`deleteCategoryIfEmpty` outcomes: in-use pre-count / deleted / not-found / the P2003-race → in-use with an unknown count / rethrow) + the `isForeignKeyViolation` duck-type truth table |
+| `validation.test.ts` (S17-2 addendum) | `MAX_CART_QUANTITY` is 99 and the cart schemas interpolate the shared constant |
+| `api-boundaries.test.ts` (C7 addendum) | Cart DELETE `?all=1`: no cart → `{itemCount:0}` with `deleteMany` never called; guest cart → cartId-scoped `deleteMany` + the fresh summary's `itemCount` |
 
 ### 8.2 E2E (Playwright — 63 tests, `tests/e2e/`)
 
@@ -472,6 +476,9 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | 67 | Fixed (session 16) | The wishlist cap was check-then-create — concurrent POSTs at cap − 1 both counted 99 and both created (the loser's P2002 mapped to `inWishlist: true`), permanently overshooting `MAX_WISHLIST_ITEMS` | `createWishlistItemInTx`: the tx creates FIRST (taking SQLite's write lock), counts under the lock, throws `WishlistCapError` over the cap (create rolls back; friendly 409) — the S11-6 shape applied to the one remaining create path (S16-1). Route boundary + ordering pinned (`session16-hardening.test.ts`). |
 | 68 | Fixed (session 16) | The open cart drawer declared `aria-modal="true"` but background content stayed keyboard-tabbable (the carried S8-7 deferral) | `StoreChrome` renders the whole page shell (`page-shell`) with `inert={cartDrawerOpen}`; a Tab-wrap handler cycles focus inside the drawer (Chromium drops to browser chrome at the last control instead of wrapping); focus moves to the close button on open and returns to the opener on close (S16-3). E2e-pinned (open-state modal case). |
 | 69 | Accepted (session 16) | The S15-5 MediaQueryList cache was implemented but unpinned (a regression would pass all tests); three JSON bodies parsed through route-local Zod schemas | C5 jsdom component test pins ONE MQL construction + rotation + reduced-motion; the schemas hoisted into `validation.ts` (`wishlistToggleSchema` / `cartLinePatchSchema` / `couponApplySchema`) with unit pins (S16-2/S16-4). Remaining carried debt: login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, checkout `saveAddress` at-cap skip-save integration pin, review action two-tier gate pin, admin coupon-management UI, real mailer/payment epics. |
+| 70 | Fixed (session 17) | `deleteCategoryAction` was check-then-write: a product created between the count and the delete raised an unhandled P2003 (`Product.category` is a required Restrict FK) — the escape surfaced as the generic S13-2 toast instead of an actionable message | `deleteCategoryIfEmpty` (`src/lib/admin-categories.ts`): the pre-count stays the fast-fail UX check (exact "N products still use this category." message), the delete's P2003 maps to the same in-use outcome with an unknown count, unrelated errors rethrow (S17-1). Unit-pinned (`session17-hardening.test.ts`). The sibling `deleteProductAction` count-race is benign by design (`OrderItem.product` is optional → SetNull — S17-3, recorded not fixed). |
+| 71 | Fixed (session 17) | The cart 99-ceiling was retyped in six places (clamp, two schemas, bulk schema, stepper max, badge flip) with no shared constant — cart-merge even carried a "must stay in sync" comment | `MAX_CART_QUANTITY` exported from `src/lib/cart-quantity.ts`; every site consumes it (S17-2). Value unchanged. |
+| 72 | Accepted (session 17) | The cart DELETE `?all=1` boundary and the wishlist pre-create fast-fail branch were unpinned; the session-16 execution-log checkboxes were left unchecked in this plan | C7 cart DELETE `?all=1` boundary pins added (api-boundaries pattern); the D-1 doc drift corrected (checkboxes flipped). Remaining carried debt: wishlist pre-create fast-fail pin (behaviorally redundant behind the S16-1 tx gate), login-limiter lockout tradeoff (S8-8), checkout integration seams, review action two-tier gate pin, admin coupon-management UI, real mailer/payment epics. |
 
 ---
 
@@ -492,12 +499,14 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | `src/lib/csp.ts` + `src/proxy.ts` | CSP builder + per-request nonce proxy |
 | `src/lib/actions/auth.ts` | `useActionState` login/register/logout/profile |
 | `src/lib/actions/admin.ts` | 11 guarded admin mutations |
+| `src/lib/admin-categories.ts` | The S17-1 guarded category delete (`deleteCategoryIfEmpty` — pre-count fast-fail + P2003 race mapping) |
+| `src/lib/cart-quantity.ts` | `MAX_CART_QUANTITY` (the single-sourced 99 ceiling) + `clampPurchaseQuantity` |
 | `src/app/globals.css` | Tailwind v4 theme tokens + trap pins |
 | `src/components/store/store-provider.tsx` | Shared UI state + hydration sentinel |
 | `src/components/store/mobile-nav.tsx` | The Tailwind-v4-safe mobile menu |
 | `src/components/store/store-chrome.tsx` | Sticky header + mobile panel + cart drawer |
 | `prisma/schema.prisma` / `seed.ts` | 18 models / idempotent seed |
-| `tests/unit/*` · `tests/e2e/*` | 257 unit · 59 e2e (incl. the v4 guard + tracking access contract + the session-11/12 hardening pins) |
+| `tests/unit/*` · `tests/e2e/*` | 324 unit · 63 e2e (incl. the v4 guard + tracking access contract + the session-11..17 hardening pins) |
 | `playwright.config.ts` / `vitest.config.ts` | Suite wiring (standalone webServer; iPhone-13-on-Chromium project) |
 
 ---

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Heart, Menu, Search, ShoppingBag, User } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { MAX_CART_QUANTITY } from "@/lib/cart-quantity";
 import { Logo } from "./logo";
 import { MobileNav } from "./mobile-nav";
 import { useStore } from "./store-provider";
@@ -124,7 +125,7 @@ export function Header({
               className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground"
               data-testid="cart-count"
             >
-              {cartCount > 99 ? "99+" : cartCount}
+              {cartCount > MAX_CART_QUANTITY ? "99+" : cartCount}
             </span>
           )}
         </button>

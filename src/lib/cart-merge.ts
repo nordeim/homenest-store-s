@@ -1,3 +1,5 @@
+import { MAX_CART_QUANTITY } from "./cart-quantity";
+
 // ---------------------------------------------------------------------------
 // Guest-cart → user-cart merge planner (session-5 audit S5-7). The merge in
 // `src/lib/cart.ts` used to be a non-atomic upsert loop with an increment
@@ -8,8 +10,8 @@
 
 export type MergeLine = { productId: string; quantity: number };
 
-/** The 99-per-line cart ceiling — must stay in sync with clampPurchaseQuantity. */
-const MAX_LINE_QUANTITY = 99;
+/** The 99-per-line cart ceiling — single-sourced from cart-quantity (S17-2). */
+const MAX_LINE_QUANTITY = MAX_CART_QUANTITY;
 
 /**
  * Merge the guest cart's lines into the user cart's lines.

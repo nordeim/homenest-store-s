@@ -327,3 +327,17 @@ describe("couponApplySchema (S16-2 hoist)", () => {
     if (!empty.success) expect(firstError(empty.error)).toBe("Enter a coupon code");
   });
 });
+
+describe("MAX_CART_QUANTITY single-sourcing (S17-2)", () => {
+  it("is 99 and is the ceiling the cart schemas and the clamp share", async () => {
+    const { MAX_CART_QUANTITY } = await import("@/lib/cart-quantity");
+    expect(MAX_CART_QUANTITY).toBe(99);
+    // The schemas interpolate the shared constant, not a retyped literal.
+    expect(
+      cartMutateSchema.safeParse({ productId: "p1", quantity: MAX_CART_QUANTITY + 1 }).success,
+    ).toBe(false);
+    expect(
+      cartLinePatchSchema.safeParse({ lineId: "l1", quantity: MAX_CART_QUANTITY + 1 }).success,
+    ).toBe(false);
+  });
+});

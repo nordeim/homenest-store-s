@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { MAX_CART_QUANTITY } from "@/lib/cart-quantity";
+
 // ---------------------------------------------------------------------------
 // Validation — every external input (server actions, API routes) is parsed
 // through these schemas before it touches the database. SQLite has no enums,
@@ -63,7 +65,7 @@ export const addressDefaultSchema = z.object({
 
 export const cartMutateSchema = z.object({
   productId: z.string().min(1),
-  quantity: z.number().int().min(1).max(99),
+  quantity: z.number().int().min(1).max(MAX_CART_QUANTITY),
 });
 
 /**
@@ -77,7 +79,7 @@ export const cartBulkSchema = z.object({
     .array(
       z.object({
         productId: z.string().min(1),
-        quantity: z.number().int().min(1).max(99),
+        quantity: z.number().int().min(1).max(MAX_CART_QUANTITY),
       }),
     )
     .min(1, "No items to add.")
@@ -97,7 +99,7 @@ export const wishlistToggleSchema = z.object({
 
 export const cartLinePatchSchema = z.object({
   lineId: z.string().min(1),
-  quantity: z.number().int().min(0).max(99),
+  quantity: z.number().int().min(0).max(MAX_CART_QUANTITY),
 });
 
 /** Mirrors the 40-char coupon cap of `checkoutSchema.couponCode`. */

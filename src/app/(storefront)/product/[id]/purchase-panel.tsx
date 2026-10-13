@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { AddToCartButton } from "@/components/store/add-to-cart-button";
 import { QuantityStepper } from "@/components/store/quantity-stepper";
+import { MAX_CART_QUANTITY } from "@/lib/cart-quantity";
 
 /**
  * PurchasePanel — client island that owns the quantity state shared by the
@@ -17,7 +18,7 @@ import { QuantityStepper } from "@/components/store/quantity-stepper";
 export function PurchasePanel({ productId, stock }: { productId: string; stock: number }) {
   const [quantity, setQuantity] = React.useState(1);
   const outOfStock = stock <= 0;
-  const max = Math.max(1, Math.min(stock, 99));
+  const max = Math.max(1, Math.min(stock, MAX_CART_QUANTITY));
 
   if (outOfStock) {
     return (

@@ -13,6 +13,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { deleteCategoryIfEmpty } from "@/lib/admin-categories";
 import { db } from "@/lib/db";
 import { OrderGoneError, applyCarrierTracking } from "@/lib/order-tracking";
 import { applyOrderStatusTransition, canTransitionOrderStatus } from "@/lib/order-status";
@@ -221,16 +222,22 @@ export async function deleteCategoryAction(id: string): Promise<AdminActionResul
   if (denied) return { ok: false, error: denied };
   if (!id) return { ok: false, error: "Missing category id." };
 
-  const productCount = await db.product.count({ where: { categoryId: id } });
-  if (productCount > 0) {
+  // The guarded delete (S17-1): the pre-count stays the fast-fail UX check;
+  // a P2003 raised by the delete itself (product created in the race window)
+  // maps to the same "in use" outcome instead of escaping as an opaque error.
+  const result = await deleteCategoryIfEmpty(db, id);
+  if (result.outcome === "in-use") {
     return {
       ok: false,
-      error: `${productCount} product${productCount === 1 ? "" : "s"} still use this category. Move them before deleting.`,
+      error:
+        result.productCount === null
+          ? "A product was just added to this category. Refresh and try again."
+          : `${result.productCount} product${result.productCount === 1 ? "" : "s"} still use this category. Move them before deleting.`,
     };
   }
-
-  const result = await db.category.deleteMany({ where: { id } });
-  if (result.count === 0) return { ok: false, error: "Category not found. Refresh the page." };
+  if (result.outcome === "not-found") {
+    return { ok: false, error: "Category not found. Refresh the page." };
+  }
 
   revalidatePath("/admin/categories");
   revalidatePath("/");

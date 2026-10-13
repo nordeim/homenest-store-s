@@ -25,6 +25,22 @@ export function isUniqueViolation(error: unknown): boolean {
 }
 
 /**
+ * True when the error is Prisma's P2003 foreign-key-constraint failure
+ * (session-17 S17-1). SQLite checks restrict FKs at write time, so a guarded
+ * delete whose referenced row was re-created between the pre-check and the
+ * write surfaces as P2003 — callers map it to a friendly conflict instead of
+ * letting the engine error escape.
+ */
+export function isForeignKeyViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2003"
+  );
+}
+
+/**
  * True when the P2002 `meta.target` identifies the given model field — via a
  * field-shaped target (array or exact string) or via a constraint-name
  * string that contains `_<field>_` / ends with `_<field>_key`.

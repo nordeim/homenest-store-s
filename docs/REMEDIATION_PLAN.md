@@ -1188,9 +1188,70 @@ Live-reference parity re-verified against the LIVE reference (agent-browser): re
 
 ## 5. Execution log (session 16)
 
-- [ ] RED — `tests/unit/session16-hardening.test.ts` (C3/C4) + validation schema pins
-- [ ] RED — e2e S16-3 modal pin against the pre-fix standalone build
-- [ ] GREEN — S16-1 tx gate + route wiring; S16-2 schema hoist ×3; S16-3 shell restructure + focus restore
-- [ ] Coverage — hero-carousel component test (C5)
-- [ ] Full gate chain re-run green; manual agent-browser verification (drawer modal behavior, mobile menu regression check, wishlist toggle)
-- [ ] Screenshots refreshed; docs sweep; worklog updated
+- [x] RED — `tests/unit/session16-hardening.test.ts` (C3/C4) + validation schema pins
+- [x] RED — e2e S16-3 modal pin against the pre-fix standalone build
+- [x] GREEN — S16-1 tx gate + route wiring; S16-2 schema hoist ×3; S16-3 shell restructure + focus restore
+- [x] Coverage — hero-carousel component test (C5)
+- [x] Full gate chain re-run green; manual agent-browser verification (drawer modal behavior, mobile menu regression check, wishlist toggle)
+- [x] Screenshots refreshed; docs sweep; worklog updated
+
+---
+
+# Session 17 — Post-push audit & admin-write guard completion (2026-10-13)
+
+> **Status:** PLANNED → executed this run (run 18; narrative in `docs/session_27.md`)
+> **Scope:** Session-17 cycle on the session-16-completed tree (`041e877` + operator `session_26.md`). Read-only subagent audit (18-a) over `src/`, `prisma/`, `scripts/`, `tests/`, root configs via the repo `code-review-checklist` skill; every finding personally re-verified with file:line evidence before planning. `skills/` excluded throughout.
+
+## 1. Re-validation (all session-16 gates green on the pulled tree)
+
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · **313/313 unit** ✓ · build ✓ · **63/63 e2e** ✓ (sandbox `DATABASE_URL` shadow converged via the documented symlink `/home/z/my-project/db → <repo>/db`; `.env` carries the `file:../db/custom.db` contract; `db/custom.db` seeded: 16 products / 8 categories verified via a Prisma count).
+
+Live-reference parity re-verified against the LIVE reference (agent-browser): reference unchanged — same nav anatomy, same hero ("Elevate Your Kitchen"), same 8 category tiles, same featured set (Damascus Steel Chef Knife Set first, −29% / (412) / $199.99), mobile panel = the 5 main links + search + close. Clone re-verified on the production build (iPhone 390×844): **mobile menu open → 7-link panel → navigate to /track-order → auto-close/unmount** (Tailwind v4 conditional-mount intact); `/products` renders Damascus-first; demo login → `/account`; zero console errors.
+
+## 2. Session-16 fix verification (read-only subagent 18-a + spot-checks)
+
+**4/4 WIRED · 0 PARTIAL · 0 MISSING.** S16-1 `createWishlistItemInTx` create-first ordering + route mappings (`wishlist.ts:74-84`, `wishlist/route.ts:67-82`, pinned `session16-hardening.test.ts`); S16-2 hoisted schemas consumed by all three routes with zero route-local remnants (`validation.ts:94-106`); S16-3 page-shell inert modal + Tab-wrap + focus restore (`store-chrome.tsx:49-51,117-158`, e2e-pinned); S16-4 MQL cache component pins (`hero-carousel.test.tsx`). Older-fix spot-checks **7/7 WIRED** (S13-3, S13-1, S13-4, S12-4, S9-1, S15-3, S15-4).
+
+## 3. Session-17 audit findings (evidence-based)
+
+**0 CRITICAL / 0 HIGH / 0 MEDIUM / 1 LOW / 1 NIT / 1 Informational / 1 doc-drift** — counts re-verified (313 unit · 63 e2e · 18 models · 16 products · 11/11 admin actions requireAdmin'd · 14 metered sites · 13 admin catch blocks). Fifth consecutive session without a CRITICAL/HIGH/MEDIUM.
+
+| ID | Sev | Finding | Evidence |
+|---|---|---|---|
+| S17-1 | LOW | **`deleteCategoryAction` is check-then-write, and the FK-race loss path escapes as an unhandled P2003.** The action counts products, then `deleteMany`s the category. `Product.category` is a REQUIRED relation with no explicit `onDelete` (default Restrict, `relationMode` unset = foreignKeys), so a product created in the window between the count and the delete makes the delete raise `PrismaClientKnownRequestError` P2003 — no catch in the action maps it (every sibling admin error path was narrowed by S13-5). Impact: two-admin race only; the delete correctly does not happen (FK protects integrity); the escaped rejection surfaces as the generic S13-2 toast instead of an actionable message. | `src/lib/actions/admin.ts:218-233`; `prisma/schema.prisma:64-65` |
+| S17-2 | NIT | **The cart 99-ceiling is retyped in four places with no shared constant.** The authoritative ceilings live in `clampPurchaseQuantity` (`cart-quantity.ts`) and the two Zod schemas (`cartMutateSchema`/`cartLinePatchSchema` `.max(99)`); the same `99` is retyped in the purchase-panel stepper max (`Math.min(stock, 99)`) and the header badge overflow (`cartCount > 99 ? "99+"`). Same single-sourcing class S16-2 fixed for schemas, one magnitude smaller. | `src/app/(storefront)/product/[id]/purchase-panel.tsx:20`, `src/components/store/header.tsx:127`, `src/lib/validation.ts:64-72,98-101`, `src/lib/cart-quantity.ts` |
+| S17-3 | INFO | **`deleteProductAction`'s count-race degrades gracefully by design** — the same check-then-write shape, but `OrderItem.product` is OPTIONAL with no `onDelete` (default SetNull), so a concurrent order in the window nulls the reference instead of throwing; consumers already model null productIds (restock skip, `deleted:<name>` analytics markers, snapshot receipts). Benign counterpart to S17-1 — recorded as evidence the category path is the only FK-race gap. No action. | `src/lib/actions/admin.ts:119-128`; `prisma/schema.prisma:209-210` |
+
+### Doc drift this session
+
+| ID | Location | Drift |
+|---|---|---|
+| D-1 | `docs/REMEDIATION_PLAN.md` (Session-16 execution log) | The six execution-log checkboxes were left `- [ ]` although run 17 executed them (commit `041e877`; narrative `docs/session_25.md`; worklog). Fix: flip to `- [x]`. |
+| D-2 | `Project_Architecture_Document.md` §12 Key Files table | The test-count row was stale at "257 unit · 59 e2e" (a session-7-era leftover the 18-a audit missed; caught in this run's docs sweep). Fix: 324 unit · 63 e2e + the session-11..17 range. |
+
+### Coverage pins added this session (from the audit's gap list)
+
+| # | Gap | Pin |
+|---|---|---|
+| C6 | **`deleteCategoryIfEmpty` outcome mapping** (S17-1's fix) unpinned — server actions are import-unsafe in Vitest (carried convention), so the pin lives at the lib-level pure seam | Unit (fake db client): count > 0 → `in-use` with the count, delete never called; delete count 1 → `deleted`; count 0 → `not-found`; delete rejects with a REAL P2003 → `in-use` (count unknown); other rejection rethrown. Plus `isForeignKeyViolation` truth-table pins |
+| C7 | **`/api/cart` DELETE `?all=1` boundary** (empty-cart + bulk-delete mapping) unpinned | Unit (api-boundaries pattern, mocked `db` + `next/headers`): no cart → `{ itemCount: 0 }` with `deleteMany` never called; guest cart → `deleteMany({ where: { cartId } })` + the fresh summary's `itemCount` |
+
+**Accepted / carried deferrals (unchanged):** login-limiter lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam, checkout saveAddress at-cap skip-save integration pin, review action two-tier gate pin (actions not import-safe in Vitest), route-level 429 wiring pins beyond the S14-2 representatives, checkout coupon-cap concurrency harness, review two-tier budgets e2e, 404-shell CSP nonce, `__Host-` prefix, shared-store limiter, admin coupon-management UI, real mailer/payment epics, address content dedup.
+
+## 4. Remediation plan (TDD)
+
+1. **S17-1** — `isForeignKeyViolation(error)` in `src/lib/prisma-errors.ts` (mirrors `isUniqueViolation`); new `src/lib/admin-categories.ts` exporting `deleteCategoryIfEmpty(db, id)` → `{ outcome: "deleted" } | { outcome: "not-found" } | { outcome: "in-use", productCount: number | null }` — the pre-delete count stays the fast-fail UX check (preserving the exact "N products still use this category." message), the delete's P2003 maps to `in-use` with `productCount: null` ("A product was just added to this category. Refresh and try again."), any other error rethrows (the S13-2 catch contract). `deleteCategoryAction` consumes it; zero behavior change on the happy paths.
+2. **S17-2** — export `MAX_CART_QUANTITY = 99` from `src/lib/cart-quantity.ts`; `clampPurchaseQuantity` consumes it; `cartMutateSchema` + `cartLinePatchSchema` `.max(MAX_CART_QUANTITY)`; the purchase-panel stepper max and the header "99+" flip point consume it. Value unchanged — single-sourcing only.
+3. **C6** — `tests/unit/session17-hardening.test.ts`: the outcome pins + the `isForeignKeyViolation` truth table (the REAL `PrismaClientKnownRequestError` class — a code-stamped Error fails `instanceof`, the S16-1 lesson).
+4. **C7** — `tests/unit/api-boundaries.test.ts`: the cart DELETE `?all=1` pins (mocked `db` gains `cartItem.deleteMany`; unique per-test XFF hop).
+5. **D-1** — flip the six Session-16 execution-log checkboxes to `[x]`.
+6. **DOC** — AGENTS.md (a guarded-category-delete invariant), CLAUDE.md (the new lib module + coverage lists), README (badge counts → the new unit total), PAD (§8.1 tables + known-issues #70–72), SKILL.md v1.14.0 (project_state + Appendix B Session-17 entry), DEPLOYMENT.md (unchanged unless drift), `.env.example` (unchanged — no new env vars), `docs/session_27.md` (run-18 narrative), worklog, screenshots refreshed.
+
+## 5. Execution log (session 17)
+
+- [x] RED — `tests/unit/session17-hardening.test.ts` (C6) fails on the missing `deleteCategoryIfEmpty` / `isForeignKeyViolation` exports
+- [x] RED — validation constant pin fails on the missing `MAX_CART_QUANTITY` export
+- [x] Coverage — C7 cart DELETE `?all=1` boundary pins (green on arrival — pins of existing correct behavior)
+- [x] GREEN — S17-1 guarded delete + `isForeignKeyViolation`; S17-2 `MAX_CART_QUANTITY` single-sourcing
+- [x] Full gate chain re-run green; manual verification
+- [x] Screenshots refreshed; docs sweep; worklog updated

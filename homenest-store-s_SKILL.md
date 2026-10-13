@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.13.0
+version: 1.14.0
 last_updated: 2026-10-13
-project_state: "313 unit tests · 63 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-16)"
+project_state: "324 unit tests · 63 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-17)"
 tags:
   - nextjs16
   - react19
@@ -1119,6 +1119,44 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   the header cart toggle).
 - 313 unit + 63 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/README/
   PAD/SKILL/DEPLOYMENT aligned; run narrative at `docs/session_25.md`.
+
+
+### Session 17 — admin-write guard completion + ceiling single-sourcing (2026-10-13, v1.14.0)
+
+- Re-validated session-16 on the pulled tree (`041e877` + operator
+  `session_26.md`): all gates green (313 unit / 63 e2e), live-reference
+  parity re-verified (reference unchanged; clone mobile menu open → 7-link
+  panel → navigate → auto-close/unmount; /products Damascus-first; demo
+  login → /account; zero console errors).
+- Fresh deep audit (read-only subagent 18-a + own file:line verification):
+  session-16 fixes **4/4 WIRED**; older-fix spot-checks **7/7 WIRED**; new
+  findings **0 CRITICAL / 0 HIGH / 0 MEDIUM / 1 LOW / 1 NIT /
+  1 Informational / 1 doc-drift** — the fifth consecutive session without a
+  CRITICAL/HIGH/MEDIUM.
+- Fixes (TDD — RED first): **S17-1** `deleteCategoryAction` was
+  check-then-write and the FK-race loss path escaped as an unhandled P2003
+  (`Product.category` is a required Restrict FK) — the action now routes
+  through `deleteCategoryIfEmpty` (`src/lib/admin-categories.ts`): the
+  pre-count stays the fast-fail UX check (exact "N products still use this
+  category." message), the delete's P2003 maps to the same in-use outcome
+  with an unknown count ("A product was just added to this category."),
+  unrelated errors rethrow (the S13-2 contract); `isForeignKeyViolation`
+  added to `prisma-errors.ts` (duck-typed, the `isUniqueViolation`
+  convention). **S17-2** the cart 99-ceiling single-sourced as
+  `MAX_CART_QUANTITY` (`src/lib/cart-quantity.ts`) — consumed by the clamp,
+  all three cart Zod schemas (single/patch/bulk per-line), the
+  purchase-panel stepper max and the header "99+" flip (cart-merge's local
+  constant now aliases it; its "must stay in sync" comment retired).
+  **S17-3** (Informational, recorded not fixed) `deleteProductAction`'s
+  count-race is benign by design — `OrderItem.product` is optional →
+  SetNull, and consumers already model null productIds.
+- Coverage pins: C6 the guarded-delete outcome mapping + the
+  `isForeignKeyViolation` truth table (`session17-hardening.test.ts`); C7
+  the cart DELETE `?all=1` boundary (no-cart → `{itemCount:0}` + no write;
+  guest cart → cartId-scoped `deleteMany` + fresh summary — api-boundaries
+  pattern). Doc-drift D-1: the session-16 execution-log checkboxes flipped.
+- 324 unit + 63 e2e green; 23 screenshots refreshed; AGENTS/CLAUDE/README/
+  PAD/SKILL/DEPLOYMENT aligned; run narrative at `docs/session_27.md`.
 
 
 ## Appendix C — Quick Reference Card

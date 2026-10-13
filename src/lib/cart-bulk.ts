@@ -8,7 +8,7 @@
  * planning each line's final quantity against live stock.
  */
 
-import { clampPurchaseQuantity } from "./cart-quantity";
+import { MAX_CART_QUANTITY, clampPurchaseQuantity } from "./cart-quantity";
 
 /**
  * Collapse `[productId, quantity]` items into one wanted quantity per
@@ -21,7 +21,10 @@ export function dedupeBulkWanted(
 ): Map<string, number> {
   const wanted = new Map<string, number>();
   for (const item of items) {
-    wanted.set(item.productId, Math.min((wanted.get(item.productId) ?? 0) + item.quantity, 99));
+    wanted.set(
+      item.productId,
+      Math.min((wanted.get(item.productId) ?? 0) + item.quantity, MAX_CART_QUANTITY),
+    );
   }
   return wanted;
 }

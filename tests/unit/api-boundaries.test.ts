@@ -18,6 +18,7 @@ vi.mock("@/lib/db", () => ({
     newsletterSubscriber: { upsert: vi.fn().mockResolvedValue({}) },
     contactMessage: { create: vi.fn().mockResolvedValue({}) },
     cart: { findUnique: vi.fn() },
+    cartItem: { deleteMany: vi.fn() },
     storeSetting: { findMany: vi.fn().mockResolvedValue([]) },
     order: { count: vi.fn(), findUnique: vi.fn() },
   },
@@ -37,6 +38,7 @@ import { GET as healthGET } from "@/app/api/health/route";
 import { POST as newsletterPOST } from "@/app/api/newsletter/route";
 import { POST as contactPOST } from "@/app/api/contact/route";
 import { POST as checkoutPOST } from "@/app/api/checkout/route";
+import { DELETE as cartDELETE } from "@/app/api/cart/route";
 import { db } from "@/lib/db";
 
 const ORIGIN = "http://localhost:3000";
@@ -225,5 +227,58 @@ describe("POST /api/checkout — order-number allocation exhaustion (C1)", () =>
     // The P2002 on the NUMBER must NOT route into the idempotency recovery
     // branch (session-8 S8-3 discrimination) — replayAuthorized is never consulted.
     expect(db.order.findUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe("DELETE /api/cart?all=1 (C7 — session 17)", () => {
+  function del(query: string, ip: string) {
+    return new NextRequest(`${ORIGIN}/api/cart${query}`, {
+      method: "DELETE",
+      headers: { "x-forwarded-for": `${ip}, 198.51.100.1` },
+    });
+  }
+
+  it("answers itemCount 0 for a request with no cart and never touches cartItem", async () => {
+    vi.mocked(db.cart.findUnique).mockReset().mockResolvedValue(null);
+    vi.mocked(db.cartItem.deleteMany).mockReset().mockResolvedValue({ count: 0 });
+
+    const res = await cartDELETE(del("?all=1", "203.0.113.41"));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ itemCount: 0 });
+    expect(db.cartItem.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("empties the guest cart with a cartId-scoped deleteMany and reports the fresh summary", async () => {
+    const findCart = vi.mocked(db.cart.findUnique);
+    findCart.mockReset();
+    // Queued cart rows: the first read resolves the guest token (findCartId),
+    // the second is getCartSummary's re-read (emptied by the deleteMany).
+    // `as never` = the file's C1 convention — Prisma's default findUnique
+    // payload type excludes the relation fields the mocked rows carry.
+    findCart.mockResolvedValueOnce({
+      id: "cart-1",
+      userId: null,
+      token: "guest-token",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      items: [],
+    } as never);
+    findCart.mockResolvedValueOnce({
+      id: "cart-1",
+      userId: null,
+      token: "guest-token",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      items: [],
+    } as never);
+    vi.mocked(db.cartItem.deleteMany).mockReset().mockResolvedValue({ count: 2 });
+
+    const res = await cartDELETE(del("?all=1", "203.0.113.42"));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ itemCount: 0 });
+    // The bulk delete is scoped to the resolved cart — never an unscoped table wipe.
+    expect(db.cartItem.deleteMany).toHaveBeenCalledWith({ where: { cartId: "cart-1" } });
   });
 });
