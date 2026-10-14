@@ -290,7 +290,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 **Two suites, one gate:** `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e` — all must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 409 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 421 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
@@ -341,6 +341,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 | `checkout-recovery-integration.test.ts` | S24-4 the real-engine P2002 integration seam (the temp-SQLite harness): a genuine idempotency-key collision satisfies `uniqueTargetField(err, "idempotencyKey")` against the LIVE field-array `meta.target` shape (all prior matcher pins were synthetic), a number collision discriminates cross-field (`uniqueTargetField(err, "number")` true, the key field false), and the recovery read `findUnique({ where: { idempotencyKey } })` returns the winner — the contract `placeOrderWithRetry`'s recovery loop depends on |
 | `coupon-cap-integration.test.ts` | S25-5 the coupon-cap real-engine seam (the temp-SQLite harness): the checkout's LIVE guarded increment (`couponRedemptionFilter` + `increment`) against a REAL db file — at-cap → count 0 and the row untouched, one-under → count 1 and `timesUsed` lands, deactivated with budget → count 0 (the always-on `isActive` guard), unlimited (`maxRedemptions: null`) → count 1 at any `timesUsed` |
 | `save-address-integration.test.ts` | S25-6 the saveAddress at-cap real-engine seam (the temp-SQLite harness): `saveCheckoutAddressInTx` inside a REAL transaction — below cap → "saved" with the previous default unset and the new row the single default, at cap → "at-cap" with the book byte-identical (no create, no partial unset — the order-still-places invariant), a label-less draft defaults to "Home" |
+| `place-order-integration.test.ts` | S26-3 the money-path real-engine seam (the temp-SQLite harness; the S18-1 extraction applied to the money authority — `placeOrderTx` + `CheckoutError` verbatim into `src/lib/order-placement.ts` with the db client injected, route behavior byte-equivalent): server-derived money with the args' cosmetic mirrors carrying garbage (the live rows win), the receipt snapshots, the "placed" event, stock reservation, the read-side insufficient-stock fast-fail, the WRITE-side atomic decrement guard (a duplicate-product handoff makes the first guarded decrement the concurrent writer for the second — count 0 → 409 → full rollback), the coupon burn, the engine-level atomic rollback (a mid-tx failure after the burn restores `timesUsed`), the S12-1 cart-clear scoping (the concurrent-tab line survives), and the S7-8 best-effort save (order places at the address cap; below cap the address saves in the SAME tx) |
 | `validation.test.ts` (S17-2 addendum) | `MAX_CART_QUANTITY` is 99 and the cart schemas interpolate the shared constant |
 | `api-boundaries.test.ts` (C7 addendum) | Cart DELETE `?all=1`: no cart → `{itemCount:0}` with `deleteMany` never called; guest cart → cartId-scoped `deleteMany` + the fresh summary's `itemCount` |
 
@@ -532,7 +533,7 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | `src/components/store/store-chrome.tsx` | Sticky header + mobile panel + cart drawer |
 | `src/app/(storefront)/admin/coupons/` | The S19-5 coupon-management surface (page + dialog island) |
 | `prisma/schema.prisma` / `seed.ts` | 18 models / idempotent seed |
-| `tests/unit/*` · `tests/e2e/*` | 409 unit · 66 e2e (incl. the v4 guard + tracking access contract + the session-11..25 hardening/wiring pins) |
+| `tests/unit/*` · `tests/e2e/*` | 421 unit · 66 e2e (incl. the v4 guard + tracking access contract + the session-11..26 hardening/wiring pins) |
 | `playwright.config.ts` / `vitest.config.ts` | Suite wiring (standalone webServer; iPhone-13-on-Chromium project) |
 
 ---

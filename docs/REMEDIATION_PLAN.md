@@ -2268,3 +2268,195 @@ copy-forwarded through sessions 20-24's dispositions lists unexamined.
 - [x] Full gate chain re-run green (lint · typecheck · typecheck:tests ·
       409/409 unit · build · 66/66 e2e)
 - [x] Screenshots refreshed; docs sweep; worklog updated
+
+---
+
+# Session 26 (run 27) — 2026-10-14
+
+## 1. Audit summary (evidence-based)
+
+Pulled tree `2e92db8` (fast-forward from `32116ee` — the operator's
+session-log commit appending `docs/session_43.md`, the raw run-26 log).
+All core docs + `session_42`/`session_43` + the plan (sessions 2–25) +
+`worklog.md` cross-checked against the code: docs and code agree; the
+project is in the session-25-completed state. Gates re-validated on the
+pulled tree: lint ✓ · typecheck ✓ · typecheck:tests ✓ · **409/409 unit** ✓
+· build ✓ · **66/66 e2e** ✓. Seed counts through the converged shadow path
+16/8/3/37/3/13 (users/orders/reviews are documented e2e residue,
+self-healing).
+
+Live-reference parity re-verified via agent-browser (reference logged in
+with the provided credentials; Damascus-first; "Continue with Google" still
+on the reference login): clone mobile menu contract intact (390×844 open →
+`nav[aria-label="Mobile"]` exactly 7 links + the search box → navigate →
+drawer unmounted + toggle collapsed), sitemap 25 URLs, robots disallows +
+sitemap ref, JSON-LD present, desktop visual parity (the four trust badges
+with identical copy), zero console messages/errors on a clean repro after
+killing the documented stale-`next-server`-on-:3000 artifact.
+
+Fresh deep audit (read-only subagent 27-a + operator file:line
+verification): session-25 fixes **7/7 WIRED**; the 13 defect-class sweeps
+**12/13 CLEAN + 1 NIT-class observation** (the documented-in-code raw
+`<img>` below); static counts ALL matching the live docs (409/45 unit ·
+66/14 e2e · 18 models · 14 requireAdmin · 14 metered · 16 catch blocks ·
+25 screenshots · 3 DSIH · 126 src files · the SKILL §5 split). New
+findings **0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 2 NIT / 2
+Informational — the fourteenth consecutive session without a
+CRITICAL/HIGH/MEDIUM/LOW finding.** The audit's carried-deferral spot-check
+confirmed every carried entry is still accurate (none silently resolved).
+
+## 2. Findings → work items
+
+### S26-1 (NIT — doc drift) — the account-snapshot `<img>` exception is missing from the docs
+
+- **Evidence:** `src/app/(storefront)/account/page.tsx:335-341` — the
+  order-history thumbnail is a raw `<img>` with an inline
+  `eslint-disable-next-line @next/next/no-img-element` justification
+  ("snapshot may be any stored path/URL; thumbnails are display-only"),
+  pre-existing since the account surface shipped. CLAUDE.md:58 claims
+  "`next/image` everywhere". The CODE is right — the snapshot may be an
+  arbitrary stored path/URL from any historical order, image optimization
+  is globally disabled anyway, and forcing the boundary through
+  `next/image` would buy nothing; the DOC wording is what drifts.
+- **Fix:** CLAUDE.md carries the documented exception (next/image
+  everywhere **except** the order-history snapshot thumbnail — the inline
+  eslint-disable justification is the documented boundary).
+
+### S26-2 (NIT — whitespace) — two double-blank-line sites in the checkout route
+
+- **Evidence:** `src/app/api/checkout/route.ts:248-249` (double blank
+  between `placeOrderWithRetry` and `placeOrderTx`) and `:393-394` (double
+  blank at EOF) — the S24-1 whitespace class, freshly measured.
+- **Fix:** resolved STRUCTURALLY by the S26-3 extraction (the moved blocks
+  take the spacing with them; the route's last function becomes
+  `placeOrderWithRetry`). Verified afterward: zero double-blank-line sites
+  in the route.
+
+### S26-3 (the flagship — the checkout money-path real-engine harness)
+
+- **Evidence:** the temp-SQLite harness family is three strong (P2002
+  recovery S24-4, coupon cap S25-5, saveAddress S25-6) but each pins ONE
+  seam. The full `placeOrderTx` — the codebase's money authority (CLAUDE.md
+  principle 5) — has NO end-to-end real-engine pin: money derivation, stock
+  reservation, coupon burn, cart-clear scoping, and the best-effort address
+  save only ever run under e2e (through HTTP) or under synthetic
+  `$transaction` mocks (C1). The S18-1 precedent (the
+  `saveCheckoutAddressInTx` extraction) applies.
+- **Design (TDD):**
+  1. **Extraction** — new `src/lib/order-placement.ts`: `CheckoutError`,
+     `OrderItemCreate`, `PlaceOrderArgs`, and `placeOrderTx` move out of
+     the route VERBATIM; the db client is INJECTED (`placeOrderTx(db,
+     orderNumber, args)` — structural `Pick<Prisma.TransactionClient,
+     "product" | "coupon" | "order" | "cartItem">` tx + the `$transaction`
+     carrier, the S25-6 pattern generalized). The route imports the three
+     exports; behavior byte-equivalent — the C1/C3 boundary pins (mocked
+     `@/lib/db` module-wide) and the shopping-flow e2e must stay green
+     UNCHANGED.
+  2. **Harness** — new `tests/unit/place-order-integration.test.ts` (the
+     S25-5 temp-SQLite pattern: `mkdtempSync` + `prisma db push
+     --skip-generate` + `datasourceUrl`, no process env, no sandbox
+     shadow): seeds category + 2 products + a coupon + a cart with lines,
+     then calls the REAL `placeOrderTx` on the REAL engine. Pins:
+     (a) server-derived money — order.subtotal/discount/shipping/tax/total
+     are the in-tx derivations from the LIVE product rows + settings; the
+     args.lines cosmetic mirrors are IGNORED (mutating the mirrors in the
+     args leaves the placed order unchanged — the TOCTOU-proof proof);
+     (b) the receipt items snapshot the in-tx product price
+     (`unitPrice == product.price`, `nameSnapshot` from the product row,
+     `imageSnapshot` from the line);
+     (c) the "placed" OrderEvent exists;
+     (d) stock reservation — product.stock decremented by qty;
+     (e) insufficient stock — CheckoutError 409 AND no order row (the
+     atomic rollback) AND stock unchanged;
+     (f) coupon burn — timesUsed incremented with the order; an invalid
+     coupon → 409 with no rows; an at-cap coupon → 409, no order row,
+     timesUsed unchanged (the S25-5 shape now proven as part of the whole
+     tx);
+     (g) cart-clear scoping — an unordered concurrent-tab line SURVIVES,
+     the ordered lines are deleted (the S12-1 `cartClearFilter` contract at
+     full-tx scale);
+     (h) the saveAddress best-effort invariant — at the address cap the
+     ORDER STILL PLACES (the S7-8 invariant at full-tx scale; the "at-cap"
+     save is skipped, no rollback);
+     (i) the ATOMIC decrement guard — a duplicate-product handoff (two
+     lines for one product: getCartSummary can never produce it, the tx
+     must not over-sell regardless) makes the first guarded decrement the
+     concurrent writer for the second: count 0 → 409 → the full rollback
+     (the already-created order row gone, stock restored);
+     (j) a mid-tx failure AFTER the coupon burn (a duplicate order-number
+     unique violation) rolls the BURN back too — timesUsed restored, stock
+     untouched (the complement of the C1 synthetic retry pin: the
+     ROLLBACK semantics at engine level);
+     (k) saveAddress BELOW the cap saves in the SAME tx (first address
+     auto-defaults).
+  3. **RED (mutation checks)** — predicted failures against the REAL
+     engine: M1 snapshot `unitPrice: line.unitPrice` (trust the summary)
+     instead of `product.price` → the money pin + the receipt pin fail; M2
+     unconditional stock decrement (drop the `stock: { gte }` guard) → the
+     write-guard pin fails (the order places and stock goes negative); M3
+     blanket `deleteMany({ where: { cartId } })` instead of
+     `cartClearFilter(args.cartId, args.lines)` → the concurrent-tab pin
+     fails (the unordered line vanishes). The other pins stay green under
+     every mutation (mutation-sensitive pins, not shape-insensitive
+     ones).
+
+     EXECUTION NOTE (the honest RED record): the first M2 run ESCAPED
+     detection — the insufficient-stock pin only exercises the READ-side
+     guard (`product.stock < line.quantity` throws before any write), and
+     a single-connection state harness cannot interleave a competing
+     writer between the in-tx read and the guarded decrement. The pin
+     family grew the missing seam: a DUPLICATE-product handoff (two lines
+     for one product — getCartSummary can never produce it, but the tx is
+     the money authority and must not over-sell regardless of the caller)
+     makes the FIRST guarded decrement the concurrent writer for the
+     SECOND: stock 3 passes both reads, decrement one lands (3→1), the
+     second's `stock: { gte: 2 }` guard matches nothing → count 0 → 409 →
+     full rollback (the already-created order row gone, stock restored).
+     With that pin in place M2 went RED exactly as predicted.
+  4. **GREEN** — all mutation sites restored byte-for-byte
+     (`git status src/` clean); all pins green.
+
+### Dispositions (no change, recorded)
+
+- **OrderItem.variantLabel dormancy — DISPOSED (Informational, no
+  action):** the field is read on three surfaces
+  (`account/page.tsx:351-353`, `admin/orders/page.tsx:138`,
+  `order-manage-dialog.tsx:46,278`) but the only order-create path
+  (`checkout/route.ts:265-271,350`) never writes it — dormant display
+  branches that render nothing, harmlessly. It is a future-proofing hook
+  for product variants; writing it today would fabricate data. Recorded.
+- **01-home.png working-tree artifact — resolved by the screenshot
+  refresh** (the post-pull capture is committed as part of this session's
+  docs sweep; no code change was involved).
+- **Carried deferrals (S26-2 REMOVED — resolved this session; S26-3's
+  money-path harness item was newly raised and resolved in the same
+  session):** login-limiter lockout tradeoff (S8-8 — the deliberate per-IP
+  + per-email budget tradeoff stays documented), route-level 429 wiring
+  pins beyond the S14-2 representatives, 404-shell CSP nonce, `__Host-`
+  prefix, shared-store limiter, radiogroup roving focus, address content
+  dedup, and the external-service epics (real email delivery, OAuth, real
+  payments — blocked on sandbox-external credentials/SMTP). Audit 27-a
+  spot-checked each against the code: none silently resolved.
+
+## 3. Execution log (session 26)
+
+- [x] Extraction (S26-3 step 1) — the route's behavior byte-equivalent;
+      the C1/C3 boundary pins stay green UNCHANGED (10/10) — S26-2
+      resolved structurally (zero double-blank sites verified in the
+      route)
+- [x] Harness pins written and green on the unmutated code — 12 pins
+      (11 designed + the write-guard pin (i) added when the first M2 run
+      exposed the missing seam)
+- [x] RED (mutation checks) — M1 failed the money + receipt pins (2);
+      M2 failed the write-guard pin (1) after the honest re-aim recorded
+      in the execution note above; M3 failed the concurrent-tab pin (1) —
+      4 of the 12 pins failed exactly as predicted against the REAL
+      engine; the other 8 stayed green under every mutation
+- [x] GREEN — mutation sites restored byte-for-byte (`git status src/`
+      shows exactly the extraction: the modified route + the new lib
+      file); 12/12 harness pins green; the temp-SQLite family intact
+      (coupon-cap + save-address + recovery 10/10)
+- [x] S26-1 doc exception applied (CLAUDE.md next/image wording)
+- [x] Full gate chain re-run green (lint · typecheck · typecheck:tests ·
+      421/421 unit · build · 66/66 e2e)
+- [x] Screenshots refreshed; docs sweep; worklog updated

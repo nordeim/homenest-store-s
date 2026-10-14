@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.22.0
+version: 1.23.0
 last_updated: 2026-10-14
-project_state: "409 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-25; the coupon engine result carries the marketing description and /api/coupon/apply resolves a coupon with a single lookup, the cart's free-shipping hint is coupon-aware — the S21-7 deferral resolved via the CartSummaryWidgets + CouponBox onAppliedChange state lift, the checkout free-shipping mirror fixed, the e2e request-fixture identity-isolation trap documented, all coupon surfaces verified end-to-end, and the session-24 wiring pins close the carried review-action gate / track-order limiter / P2002 engine-shape deferrals with the real-SQLite integration seam, and the session-25 real-engine harnesses pin the coupon redemption guard and the saveAddress outcome contract against a live SQLite engine)"
+project_state: "421 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-26; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — and the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine)"
 tags:
   - nextjs16
   - react19
@@ -181,7 +181,7 @@ Key mechanics:
 
 ## 5. Component Architecture & Patterns
 
-126 tracked TS files. Component split in `src/components/`:
+127 tracked TS files. Component split in `src/components/`:
 **13 client** (`"use client"`) and **9 server** components; 38 client files
 across all of `src/` (pages' interactive islands included).
 
@@ -1584,6 +1584,66 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   (project_state + the §5 stats refresh + this entry), DEPLOYMENT.md
   drift-free (no new env vars), `.env.example` unchanged; run narrative at
   `docs/session_42.md`.
+
+### Session 26 (run 27) — the money-path real-engine harness + the doc-drift sweep
+
+- Deep audit 27-a at HEAD `2e92db8` (workspace refreshed by `git pull` —
+  fast-forward `32116ee` → `2e92db8`, the operator's session-log commit
+  appending `docs/session_43.md`): session-25 fixes **7/7 WIRED** with
+  file:line evidence; defect-class sweeps 12/13 CLEAN + 1 NIT-class
+  observation; static counts ALL matching the live docs (409/45 unit ·
+  66/14 e2e · 18 models · 14 requireAdmin · 14 metered · 16 catch blocks ·
+  25 screenshots · 3 DSIH sites · 126 src files); **0 CRITICAL / 0 HIGH /
+  0 MEDIUM / 0 LOW / 2 NIT / 2 Informational — the fourteenth consecutive
+  session without a CRITICAL/HIGH/MEDIUM/LOW finding**. The NITs:
+  **S26-1** the account-snapshot raw `<img>` (deliberate, inline-justified)
+  vs CLAUDE.md's "`next/image` everywhere" wording (doc drift — the code
+  is right; the docs now carry the exception), **S26-2** two
+  double-blank-line sites in the checkout route (the S24-1 whitespace
+  class, resolved structurally by the extraction). Informational: the
+  dormant `OrderItem.variantLabel` display hook (DISPOSED —
+  future-proofing, no action) and the run's own `01-home.png` capture
+  artifact (resolved by the screenshot refresh).
+- **The flagship (S26-3):** `placeOrderTx` — the money authority —
+  extracted VERBATIM from the route into `src/lib/order-placement.ts` with
+  the db client injected (the S18-1/S25-6 pattern generalized; structural
+  `Pick<Prisma.TransactionClient, …>` tx), the route importing the three
+  exports — behavior byte-equivalent (the C1/C3 boundary pins 10/10 green
+  UNCHANGED). Then `tests/unit/place-order-integration.test.ts` (12 pins):
+  server-derived money (the args' cosmetic mirrors carry garbage — the
+  LIVE rows win), the receipt snapshots (in-tx product price/name, the
+  line's image), the "placed" event, stock reservation, the read-side
+  insufficient-stock fast-fail, the WRITE-side atomic decrement guard (a
+  duplicate-product handoff makes the first guarded decrement the
+  concurrent writer for the second — getCartSummary can never produce it,
+  the tx must not over-sell regardless), the coupon burn, the
+  engine-level atomic rollback (a mid-tx failure after the burn restores
+  `timesUsed` — the complement of the C1 synthetic retry pin), the S12-1
+  cart-clear scoping (the concurrent-tab line survives), and the S7-8
+  best-effort save (the order places at the address cap; below cap the
+  address saves in the SAME tx).
+- RED (mutation checks) — the honest record: M1 (trust the summary's
+  `unitPrice`) failed the money + receipt pins; **the first M2 run ESCAPED
+  detection** — the insufficient-stock pin only exercises the READ-side
+  guard, and a single-connection state harness cannot interleave a
+  competing writer between the in-tx read and the guarded decrement; the
+  pin family grew the duplicate-product write-guard seam and M2 went RED
+  exactly as predicted; M3 (blanket cart clear) failed the concurrent-tab
+  pin. 4 of the 12 pins failed exactly as predicted; the other 8 stayed
+  green under every mutation. GREEN — all mutation sites restored
+  byte-for-byte; **12/12 pins green (421/421 unit)**; the temp-SQLite
+  family intact (10/10 across the other three harnesses).
+- Final gates: **421/421 unit · 66/66 e2e · lint/typecheck/typecheck:tests/
+  build green**; the documented stale-`next-server`-on-:3000 artifact
+  killed by PID before any browser check; mobile menu open → 7 links +
+  search → navigate → auto-close/unmount; sitemap 25 URLs; **25
+  screenshots** refreshed.
+- Docs aligned: AGENTS (plan range 2..26), CLAUDE (the session-26
+  money-path tail + the documented `<img>` exception), README (badge
+  421/66 + the tail), PAD (§8.1 header + the new row + §12 table), SKILL
+  v1.23.0 (project_state + the §5 count + this entry), DEPLOYMENT.md
+  drift-free (no new env vars), `.env.example` unchanged; run narrative
+  at `docs/session_44.md`.
 
 ## Appendix C — Quick Reference Card
 
