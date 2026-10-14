@@ -2460,3 +2460,162 @@ confirmed every carried entry is still accurate (none silently resolved).
 - [x] Full gate chain re-run green (lint · typecheck · typecheck:tests ·
       421/421 unit · build · 66/66 e2e)
 - [x] Screenshots refreshed; docs sweep; worklog updated
+
+# Session 27 (run 28) — 2026-10-14
+
+## 1. Audit summary (evidence-based)
+
+Fresh clone `8059a67` (the sandbox was reset between runs; the clone HEAD is
+the pushed main tip — `920f3bc`, the session-26 remediation, plus the
+operator's session-log commit appending `docs/session_45.md`). All core docs
++ `session_44`/`session_45` + the plan (sessions 2–26) + `worklog.md`
+cross-checked against the code: docs and code agree; the project is in the
+session-26-completed state. This run = **Run 28 (session-27 cycle)**;
+the narrative numbering lands on `session_46.md`, worklog Task 28.
+
+Environment: `.env` recreated from the `file:../db/custom.db` contract + the
+dev `AUTH_SECRET`; the sandbox's shadow `DATABASE_URL`
+(`file:/home/z/my-project/db/custom.db`) converged to the repo's
+`db/custom.db` (one inode verified). Seed counts through the shadow path
+16/8/3/3/13. `skills/` excluded from all checking/testing/compilation per
+the operator contract.
+
+Gates re-validated on the pulled tree: lint ✓ · typecheck ✓ ·
+typecheck:tests ✓ · **421/421 unit** ✓ · build ✓ · **66/66 e2e** ✓ — the
+documented session-26 state reproduces exactly.
+
+Live-reference parity re-verified via agent-browser (reference logged in
+with the provided credentials; Damascus-first; "Continue with Google" still
+on the reference login): clone home Damascus-first + JSON-LD + zero console
+messages/errors, sitemap 25 URLs, robots disallows + sitemap ref, mobile
+menu contract intact (390×844 open → `nav[aria-label="Mobile"]` exactly
+7 links + the search box in the panel → navigate → drawer unmounted +
+toggle collapsed), desktop visual parity (identical header anatomy, hero
+carousel, the four trust badges with identical copy — the clone's wishlist
+heart and the reference's base44 chat bubble remain the documented deltas).
+
+Fresh deep audit (read-only subagent 28-a + operator file:line
+verification): session-26 fixes **4/4 WIRED** (the extraction + harness +
+doc exception + zero route double-blanks, each with file:line evidence);
+the 13 defect-class sweeps effectively CLEAN (10 fully clean, 2
+documented-pattern-only, 2 NIT whitespace hits); static counts **11/11
+MATCH** (46 unit files · 421 unit · 14 e2e files · 66 e2e · 18 models ·
+14 requireAdmin · 14 metered · 16 catch blocks · 127 tracked TS files ·
+25 screenshots · 3 DSIH); all 8 carried deferrals accurate (none silently
+resolved). New findings **0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 2 NIT /
+1 Informational — the fifteenth consecutive session without a
+CRITICAL/HIGH/MEDIUM/LOW finding.** Operator verification reproduced every
+finding at the cited lines (the two space-only lines, the tests/ triple
+blank, the 5-model `OrderTxClient` Pick, and the 3/14 metered-surface pin
+split).
+
+## 2. Findings → work items
+
+### S27-1 (the flagship — the last 11 unpinned 429 surfaces join the boundary-pin grid)
+
+- **Evidence:** 14 metered HTTP surfaces carry route-level `rateLimit`
+  calls; only **3** have route-level 429/Retry-After pins
+  (newsletter/contact/checkout — S14-2) plus the track-order page pin
+  (S24-3). The remaining **11 handler surfaces in 7 route files** have NO
+  route-level 429 pin: `addresses` POST/PATCH/DELETE,
+  `cart` POST/PATCH/DELETE, `cart/bulk` POST, `cart-summary` GET,
+  `coupon/apply` POST, `search` GET, `wishlist` POST (limiter MATH is
+  pinned in rate-limit.test.ts; the WIRING — which route, which budget,
+  which 429 body, which header — is the unproven half). This is the
+  documented carried deferral; the audit confirmed it is the natural next
+  increment.
+- **Design (TDD):** 11 new describe blocks appended to
+  `tests/unit/api-boundaries.test.ts` (the S14-2 file), each exhausting the
+  route's REAL budget through the REAL limiter and pinning the full 429
+  contract (status + `Retry-After` + exact body copy) plus the S15-1
+  slot-accounting assertion (every in-budget attempt consumed exactly one
+  slot — recorded statuses, none 429):
+  1. `POST /api/cart` (60/min; limiter sits AFTER the schema parse —
+     in-budget attempts carry valid bodies and fail later on the product
+     lookup → 404)
+  2. `PATCH /api/cart` (60/min; limiter FIRST — malformed bodies → in-budget
+     400s)
+  3. `DELETE /api/cart` (60/min; limiter FIRST — in-budget requests resolve
+     through the C7 mocks → 200 `{ itemCount: 0 }`)
+  4. `POST /api/cart/bulk` (10/min; limiter FIRST — malformed → 400s;
+     the 11th → 429)
+  5. `GET /api/cart-summary` (120/min; limiter FIRST)
+  6. `POST /api/coupon/apply` (30/min; limiter after the schema parse;
+     **the 429 body is the `CouponApplyResponse` shape**
+     `{ ok: false, error: "Too many attempts. Please try again shortly." }`
+     — not the generic `{ error }` sibling copy)
+  7. `GET /api/search` (120/min; limiter FIRST)
+  8. `POST /api/wishlist` (60/min; limiter after the schema parse —
+     in-budget attempts 404 on the product lookup)
+  9. `POST /api/addresses` (60/min; BEHIND `getCurrentUser` — the module's
+     `@/lib/auth` mock resolves a signed-in user for these describes)
+  10. `PATCH /api/addresses` (same shape)
+  11. `DELETE /api/addresses` (same shape; no body — in-budget attempts
+      400 on the missing id param)
+- **Key mechanics (the C1 isolation convention):** the file's `post()`
+  helper appends a constant proxy hop (`, 198.51.100.1`) which BECOMES the
+  RIGHTMOST `x-forwarded-for` hop — so every helper request shares one
+  bucket per key prefix. The three `cart:` describes and three `addresses:`
+  describes would exhaust EACH OTHER's budgets. Every new pin sends a
+  SINGLE-HOP `x-forwarded-for` with a UNIQUE per-test IP (the C1 pin's
+  convention). The module-wide `@/lib/auth` mock is safe: no `src/lib/**`
+  module imports `@/lib/auth` (only `src/lib/actions/*`, which no API route
+  imports); the file-level `beforeEach` resets `getCurrentUser` to null so
+  the existing guest-path pins (C3/C1/C7) run unchanged.
+- **RED (mutation checks):** M1 — mutate the coupon budget 30→29 → exactly
+  the coupon pin fails. M2 — mutate the cart budget 60→59 → the three cart
+  pins fail, everything else green.
+- **GREEN** — mutation sites restored byte-for-byte; 432/432 unit.
+
+### S27-2 (NIT — whitespace) — two space-only lines + a tests/ triple blank
+
+- **Evidence:** `src/app/api/newsletter/route.ts:20` and
+  `src/app/api/contact/route.ts:24` carry space-only lines (the
+  whitespace-only-line variant the double-blank scans miss);
+  `tests/unit/seo-ld.test.ts:121-123` carries a triple blank-line run
+  between describes (the whitespace class was never enforced on tests/).
+- **Fix:** strip the two space-only lines; collapse the triple blank to
+  one. Verified afterward: zero whitespace-only lines in src/ and zero
+  multi-blank runs in the touched test file.
+
+### S27-3 (docs) — the count/split alignment after S27-1 lands
+
+- **Evidence:** the new pins move unit 421→432; the count anchors and the
+  api-boundaries coverage description must follow: README (badge + stack
+  table + script comment), PAD (§8.1 header, the api-boundaries row, the
+  §12 table), SKILL (project_state, the version bump v1.23.0 → v1.24.0,
+  the Appendix B session-27 entry), AGENTS.md (plan range 2..26 → 2..27),
+  CLAUDE.md (the unit-suite tail gains the session-27 additions).
+- **Fix:** the standard docs sweep, executed after GREEN.
+
+### Dispositions (no change, recorded)
+
+- **`OrderTxClient` 5-model Pick (Informational):** the structural tx Pick
+  names 5 models (incl. `"address"`) where the S26-3 plan sketch listed 4 —
+  the 5th is REQUIRED by `saveCheckoutAddressInTx` (the best-effort save
+  runs inside the same tx). No doc contradicts the code. Recorded.
+- **Carried deferrals (the route-level-429-pins item REMOVED — resolved
+  this session by S27-1):** login-limiter lockout tradeoff (S8-8 — the
+  deliberate per-IP + per-email budget tradeoff stays documented),
+  404-shell CSP nonce, `__Host-` prefix, shared-store limiter, radiogroup
+  roving focus, address content dedup, and the external-service epics
+  (real email delivery, OAuth, real payments — blocked on sandbox-external
+  credentials/SMTP).
+
+## 3. Execution log (session 27)
+
+- [x] S27-2 whitespace strips (the two space-only lines + the triple
+      blank) — zero whitespace-only lines in src/ verified after
+- [x] S27-1 pins written and green on the unmutated code — 11 describes,
+      single-hop unique-IP isolation, the `@/lib/auth` module mock with the
+      per-describe user override — 21/21 (11 new + 10 existing) GREEN ON
+      THE FIRST RUN (the C1 isolation convention pre-applied)
+- [x] RED (mutation checks) — M1 (coupon 30→29) failed EXACTLY the coupon
+      pin (1); M2 (cart 60→59) failed EXACTLY the three cart pins — the
+      isolation proof (each describe exhausted its OWN bucket); sites
+      restored byte-for-byte (`git diff src/` shows only the S27-2 strips)
+- [x] GREEN — 432/432 unit (421 + 11); the existing pins untouched
+      (10/10 boundary describes unchanged)
+- [x] Full gate chain re-run green (lint · typecheck · typecheck:tests ·
+      432/432 unit · build · 66/66 e2e)
+- [ ] S27-3 docs sweep + screenshots + worklog + session_46.md

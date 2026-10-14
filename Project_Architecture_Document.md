@@ -290,7 +290,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 **Two suites, one gate:** `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e` — all must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 421 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 432 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
@@ -325,7 +325,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 | `session12-hardening.test.ts` | Checkout cart-clear filter (`cartClearFilter` S12-1: ordered ids only, cartId-compound scope, empty-lines safe), seed timestamps (`productSeedCreatedAt` S12-5: index 0 newest, strictly descending, minute spacing, negative-index rejection), numeric settings fallback (`settingNumber`: undefined/garbage/empty/whitespace/non-finite → fallback, finite passthrough) |
 | `session13-hardening.test.ts` | Server-side demo flag (`demoModeEnabled` S13-1: the five-cell env truth table — production default OFF, opt-in "true", explicit "false", dev default ON), UTC month start (`utcMonthStart` S13-6: UTC midnight, rollover, timezone independence), `clientIp` `TRUST_CF_CONNECTING_IP` opt-out (S13-7: default preserves the cf-first invariant, `trustCf:false` ignores the header), store-settings boundary schema (`settingsPatchSchema` C8: tax/cents bounds, `javascript:` social rejection, unknown-key strip, trim) |
 | `review-transactional.test.ts` | S13-4 DB semantics against a REAL temp SQLite (`datasourceUrl`): create + `growReviewAggregate` inside one tx commits and grows the aggregate; a failed aggregate write inside the tx ROLLS THE INSERT BACK; documents the pre-fix orphan shape |
-| `api-boundaries.test.ts` | Route-boundary mappings with a mocked `db` (+ mocked `next/headers` cookies for the checkout flow): health ok/degraded-503; newsletter malformed-JSON/invalid-body/429 + `Retry-After`; contact 429 + `Retry-After`; checkout 429 + `Retry-After` with the strengthened in-budget assertion (S15-1); the order-number allocation-exhaustion pin (five P2002s on the NUMBER → 500, replay branch never consulted — C1) |
+| `api-boundaries.test.ts` | Route-boundary mappings with a mocked `db` (+ mocked `next/headers` cookies for the checkout flow): health ok/degraded-503; newsletter malformed-JSON/invalid-body/429 + `Retry-After`; contact 429 + `Retry-After`; checkout 429 + `Retry-After` with the strengthened in-budget assertion (S15-1); the order-number allocation-exhaustion pin (five P2002s on the NUMBER → 500, replay branch never consulted — C1); the cart DELETE `?all=1` C7 addendum; and the session-27 grid completion (S27-1): cart POST/PATCH/DELETE, cart/bulk (10/min), cart-summary GET (120/min), coupon/apply POST (30/min — the 429 body is the `CouponApplyResponse` shape), search GET (120/min), wishlist POST (60/min), and the three auth-gated addresses handlers (60/min behind a mocked `getCurrentUser`) — each exhausting its REAL budget through the REAL limiter with single-hop unique-IP isolation and pinning status + `Retry-After` + the exact body |
 | `toaster.test.tsx` | S14-1 the suite's FIRST COMPONENT TEST (`.tsx` + `@vitest-environment jsdom` docblock, fake timers): auto-dismiss at 4s, manual close CANCELS the pending timer (`vi.getTimerCount()` back to baseline — the pre-fix orphan pin), unmount clears every pending timer |
 
 | `session16-hardening.test.ts` | S16-1/C3/C4: the authoritative wishlist-cap tx gate — `createWishlistItemInTx` create-first ordering + the overflow throw; the wishlist POST route boundary (at-cap-overflow → friendly 409 via the tx gate, P2002-in-tx → `{ inWishlist: true }`, happy create) with a mocked `db` + `next/headers` guest token |
@@ -533,7 +533,7 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | `src/components/store/store-chrome.tsx` | Sticky header + mobile panel + cart drawer |
 | `src/app/(storefront)/admin/coupons/` | The S19-5 coupon-management surface (page + dialog island) |
 | `prisma/schema.prisma` / `seed.ts` | 18 models / idempotent seed |
-| `tests/unit/*` · `tests/e2e/*` | 421 unit · 66 e2e (incl. the v4 guard + tracking access contract + the session-11..26 hardening/wiring pins) |
+| `tests/unit/*` · `tests/e2e/*` | 432 unit · 66 e2e (incl. the v4 guard + tracking access contract + the session-11..27 hardening/wiring pins) |
 | `playwright.config.ts` / `vitest.config.ts` | Suite wiring (standalone webServer; iPhone-13-on-Chromium project) |
 
 ---

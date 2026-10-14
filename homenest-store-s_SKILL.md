@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.23.0
+version: 1.24.0
 last_updated: 2026-10-14
-project_state: "421 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-26; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — and the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine)"
+project_state: "432 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-27; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine — and session-27 completed the route-level 429 wiring-pin grid: ALL 14 metered HTTP surfaces now carry route-level boundary pins in api-boundaries.test.ts)"
 tags:
   - nextjs16
   - react19
@@ -1644,6 +1644,51 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   v1.23.0 (project_state + the §5 count + this entry), DEPLOYMENT.md
   drift-free (no new env vars), `.env.example` unchanged; run narrative
   at `docs/session_44.md`.
+
+### Session 27 (run 28) — the 429 wiring-pin grid completed
+
+- Deep audit 28-a at HEAD `8059a67` (fresh clone — the sandbox reset
+  between runs): session-26 fixes **4/4 WIRED** with file:line evidence;
+  defect-class sweeps effectively CLEAN; static counts **11/11 MATCH**
+  (46 unit files · 421 unit · 14 e2e files · 66 e2e · 18 models ·
+  14 requireAdmin · 14 metered · 16 catch blocks · 127 tracked TS files ·
+  25 screenshots · 3 DSIH); **0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW /
+  2 NIT / 1 Informational — the fifteenth consecutive session without a
+  CRITICAL/HIGH/MEDIUM/LOW finding.** The NITs: **S27-2** two space-only
+  lines (newsletter:20, contact:24 — the whitespace-only-line variant the
+  double-blank scans miss) + a triple blank run in seo-ld.test.ts:121-123
+  (the class extended to tests/ for the first time). Informational: the
+  `OrderTxClient` structural tx Pick names 5 models (incl. `"address"`)
+  where the S26-3 plan sketch listed 4 — the 5th is REQUIRED by
+  `saveCheckoutAddressInTx`; recorded, no action.
+- **The flagship (S27-1):** the LAST 11 metered surfaces joined the
+  route-level 429 boundary-pin grid — cart POST/PATCH/DELETE (60/min
+  shared `cart:` prefix), cart/bulk (10/min), cart-summary GET (120/min),
+  coupon/apply POST (30/min — the 429 body is the `CouponApplyResponse`
+  shape `{ ok: false, error }`, NOT the generic sibling copy), search GET
+  (120/min), wishlist POST (60/min), and the three auth-gated addresses
+  handlers (60/min behind a mocked `getCurrentUser` — safe: no
+  `src/lib/**` module imports `@/lib/auth`). Key mechanics: the file's
+  `post()` helper appends a constant proxy hop which BECOMES the rightmost
+  `x-forwarded-for` hop, so same-key describes would exhaust each other's
+  budgets — every new pin uses the `nextReq()` SINGLE-HOP helper with a
+  UNIQUE per-test IP (the C1 pin's isolation convention). **21/21 green on
+  the first run** (the lessons pre-applied); RED verified by M1 (coupon
+  30→29 → exactly the coupon pin fails) and M2 (cart 60→59 → exactly the
+  three cart pins fail — the isolation proof); sites restored
+  byte-for-byte. **432/432 unit.**
+- S27-2: the two space-only lines stripped, the triple blank collapsed —
+  zero whitespace-only lines / double-blank sites in src/ and the touched
+  test file.
+- Final gates: **432/432 unit · 66/66 e2e · lint/typecheck/typecheck:tests/
+  build green**; 25 screenshots refreshed on the fresh production server;
+  mobile menu open → links + search → navigate → auto-close/unmount;
+  sitemap 25 URLs; zero console messages/errors.
+- Docs aligned: AGENTS (plan range 2..27), CLAUDE (the session-27
+  grid-completion tail), README (badge 432/66 + the tail), PAD (§8.1
+  header 432 + the api-boundaries row + §12 table), SKILL v1.24.0
+  (project_state + this entry), DEPLOYMENT.md drift-free (no new env
+  vars), `.env.example` unchanged; run narrative at `docs/session_46.md`.
 
 ## Appendix C — Quick Reference Card
 

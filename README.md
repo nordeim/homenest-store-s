@@ -1,6 +1,6 @@
 # HomeNest Kitchen
 
-![Next.js](https://img.shields.io/badge/Next.js-16-black) ![React](https://img.shields.io/badge/React-19-149ECA) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6) ![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4_CSS--first-38BDF8) ![Prisma](https://img.shields.io/badge/Prisma-6_+_SQLite-2D3748) ![Tests](https://img.shields.io/badge/tests-421_unit_·_66_e2e-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue)
+![Next.js](https://img.shields.io/badge/Next.js-16-black) ![React](https://img.shields.io/badge/React-19-149ECA) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6) ![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4_CSS--first-38BDF8) ![Prisma](https://img.shields.io/badge/Prisma-6_+_SQLite-2D3748) ![Tests](https://img.shields.io/badge/tests-432_unit_·_66_e2e-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue)
 
 A production-grade e-commerce storefront + admin back office — a visual-and-functional **superset** of the Base44 reference app at [`nest-culinary-hub.base44.app`](https://nest-culinary-hub.base44.app/). Premium kitchenware catalog, guest carts, coupons, order tracking, reviews, legal pages, and a full admin console, on Next.js 16 · React 19 · TypeScript strict · Tailwind CSS v4 · Prisma 6 + SQLite.
 
@@ -52,7 +52,7 @@ Demo accounts (seeded):
 | UI primitives | Radix UI + CVA + lucide-react | latest | Accessible dialogs, selects, sheets, toasts |
 | Charts | Recharts | ^3 | Admin revenue/analytics |
 | Validation | Zod | ^3.25 | Every external input boundary |
-| Tests | Vitest · Playwright | ^3.2 · ^1.64 | 421 unit · 66 e2e |
+| Tests | Vitest · Playwright | ^3.2 · ^1.64 | 432 unit · 66 e2e |
 
 ```mermaid
 flowchart TB
@@ -119,7 +119,7 @@ flowchart TB
 ## Testing
 
 ```bash
-npm run test            # 421 unit tests (Vitest, node env; toaster/hero-carousel/quantity-stepper/cart-widgets.test.tsx are the component tests, jsdom)
+npm run test            # 432 unit tests (Vitest, node env; toaster/hero-carousel/quantity-stepper/cart-widgets.test.tsx are the component tests, jsdom)
 npm run typecheck:tests # the unit/e2e/seed sources are type-checked too
 npm run build           # required before e2e (suite starts the standalone server)
 npm run test:e2e        # 66 e2e tests (Playwright; server auto-started on :3100)

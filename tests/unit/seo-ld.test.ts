@@ -119,8 +119,6 @@ describe("buildWebsiteJsonLd", () => {
   });
 });
 
-
-
 // --- session-6 S6-14: priceValidUntil (Google rich-result recommendation) ---
 describe("buildProductJsonLd — priceValidUntil (session-6)", () => {
   it("emits offers.priceValidUntil as a YYYY-MM-DD date about a year out", () => {

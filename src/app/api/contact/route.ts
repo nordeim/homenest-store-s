@@ -21,7 +21,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: firstError(parsed.error) }, { status: 400 });
     }
 
-    
     const limit = rateLimit(`contact:${clientIp(request.headers)}`, 5, 60_000);
     if (!limit.ok) {
       return NextResponse.json({ error: "Too many messages sent. Please try again shortly." }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSec ?? 60) } });

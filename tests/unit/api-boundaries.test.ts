@@ -1,13 +1,23 @@
 // Session-14 S14-2 / C1-C3 — API boundary mappings for the health, newsletter,
 // contact, and checkout route handlers. Session-15 S15-3/C1: Retry-After
 // response-contract assertions + the order-number exhaustion pin.
+// Session-27 S27-1: the LAST 11 metered surfaces join the grid — cart
+// POST/PATCH/DELETE, cart/bulk, cart-summary, coupon/apply, search,
+// wishlist, and the three addresses handlers — each exhausting its REAL
+// budget through the REAL limiter and pinning status + Retry-After + the
+// exact 429 body (the coupon route's body is the CouponApplyResponse shape,
+// not the generic sibling copy).
 //
 // The route handlers are import-safe in the Vitest node env (verified
 // empirically before these tests were written — the session-12 convention).
 // The DB layer is mocked (the boundary under test is the HTTP mapping, not
 // the data layer), and rate-limit budgets are isolated per-test via the
-// `clientIp` contract: the RIGHTMOST `x-forwarded-for` hop names the client,
-// so each test posts from its own unique IP.
+// `clientIp` contract: the RIGHTMOST `x-forwarded-for` hop names the client.
+// The `post()` helper below appends a constant proxy hop, so EVERY request
+// through it shares one bucket per key prefix — fine for the one-describe-
+// per-prefix pins above, but the session-27 same-key groups (cart ×3,
+// addresses ×3) use the `nextReq()` SINGLE-HOP helper with a UNIQUE per-test
+// IP (the C1 pin's isolation convention).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
@@ -19,6 +29,7 @@ vi.mock("@/lib/db", () => ({
     contactMessage: { create: vi.fn().mockResolvedValue({}) },
     cart: { findUnique: vi.fn() },
     cartItem: { deleteMany: vi.fn() },
+    product: { findUnique: vi.fn() },
     storeSetting: { findMany: vi.fn().mockResolvedValue([]) },
     order: { count: vi.fn(), findUnique: vi.fn() },
   },
@@ -34,11 +45,27 @@ vi.mock("next/headers", () => ({
   })),
 }));
 
+// Session-27: the addresses limiter sits BEHIND `getCurrentUser`, so the
+// module is mocked to let each describe choose its auth state. Safe: no
+// `src/lib/**` module imports `@/lib/auth` (only `src/lib/actions/*`, which
+// no API route imports). The file-level beforeEach resets it to null — the
+// guest-path pins (C3/C1/C7) run exactly as before.
+vi.mock("@/lib/auth", () => ({
+  getCurrentUser: vi.fn(async () => null),
+}));
+
 import { GET as healthGET } from "@/app/api/health/route";
 import { POST as newsletterPOST } from "@/app/api/newsletter/route";
 import { POST as contactPOST } from "@/app/api/contact/route";
 import { POST as checkoutPOST } from "@/app/api/checkout/route";
-import { DELETE as cartDELETE } from "@/app/api/cart/route";
+import { DELETE as cartDELETE, PATCH as cartPATCH, POST as cartPOST } from "@/app/api/cart/route";
+import { POST as cartBulkPOST } from "@/app/api/cart/bulk/route";
+import { GET as cartSummaryGET } from "@/app/api/cart-summary/route";
+import { POST as couponApplyPOST } from "@/app/api/coupon/apply/route";
+import { GET as searchGET } from "@/app/api/search/route";
+import { POST as wishlistPOST } from "@/app/api/wishlist/route";
+import { DELETE as addressesDELETE, PATCH as addressesPATCH, POST as addressesPOST } from "@/app/api/addresses/route";
+import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 const ORIGIN = "http://localhost:3000";
@@ -76,7 +103,28 @@ function checkoutBody(ipSeed: number): string {
 beforeEach(() => {
   vi.mocked(db.$queryRaw).mockReset();
   vi.mocked(db.$queryRaw).mockResolvedValue([]);
+  // Session-27: every test starts as a GUEST — the addresses describes
+  // override this to a signed-in user (their limiter sits behind auth).
+  vi.mocked(getCurrentUser).mockReset().mockResolvedValue(null);
 });
+
+/**
+ * Session-27 S27-1: a SINGLE-HOP `x-forwarded-for` request — no constant
+ * proxy hop, so the unique per-test IP IS the limiter key's client. Builds
+ * a real NextRequest: the DELETE/search handlers read `request.nextUrl`,
+ * which a plain Request cast (the `post()` helper's trick) does not carry.
+ */
+function nextReq(method: string, pathname: string, ip: string, body?: string): NextRequest {
+  const headers: Record<string, string> = { "x-forwarded-for": ip };
+  if (body !== undefined) headers["content-type"] = "application/json";
+  return new NextRequest(`${ORIGIN}${pathname}`, {
+    method,
+    headers,
+    ...(body !== undefined ? { body } : {}),
+  });
+}
+
+const GENERIC_429 = { error: "Too many requests. Please slow down." };
 
 describe("GET /api/health (C1)", () => {
   it("reports ok + db:up when the roundtrip succeeds", async () => {
@@ -280,5 +328,248 @@ describe("DELETE /api/cart?all=1 (C7 — session 17)", () => {
     await expect(res.json()).resolves.toEqual({ itemCount: 0 });
     // The bulk delete is scoped to the resolved cart — never an unscoped table wipe.
     expect(db.cartItem.deleteMany).toHaveBeenCalledWith({ where: { cartId: "cart-1" } });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Session-27 S27-1 — the last 11 metered surfaces join the boundary-pin grid.
+// Every pin exhausts its route's REAL budget through the REAL limiter
+// (`@/lib/rate-limit` is NOT mocked) and pins the full 429 contract: status,
+// `Retry-After`, and the exact body. Same-key groups (cart ×3, addresses ×3)
+// are isolated per-test via the single-hop unique-IP convention — the
+// `nextReq()` helper sends NO constant proxy hop, so the unique IP IS the
+// rightmost (the limiter key's) client.
+// ---------------------------------------------------------------------------
+
+describe("POST /api/cart — 429 wiring (S27-1, 60/min)", () => {
+  it("consumes exactly 60 in-budget slots (404s past the limiter) and 429s the 61st", async () => {
+    vi.mocked(db.product.findUnique).mockResolvedValue(null);
+    // The limiter sits AFTER the schema parse, so every valid body consumes a
+    // slot and fails later on the product lookup (404) — the S15-1 shape: the
+    // recorded statuses prove no in-budget attempt was rate-limited.
+    const statuses: number[] = [];
+    for (let i = 0; i < 60; i++) {
+      const res = await cartPOST(nextReq("POST", "/api/cart", "203.0.113.51", JSON.stringify({ productId: "p1", quantity: 1 })));
+      statuses.push(res.status);
+    }
+    expect(statuses).toHaveLength(60);
+    expect(statuses.every((s) => s === 404)).toBe(true);
+
+    const sixtyFirst = await cartPOST(nextReq("POST", "/api/cart", "203.0.113.51", JSON.stringify({ productId: "p1", quantity: 1 })));
+    expect(sixtyFirst.status).toBe(429);
+    expect(sixtyFirst.headers.get("retry-after")).toBeTruthy();
+    await expect(sixtyFirst.json()).resolves.toEqual(GENERIC_429);
+  });
+});
+
+describe("PATCH /api/cart — 429 wiring (S27-1, 60/min)", () => {
+  it("consumes exactly 60 in-budget slots (limiter FIRST, then 400s) and 429s the 61st", async () => {
+    // The limiter runs BEFORE the body parse, so malformed payloads still
+    // consume slots — 60 × 400, then the boundary.
+    const statuses: number[] = [];
+    for (let i = 0; i < 60; i++) {
+      const res = await cartPATCH(nextReq("PATCH", "/api/cart", "203.0.113.52", "{not json"));
+      statuses.push(res.status);
+    }
+    expect(statuses).toHaveLength(60);
+    expect(statuses.every((s) => s === 400)).toBe(true);
+
+    const sixtyFirst = await cartPATCH(nextReq("PATCH", "/api/cart", "203.0.113.52", "{not json"));
+    expect(sixtyFirst.status).toBe(429);
+    expect(sixtyFirst.headers.get("retry-after")).toBeTruthy();
+    await expect(sixtyFirst.json()).resolves.toEqual(GENERIC_429);
+  });
+});
+
+describe("DELETE /api/cart — 429 wiring (S27-1, 60/min)", () => {
+  it("consumes exactly 60 in-budget slots (guest no-cart 200s) and 429s the 61st", async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 60; i++) {
+      const res = await cartDELETE(nextReq("DELETE", "/api/cart", "203.0.113.53"));
+      statuses.push(res.status);
+    }
+    expect(statuses).toHaveLength(60);
+    expect(statuses.every((s) => s === 200)).toBe(true);
+
+    const sixtyFirst = await cartDELETE(nextReq("DELETE", "/api/cart", "203.0.113.53"));
+    expect(sixtyFirst.status).toBe(429);
+    expect(sixtyFirst.headers.get("retry-after")).toBeTruthy();
+    await expect(sixtyFirst.json()).resolves.toEqual(GENERIC_429);
+  });
+});
+
+describe("POST /api/cart/bulk — 429 wiring (S27-1, 10/min)", () => {
+  it("consumes exactly 10 in-budget slots and 429s the 11th", async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 10; i++) {
+      const res = await cartBulkPOST(nextReq("POST", "/api/cart/bulk", "203.0.113.54", "{not json"));
+      statuses.push(res.status);
+    }
+    expect(statuses).toHaveLength(10);
+    expect(statuses.every((s) => s === 400)).toBe(true);
+
+    const eleventh = await cartBulkPOST(nextReq("POST", "/api/cart/bulk", "203.0.113.54", "{not json"));
+    expect(eleventh.status).toBe(429);
+    expect(eleventh.headers.get("retry-after")).toBeTruthy();
+    await expect(eleventh.json()).resolves.toEqual(GENERIC_429);
+  });
+});
+
+describe("GET /api/cart-summary — 429 wiring (S27-1, 120/min)", () => {
+  it("consumes exactly 120 in-budget slots and 429s the 121st", async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 120; i++) {
+      const res = await cartSummaryGET(nextReq("GET", "/api/cart-summary", "203.0.113.55"));
+      statuses.push(res.status);
+    }
+    expect(statuses).toHaveLength(120);
+    expect(statuses.every((s) => s === 200)).toBe(true);
+
+    const hundredTwentyFirst = await cartSummaryGET(nextReq("GET", "/api/cart-summary", "203.0.113.55"));
+    expect(hundredTwentyFirst.status).toBe(429);
+    expect(hundredTwentyFirst.headers.get("retry-after")).toBeTruthy();
+    await expect(hundredTwentyFirst.json()).resolves.toEqual(GENERIC_429);
+  });
+});
+
+describe("POST /api/coupon/apply — 429 wiring (S27-1, 30/min)", () => {
+  it("consumes exactly 30 in-budget slots and 429s the 31st with the CouponApplyResponse body", async () => {
+    // In-budget attempts parse, pass the limiter, and die on the empty guest
+    // cart — a 200 with { ok: false } (the L3 split: a domain no is not an
+    // HTTP error). The 31st is the boundary, and its body is the route's
+    //CouponApplyResponse shape — NOT the generic `{ error }` sibling copy.
+    const statuses: number[] = [];
+    for (let i = 0; i < 30; i++) {
+      const res = await couponApplyPOST(nextReq("POST", "/api/coupon/apply", "203.0.113.56", JSON.stringify({ code: "SAVE10" })));
+      statuses.push(res.status);
+    }
+    expect(statuses).toHaveLength(30);
+    expect(statuses.every((s) => s === 200)).toBe(true);
+
+    const thirtyFirst = await couponApplyPOST(nextReq("POST", "/api/coupon/apply", "203.0.113.56", JSON.stringify({ code: "SAVE10" })));
+    expect(thirtyFirst.status).toBe(429);
+    expect(thirtyFirst.headers.get("retry-after")).toBeTruthy();
+    await expect(thirtyFirst.json()).resolves.toEqual({
+      ok: false,
+      error: "Too many attempts. Please try again shortly.",
+    });
+  });
+});
+
+describe("GET /api/search — 429 wiring (S27-1, 120/min)", () => {
+  it("consumes exactly 120 in-budget slots and 429s the 121st", async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 120; i++) {
+      const res = await searchGET(nextReq("GET", "/api/search", "203.0.113.57"));
+      statuses.push(res.status);
+    }
+    expect(statuses).toHaveLength(120);
+    expect(statuses.every((s) => s === 200)).toBe(true);
+
+    const hundredTwentyFirst = await searchGET(nextReq("GET", "/api/search", "203.0.113.57"));
+    expect(hundredTwentyFirst.status).toBe(429);
+    expect(hundredTwentyFirst.headers.get("retry-after")).toBeTruthy();
+    await expect(hundredTwentyFirst.json()).resolves.toEqual(GENERIC_429);
+  });
+});
+
+describe("POST /api/wishlist — 429 wiring (S27-1, 60/min)", () => {
+  it("consumes exactly 60 in-budget slots (404s past the limiter) and 429s the 61st", async () => {
+    vi.mocked(db.product.findUnique).mockResolvedValue(null);
+    const statuses: number[] = [];
+    for (let i = 0; i < 60; i++) {
+      const res = await wishlistPOST(nextReq("POST", "/api/wishlist", "203.0.113.58", JSON.stringify({ productId: "p1" })));
+      statuses.push(res.status);
+    }
+    expect(statuses).toHaveLength(60);
+    expect(statuses.every((s) => s === 404)).toBe(true);
+
+    const sixtyFirst = await wishlistPOST(nextReq("POST", "/api/wishlist", "203.0.113.58", JSON.stringify({ productId: "p1" })));
+    expect(sixtyFirst.status).toBe(429);
+    expect(sixtyFirst.headers.get("retry-after")).toBeTruthy();
+    await expect(sixtyFirst.json()).resolves.toEqual(GENERIC_429);
+  });
+});
+
+describe("POST /api/addresses — 429 wiring (S27-1, 60/min, behind auth)", () => {
+  beforeEach(() => {
+    // The limiter sits BEHIND getCurrentUser — the pin's requests must be
+    // signed in to reach (and consume) the budget at all.
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      id: "user-1",
+      email: "user@example.com",
+      name: "Test User",
+      phone: null,
+      role: "CUSTOMER",
+    });
+  });
+
+  it("consumes exactly 60 in-budget slots (limiter BEFORE the body parse) and 429s the 61st", async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 60; i++) {
+      const res = await addressesPOST(nextReq("POST", "/api/addresses", "203.0.113.59", "{not json"));
+      statuses.push(res.status);
+    }
+    expect(statuses).toHaveLength(60);
+    expect(statuses.every((s) => s === 400)).toBe(true);
+
+    const sixtyFirst = await addressesPOST(nextReq("POST", "/api/addresses", "203.0.113.59", "{not json"));
+    expect(sixtyFirst.status).toBe(429);
+    expect(sixtyFirst.headers.get("retry-after")).toBeTruthy();
+    await expect(sixtyFirst.json()).resolves.toEqual(GENERIC_429);
+  });
+});
+
+describe("PATCH /api/addresses — 429 wiring (S27-1, 60/min, behind auth)", () => {
+  beforeEach(() => {
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      id: "user-1",
+      email: "user@example.com",
+      name: "Test User",
+      phone: null,
+      role: "CUSTOMER",
+    });
+  });
+
+  it("consumes exactly 60 in-budget slots and 429s the 61st", async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 60; i++) {
+      const res = await addressesPATCH(nextReq("PATCH", "/api/addresses", "203.0.113.60", "{not json"));
+      statuses.push(res.status);
+    }
+    expect(statuses).toHaveLength(60);
+    expect(statuses.every((s) => s === 400)).toBe(true);
+
+    const sixtyFirst = await addressesPATCH(nextReq("PATCH", "/api/addresses", "203.0.113.60", "{not json"));
+    expect(sixtyFirst.status).toBe(429);
+    expect(sixtyFirst.headers.get("retry-after")).toBeTruthy();
+    await expect(sixtyFirst.json()).resolves.toEqual(GENERIC_429);
+  });
+});
+
+describe("DELETE /api/addresses — 429 wiring (S27-1, 60/min, behind auth)", () => {
+  beforeEach(() => {
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      id: "user-1",
+      email: "user@example.com",
+      name: "Test User",
+      phone: null,
+      role: "CUSTOMER",
+    });
+  });
+
+  it("consumes exactly 60 in-budget slots (400s on the missing id) and 429s the 61st", async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 60; i++) {
+      const res = await addressesDELETE(nextReq("DELETE", "/api/addresses", "203.0.113.61"));
+      statuses.push(res.status);
+    }
+    expect(statuses).toHaveLength(60);
+    expect(statuses.every((s) => s === 400)).toBe(true);
+
+    const sixtyFirst = await addressesDELETE(nextReq("DELETE", "/api/addresses", "203.0.113.61"));
+    expect(sixtyFirst.status).toBe(429);
+    expect(sixtyFirst.headers.get("retry-after")).toBeTruthy();
+    await expect(sixtyFirst.json()).resolves.toEqual(GENERIC_429);
   });
 });
