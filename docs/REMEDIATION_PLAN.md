@@ -1702,3 +1702,87 @@ Session-20 fixes **WIRED** (S20-2 narrow toggle consumed by the dialog with the 
 - [x] S21-5 / S21-6 — comment corrections
 - [x] Full gate chain re-run green; manual verification (agent-browser: FREESHIP checkout mirror renders FREE on the review card and the summary; mobile menu re-check)
 - [x] Screenshots refreshed; docs sweep; worklog updated
+
+---
+
+# Session 22 (run 23)
+
+> Deep audit 23-a (read-only subagent, HEAD `5835fdd`) + operator verification.
+> Workspace refreshed by fresh clone; gates re-validated green on the pulled
+> tree (lint · typecheck · typecheck:tests · 379/379 unit · build · 65/65 e2e);
+> live-reference parity re-verified via agent-browser (reference unchanged —
+> logged in with the provided credentials; clone: mobile menu open → 7 links +
+> search → navigate → auto-close/unmount, sitemap 25 URLs, robots, JSON-LD,
+> desktop parity, zero console errors).
+
+## 1. Audit summary (evidence-based)
+
+Session-21 fixes **6/6 WIRED** (S21-1 five admin-identity request calls carry the
+explicit session-cookie header behind the loud guard; S21-2 `.first()` × 3 + the
+self-healing setup; S21-3 the mirror's `setCoupon` passes `freeShipping` through;
+S21-4 both shipping-row pins scoped with `toHaveCount(1)`; S21-5/S21-6 comments
+corrected). Defect-class sweeps CLEAN: 14/14 `requireAdmin`'d actions, 14/14
+metered `Retry-After` sites, money integer-cents server-derived, Zod at every
+boundary, conditional stock reservation, token-gated receipt, sitemap/robots/noindex
+privacy, CSP nonce, Tailwind v4 traps, server-only module graph, `gotoHydrated`
+14/14 specs, every toast assertion `.first()`-conventioned. Static counts ALL
+matching the live docs (379 unit / 38 files · 65 e2e · 18 models · 16/8/3/2 seed ·
+14 requireAdmin · 14 metered · 16 catch blocks across six files); TODO/FIXME/`any`/
+console.log/raw-dangerouslySetInnerHTML/eval scans all zero.
+
+**Result: 0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 2 NIT / 2 Informational — the
+tenth consecutive session without a CRITICAL/HIGH/MEDIUM finding, and zero
+live-repo-doc drift.**
+
+## 2. Findings → work items
+
+### S22-1 (NIT — cosmetic) — copy-paste artifact in the admin-coupons spec
+
+- **Evidence (23-a, operator-verified):** `tests/e2e/admin-coupons.spec.ts:132-134`
+  — the `.first()` rationale comment is duplicated (the file header and the other
+  five toast assertions already carry it) and the continuation line + the
+  `await expect(...)` are indented 6 spaces against the file's 4-space convention.
+- **Fix:** reindent to 4 spaces and drop the duplicated comment (the suite
+  convention is documented at the spec header).
+
+### S22-2 (NIT — small refactor) — the coupon-apply route performs a second coupon lookup solely for the marketing description
+
+- **Evidence (23-a, operator-verified):** `src/app/api/coupon/apply/route.ts:51-57`
+  — `applyCouponCode` resolves the coupon via `findActiveCoupon` (which already
+  carries `description` in `CouponInfo`), but `couponDiscount` drops it from the
+  `CouponApplication` ok-branch — so the route re-calls `findActiveCoupon(applied.code)`
+  with the comment "Second lookup only to carry the marketing description". One
+  wasted DB round-trip per coupon apply on every cart page.
+- **Fix (TDD):** widen the `CouponApplication` ok-branch with `description: string`,
+  have `couponDiscount` carry `coupon.description` through all three success
+  branches (percent / fixed / free_shipping), and drop the route's second lookup +
+  import (`description: applied.description`). The exact-shape `toEqual` pins in
+  `coupons.test.ts` and `session20-hardening.test.ts` update to the widened shape
+  (same facts, extended contract); the new `session22-hardening.test.ts` pins the
+  widened branches AND the route's single-lookup contract (`db.coupon.findUnique`
+  called exactly once — the regression pin for the second lookup).
+
+### Dispositions (no change, recorded)
+
+- **D1 (bookkeeping):** the "13 specs" figure in the SKILL Appendix B session-20
+  entry and the session_35.md narrative is stale (14 spec files since session-20
+  added `free-shipping-coupon.spec.ts`). Historical records stay as-written
+  (append-only discipline — retro-editing would falsify what was believed at the
+  time); no LIVE repo doc claims a spec count (grep-verified), and the new
+  session-22 Appendix B entry carries the correct 14.
+- **D2 (Informational):** a mid-abort in the S21-1 spec leaves the seeded cart
+  line until the next run's as-found snapshot absorbs it — self-correcting, not
+  the F-6 durable-row class. Accepted.
+- **Carried deferrals (unchanged):** login-limiter lockout tradeoff (S8-8),
+  checkout P2002 recovery-loop integration seam, review action two-tier gate pin,
+  `/track-order` page-limiter wiring pin, S21-7's coupon-aware cart hint, and the
+  external-service epics (real email delivery, OAuth, real payments — blocked on
+  sandbox-external credentials/SMTP).
+
+## 3. Execution log (session 22)
+
+- [x] RED — session22-hardening.test.ts run against the unfixed shape: **5 failed / 2 passed** — the three `couponDiscount` branch pins + the `applyCouponCode` ok-branch pin failed on the missing `description`, and the single-lookup pin failed with `findUnique` called **2 times**; the route's response-description pin passed (supplied by the wasteful second lookup — the exact defect shape)
+- [x] GREEN — `CouponApplication`'s ok-branch + `couponDiscount`'s three success branches carry `description`; the route drops the `findActiveCoupon` import + second lookup and reads `applied.description` (the stray whitespace line cleaned); the four exact-shape `toEqual` pins updated to the widened contract (coupons.test.ts × 3, session20-hardening.test.ts × 1); **7/7 session22 pins green; 386/386 unit**
+- [x] S22-1 — the spec's duplicated `.first()` comment dropped + the 4-space reindent
+- [x] Full gate chain re-run green (lint · typecheck · typecheck:tests · 386/386 unit · build · 65/65 e2e); manual verification (agent-browser on the fresh build: the cart's applied-coupon block renders "FREESHIP: Free standard shipping on orders over $30 — applied at checkout" from the single-lookup path; mobile menu open → 7 links → close → unmount; zero console errors)
+- [x] Screenshots refreshed (24); docs sweep; worklog updated

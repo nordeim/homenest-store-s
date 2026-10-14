@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.18.0
+version: 1.19.0
 last_updated: 2026-10-14
-project_state: "379 unit tests · 65 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-21; the checkout free-shipping mirror fixed, the e2e request-fixture identity-isolation trap documented, all coupon surfaces verified end-to-end)"
+project_state: "386 unit tests · 65 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-22; the coupon engine result carries the marketing description and /api/coupon/apply resolves a coupon with a single lookup, the checkout free-shipping mirror fixed, the e2e request-fixture identity-isolation trap documented, all coupon surfaces verified end-to-end)"
 tags:
   - nextjs16
   - react19
@@ -1385,6 +1385,47 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   #82–83), SKILL v1.18.0 aligned; DEPLOYMENT.md drift-free; run narrative
   at `docs/session_35.md`.
 
+### Session 22 (run 23) — the coupon engine's single-lookup contract
+
+- Fresh clone at `5835fdd`; gates re-validated green on the pulled tree
+  (379/379 unit · 65/65 e2e); environment converged (sandbox DATABASE_URL
+  symlink re-pointed at the clone's db dir, one inode; seeded 16/8/3/2).
+- Live-reference parity re-verified via agent-browser (reference unchanged,
+  logged in with the provided credentials); clone: mobile menu open → 7
+  links + search → navigate → auto-close/unmount (Tailwind v4
+  conditional-mount intact), sitemap 25 URLs, robots disallows + sitemap
+  ref, home JSON-LD, desktop visual parity, zero console errors.
+- Fresh deep audit (read-only subagent 23-a + own file:line verification):
+  session-21 fixes **6/6 WIRED**; defect-class sweeps CLEAN (14/14
+  requireAdmin, 14/14 metered `Retry-After`, Zod boundaries, money,
+  stock reservation, order access, SEO privacy, CSP, v4 traps, module
+  graph, `gotoHydrated` 14/14, toast `.first()` everywhere); static counts
+  ALL matching the live docs (379/38 · 65 e2e across **14 spec files** ·
+  18 models · 16/8/3/2 seed · 14 requireAdmin · 14 metered · 16 catch
+  blocks across six files); **0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW /
+  2 NIT / 2 Informational — the tenth consecutive session without a
+  CRITICAL/HIGH/MEDIUM finding, zero live-doc drift**.
+- TDD S22-2 (RED 5 failed / 2 passed — `description` undefined on the
+  engine result, `db.coupon.findUnique` called 2×; the response pin passed
+  via the wasteful second lookup — the exact defect shape): GREEN —
+  `CouponApplication`'s ok-branch + `couponDiscount`'s three success
+  branches carry `description`; the route reads `applied.description`, the
+  second lookup + import gone; the four exact-shape `toEqual` pins updated
+  to the widened contract. S22-1: the admin-coupons spec's duplicated
+  comment + 6-space indent cleaned. Dispositions: D1 the stale "13 specs"
+  historical figure (append-only records stay as-written; this entry
+  carries 14), D2 the S21-1 mid-abort self-correcting residue.
+- Final gates: **386/386 unit · 65/65 e2e · lint/typecheck/typecheck:tests/
+  build green**; manual verification on the fresh build: the cart's applied
+  block renders "FREESHIP: Free standard shipping on orders over $30 —
+  applied at checkout" from the single-lookup path; mobile menu
+  open/navigate/auto-close; zero console errors; 24 screenshots refreshed.
+- Docs aligned: AGENTS (the coupon invariant extended with the S22-2
+  single-lookup contract; plan range 2..22), CLAUDE (lib entry + the
+  session-22 coverage tail), README (badge 386/65 + the coverage tail),
+  PAD (§8.1 row + §12 table + known issue #84), SKILL v1.19.0
+  (project_state + this entry), DEPLOYMENT.md drift-free (no new env
+  vars), .env.example unchanged; run narrative at `docs/session_37.md`.
 
 ## Appendix C — Quick Reference Card
 

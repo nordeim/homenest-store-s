@@ -14,7 +14,7 @@ export type CouponInfo = {
 };
 
 export type CouponApplication =
-  | { ok: true; code: string; discount: number; label: string; freeShipping?: true }
+  | { ok: true; code: string; discount: number; label: string; description: string; freeShipping?: true }
   | { ok: false; error: string };
 
 /**
@@ -45,6 +45,7 @@ export function couponDiscount(coupon: CouponInfo, subtotal: number): CouponAppl
       code: coupon.code,
       discount: Math.round((subtotal * coupon.value) / 100),
       label: couponLabel(coupon.type, coupon.value),
+      description: coupon.description,
     };
   }
   if (coupon.type === "fixed") {
@@ -56,6 +57,7 @@ export function couponDiscount(coupon: CouponInfo, subtotal: number): CouponAppl
       code: coupon.code,
       discount: Math.min(coupon.value, subtotal),
       label: couponLabel(coupon.type, coupon.value),
+      description: coupon.description,
     };
   }
   if (coupon.type === "free_shipping") {
@@ -69,6 +71,7 @@ export function couponDiscount(coupon: CouponInfo, subtotal: number): CouponAppl
       discount: 0,
       label: couponLabel(coupon.type, coupon.value),
       freeShipping: true,
+      description: coupon.description,
     };
   }
   return { ok: false, error: "Invalid coupon configuration." };

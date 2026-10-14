@@ -25,6 +25,7 @@ describe("couponDiscount — percent coupons", () => {
       code: "WELCOME10",
       discount: 2000, // 10% of $199.99 = $19.999 -> rounds to $20.00
       label: "10% off",
+      description: "10% off", // S22-2: the engine carries the description
     });
     expect(couponDiscount(percent10, 555).ok).toBe(true);
   });
@@ -42,6 +43,7 @@ describe("couponDiscount — fixed coupons", () => {
       code: "TENOFF",
       discount: 1000,
       label: "$10.00 off",
+      description: "$10 off $50+", // S22-2: the engine carries the description
     });
   });
 
@@ -53,6 +55,7 @@ describe("couponDiscount — fixed coupons", () => {
       code: "TENOFF",
       discount: 500,
       label: "$10.00 off",
+      description: "", // S22-2: the engine carries the description (empty here)
     });
   });
 

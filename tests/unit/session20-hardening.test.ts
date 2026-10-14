@@ -151,6 +151,7 @@ describe("free_shipping coupon type (S20-6 / audit I1)", () => {
       discount: 0,
       label: "Free shipping",
       freeShipping: true,
+      description: FREE_SHIP.description, // S22-2: the engine carries the description
     });
   });
 

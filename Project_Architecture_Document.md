@@ -290,7 +290,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 **Two suites, one gate:** `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e` — all must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 379 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 386 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
@@ -299,6 +299,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 | `order-money.test.ts` | Checkout math: threshold, express/standard, tax rounding, negative-guard, a worked reference order |
 | `coupons.test.ts` | Percent/fixed discounts, min-subtotal, cap-at-subtotal, invalid configs; lifecycle gate (`isCouponRedeemable`: inactive/expired/cap-reached); the atomic redemption-cap filter (`couponRedemptionWhere`) |
 | `session20-hardening.test.ts` | S20-2 narrow `toggleCouponActiveAction` (writes ONLY `isActive`; P2025 narrowed; unknown rethrown); the `couponRedemptionFilter` truth table (the checkout increment's always-on `isActive` guard beside the cap clause); the free_shipping engine pins (label, discount 0 + `freeShipping: true`, minSubtotal enforced) |
+| `session22-hardening.test.ts` | S22-2 the widened coupon engine (`couponDiscount` carries the marketing `description` through percent/fixed/free_shipping; `applyCouponCode` passes it through with a mocked db) + the single-lookup route contract (`POST /api/coupon/apply` responds with the description AND calls `db.coupon.findUnique` exactly ONCE — the regression pin against the second lookup) |
 | `password.test.ts` | scrypt format, verify/reject, unique salts, malformed-hash safety |
 | `validation.test.ts` | Zod schemas incl. enum vocabularies and bounds + the image-URL scheme rule (root-relative only; `javascript:`/`data:`/protocol-relative/absolute-http rejected), price `.max` bounds, bulk-cart schema, address-default schema |
 | `products.test.ts` | JSON column parsing + card projection |
@@ -496,6 +497,7 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | 81 | Delivered (session 20) | FREESHIP was a fixed-$6.95-off coupon named/described as free shipping — the engine subtracted from the merchandise subtotal and still charged full shipping below the spend threshold (the audit's I1 overpromise) | The first-class `free_shipping` coupon type (S20-6): `couponLabel` → "Free shipping", `couponDiscount` → discount 0 + `freeShipping: true` (minSubtotal enforced), `computeOrderMoney.couponFreeShipping` zeroes shipping for both methods independent of the threshold, the checkout mirror + `CouponApplyResponse` carry the flag, the dialog offers the type (value hidden, value reset on type switch — S20-5), the seed row ships the real type (create-only: fresh DBs get it; existing DBs keep the fixed row — both work), and the checkout increment's atomic guard gains the always-on `isActive` clause (`couponRedemptionFilter` — the audit's I4 hardening). Pinned by `session20-hardening.test.ts`, `order-money.test.ts`, `validation.test.ts` and the new `free-shipping-coupon.spec.ts` (through the server-derived receipt). |
 | 82 | Fixed (session 21) | The session-20 checkout mirror DROPPED the `freeShipping` flag — `setCoupon` stored code/discount/label/description but never the flag, so the checkout page rendered full shipping ($6.95/$15.95) and an inflated total beneath "Coupon FREESHIP — Free shipping" (no overcharge: the server re-derives in-tx). Slipped through because the e2e's `getByText("FREE")` matched the coupon label (S21-4's vacuous pin) and the S20-1 API-seeded cart silently acted as a GUEST on a fresh DB (S21-1) | `setCoupon` passes the flag through (S21-3); the free-shipping spec's checkout pins are scoped to the actual Shipping rows of the review card + sticky summary (S21-4); the admin-coupons spec sends the session cookie explicitly on identity-bearing request-fixture calls (S21-1); the auth profile spec carries the toast `.first()` convention and self-heals a dirty demo name (S21-2). Verified live: mirror total $37.61 = subtotal + tax, shipping FREE on both rows and the receipt. |
 | 83 | Accepted (session 21) | The cart page's threshold-progress hint ("Add $15.01 more for free shipping") is server-rendered from the settings threshold only and does not know an applied free_shipping coupon — with FREESHIP applied below the threshold the hint coexists with the applied block right above it (S21-7). No money-path impact (the row itself says "Calculated at checkout"; checkout mirror + receipt are correct) | Making the server-rendered hint coupon-aware requires lifting the client-side applied-coupon state into the page (or moving the widget into the CouponBox boundary) — structural change for marginal benefit (the S20-7 precedent). Recorded. |
+| 84 | Fixed (session 22) | `/api/coupon/apply` performed a SECOND `findActiveCoupon` lookup solely to read the marketing `description` (the engine's `couponDiscount` dropped the field the first lookup had already fetched) — one wasted DB round-trip per coupon apply; the admin-coupons spec carried a copy-paste comment/indent artifact (S22-1, S22-2 — both NITs, the only findings of the tenth consecutive CRITICAL-free audit) | The `CouponApplication` ok-branch + `couponDiscount`'s three success branches carry `description`; the route reads `applied.description` and the second lookup + import are gone (the stray whitespace line cleaned too). Pinned by `tests/unit/session22-hardening.test.ts` — including the `db.coupon.findUnique` called-exactly-ONCE contract. Verified live: the cart's applied block renders "FREESHIP: Free standard shipping on orders over $30 — applied at checkout" from the single-lookup path. |
 
 ---
 
@@ -524,7 +526,7 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | `src/components/store/store-chrome.tsx` | Sticky header + mobile panel + cart drawer |
 | `src/app/(storefront)/admin/coupons/` | The S19-5 coupon-management surface (page + dialog island) |
 | `prisma/schema.prisma` / `seed.ts` | 18 models / idempotent seed |
-| `tests/unit/*` · `tests/e2e/*` | 379 unit · 65 e2e (incl. the v4 guard + tracking access contract + the session-11..20 hardening pins) |
+| `tests/unit/*` · `tests/e2e/*` | 386 unit · 65 e2e (incl. the v4 guard + tracking access contract + the session-11..22 hardening pins) |
 | `playwright.config.ts` / `vitest.config.ts` | Suite wiring (standalone webServer; iPhone-13-on-Chromium project) |
 
 ---

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { findCartId, getCartSummary } from "@/lib/cart";
-import { applyCouponCode, findActiveCoupon } from "@/lib/coupons";
+import { applyCouponCode } from "@/lib/coupons";
 import { couponApplySchema, firstError } from "@/lib/validation";
 
 /** The payload CouponBox / checkout render from. */
@@ -32,7 +32,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json<CouponApplyResponse>({ ok: false, error: firstError(parsed.error) });
     }
 
-    
     const limit = rateLimit(`coupon:${clientIp(request.headers)}`, 30, 60_000);
     if (!limit.ok) {
       return NextResponse.json<CouponApplyResponse>(
@@ -53,14 +52,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json<CouponApplyResponse>({ ok: false, error: applied.error });
     }
 
-    // Second lookup only to carry the marketing description alongside the math.
-    const coupon = await findActiveCoupon(applied.code);
     return NextResponse.json<CouponApplyResponse>({
       ok: true,
       code: applied.code,
       discount: applied.discount,
       label: applied.label,
-      description: coupon?.description ?? "",
+      // Session-22 S22-2: the engine result already carries the description —
+      // the second findActiveCoupon lookup it used to need is gone.
+      description: applied.description,
       // Session-20 S20-6: the checkout mirror needs the shipping override.
       ...(applied.freeShipping ? { freeShipping: true } : {}),
     });

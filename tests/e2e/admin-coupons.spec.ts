@@ -129,9 +129,7 @@ test.describe("admin coupon management", () => {
     const confirm = page.getByRole("dialog");
     await expect(confirm).toBeVisible();
     await confirm.getByRole("button", { name: "Delete", exact: true }).click();
-    // .first(): the toast title also lives inside the aria-live wrapper —
-      // the session-9 strict-mode race (the admin.spec precedent).
-      await expect(page.getByText("Coupon deleted").first()).toBeVisible();
+    await expect(page.getByText("Coupon deleted").first()).toBeVisible();
     await expect(page.getByRole("heading", { name: CODE, exact: true })).toHaveCount(0);
     for (const seeded of ["WELCOME10", "SAVE20", "FREESHIP"]) {
       await expect(page.getByRole("heading", { name: seeded, exact: true })).toBeVisible();
