@@ -479,3 +479,22 @@ Stage Summary:
 - Remote main advances a37508a → this commit (fast-forward, main only, no new branches). All user checklist items satisfied.
 - Codebase state: 432 unit + 66 e2e green; 16 consecutive sessions without a substantive code finding; the audit's only actionable items (2 NITs + 4 Informationals) are all disposed this session.
 - Remaining carried deferrals: the deliberate S8-8 login-limiter lockout tradeoff, the small UI/infra dispositions (404-shell CSP nonce, __Host- prefix, shared-store limiter, radiogroup roving focus, address content dedup), and the external-service epics (real mailer, OAuth, real payments — sandbox-blocked). Natural next increment: order-status email notifications once a mailer lands.
+
+---
+Task ID: 30 (session 29 — homenest-store-s)
+Agent: Super Z (main agent + 30-a read-only audit subagent)
+Task: Full audit/remediation cycle on github.com/nordeim/homenest-store-s — workspace refresh (fresh clone after the sandbox reset; session_48/49 docs), gates re-validation, live-reference parity, deep audit (session-28 state), the first fully-empty remediation cycle, screenshots, docs alignment, commit + SSH push to main.
+
+Work Log:
+- Sandbox reset detected → fresh clone at 8e33006 (= d5061c2 session-28 remediation + the operator's session_49.md log commit); env shadowing converged via the symlink (one inode verified, ino 180835); .env from the file:../db/custom.db contract + dev AUTH_SECRET; seeded 16/8/3/3/13.
+- Gates on the pulled tree: 432/432 unit · 66/66 e2e · lint/typecheck/typecheck:tests/build green — the session-28 state reproduces exactly.
+- Live-reference parity + mobile menu + SEO re-verified via agent-browser (reference logged in with the provided credentials; Damascus-first; clone: mobile nav open → 7 links + search → navigate → drawer unmounted, sitemap 25 URLs, robots, JSON-LD, desktop parity, zero console messages/errors).
+- Deep audit (30-a): session-28 fixes 3/3 WIRED (the spaced comment holds with a //\S scan finding 8 string/regex false-positives and ZERO real unspaced comments; the semicolon variant holds with the type-heavy files cross-checked; docs precision items all present); sweeps clean (all 13); counts 12/12 MATCH (incl. boundary 17 describes / 21 cases); carried deferrals 8/8 accurate; 429 grid complete 14/14; 0 CRITICAL/HIGH/MEDIUM/LOW/NIT (17th consecutive, first without even a NIT) — 1 Informational (workspace-log tail drift; Task 28/29 records restored from the repo worklog).
+- No code changes this cycle — the first fully-empty remediation surface in the project's history; inventing work would violate the evidence-based discipline.
+- Final gates (run TWICE — pulled tree and final tree): 432/432 unit · 66/66 e2e · lint/typecheck/typecheck:tests/build green; manual verification on the fresh server (zero console messages/errors, mobile menu contract, sitemap 25 URLs); 25 screenshots refreshed.
+- Docs aligned: README (badge 432/66 verified), PAD (§8.1/§12 verified), SKILL v1.26.0 (project_state + Appendix B session-29 entry), AGENTS.md (plan range 2..29), CLAUDE.md (the session-29 tail), DEPLOYMENT.md (no drift), .env.example unchanged, docs/session_50.md, repo worklog Task 30.
+
+Stage Summary:
+- Remote main advances d5061c2 → this commit (fast-forward, main only, no new branches). All user checklist items satisfied.
+- Codebase state: 432 unit + 66 e2e green; 17 consecutive sessions without a substantive code finding (the last cycle without even a NIT); docs fully aligned.
+- Remaining carried deferrals: the deliberate S8-8 login-limiter lockout tradeoff, the small UI/infra dispositions (404-shell CSP nonce, __Host- prefix, shared-store limiter, radiogroup roving focus, address content dedup), and the external-service epics (real mailer, OAuth, real payments — sandbox-blocked). Natural next increment: order-status email notifications once a mailer lands.

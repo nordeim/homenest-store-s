@@ -2752,3 +2752,96 @@ the audit brief, not in any repo doc).
 - [x] S28-4 docs sweep + screenshots + worklog + session_48.md
 - [x] Full gate chain re-run green (lint · typecheck · typecheck:tests ·
       432/432 unit · build · 66/66 e2e)
+
+# Session 29 (run 30) — 2026-10-14
+
+## 1. Audit summary (evidence-based)
+
+Fresh clone `8e33006` (the sandbox was reset between runs; the clone HEAD is
+the pushed main tip — `d5061c2`, the session-28 remediation, plus the
+operator's session-log commit appending `docs/session_49.md`). All core
+docs + `session_48`/`session_49` + the plan (sessions 2–28) + `worklog.md`
+cross-checked against the code: docs and code agree; the project is in the
+session-28-completed state. This run = **Run 30 (session-29 cycle)**; the
+narrative numbering lands on `session_50.md`, worklog Task 30.
+
+Environment: `.env` recreated from the `file:../db/custom.db` contract + the
+dev `AUTH_SECRET`; the sandbox's shadow `DATABASE_URL`
+(`file:/home/z/my-project/db/custom.db` → the pre-reset path) converged to
+the repo's `db/custom.db` via the symlink (one inode verified). Seed counts
+through the shadow path 16/8/3/3/13 (+ the admin/demo users). `skills/`
+excluded from all checking/testing/compilation per the operator contract.
+
+Gates re-validated on the pulled tree: lint ✓ · typecheck ✓ ·
+typecheck:tests ✓ · **432/432 unit** ✓ · build ✓ · **66/66 e2e** ✓ — the
+documented session-28 state reproduces exactly.
+
+Live-reference parity re-verified via agent-browser (reference logged in
+with the provided credentials; Damascus-first in Featured): clone home
+title + Damascus-first + JSON-LD + zero console messages/errors, sitemap
+25 URLs, robots disallows + sitemap ref, mobile menu contract intact
+(390×844: open → `nav[aria-label="Mobile"]` exactly 7 links + the search
+box in the panel → navigate → drawer unmounted), desktop parity (4 trust
+badges, Damascus-first ordering).
+
+Fresh deep audit (read-only subagent 30-a + operator file:line
+verification): session-28 fixes **3/3 WIRED** (the spaced
+`// CouponApplyResponse` comment with a programmatic `//\S` scan finding 8
+string/regex-literal false-positives and ZERO real unspaced comments in
+src/ + tests/; the semicolon-style failure variant with the type-heavy
+files cross-checked — no mixed-style annotation anywhere; the docs
+precision items all present at their cited lines). Defect-class sweeps
+clean (all 13). Static counts **12/12 MATCH** (46/432 unit · 14/66 e2e ·
+18 models · 14 requireAdmin · 14 metered · 16 catch blocks · 127 tracked
+TS files · 25 screenshots · 3 DSIH · the boundary suite 17 describes /
+21 cases). All 8 carried deferrals accurate (none silently resolved; the
+429 grid re-verified complete — 14/14 metered surfaces pinned). New
+findings **0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 0 NIT /
+1 Informational — the seventeenth consecutive session without a
+substantive code finding, and the first with not even a NIT.**
+Operator verification reproduced the key claims at the cited lines (the
+coupon/addresses pin anchors, the `https?:\/\/` regex false-positive at
+`seo.ts:53`, the 14 requireAdmin sites, the six admin catch files).
+
+**The Informational (workspace bookkeeping, no repo defect):** the shared
+workspace log's tail had drifted (the sandbox reset truncated it to the
+Task-21 snapshot) — the Task 28/29 records were restored from the repo's
+own worklog during this run. Nothing in the repository is affected.
+
+## 2. Findings → work items
+
+### S29-1 (docs sweep) — the standard alignment for a verification-only cycle
+
+- **Evidence:** the audit found nothing to change in `src/**`, `tests/**`,
+  or `prisma/**` — the first cycle in the project's history with a fully
+  empty remediation surface. The only alignment work is the docs sweep:
+  the plan range, the SKILL version/project_state, the CLAUDE.md tail, the
+  Appendix B record, and the screenshots.
+- **Fix:** SKILL v1.25.0 → v1.26.0 (project_state + the Appendix B
+  session-29 entry), AGENTS.md plan range 2..28 → 2..29, CLAUDE.md tail,
+  README/PAD/DEPLOYMENT.md drift checks, `.env.example` verification, the
+  25 screenshots refresh, `docs/session_50.md`, worklog Task 30, and the
+  execution log below. No code changes — the 432/66 suites carry the
+  no-regression evidence by their green runs on the pulled tree AND on the
+  final tree.
+
+### Dispositions (no change, recorded)
+
+- **Carried deferrals (unchanged, all verified standing):** S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce (static shell);
+  `__Host-` prefix; shared-store limiter; radiogroup roving focus
+  (WCAG-conformant as-is); address content dedup; the external-service
+  epics (real email delivery, OAuth, real payments — blocked on
+  sandbox-external credentials/SMTP). The route-level 429 grid stays
+  retired and complete (14/14).
+- **Workspace-log Informational:** recorded above; the fix lives in the
+  workspace, not the repo (the repo worklog is the durable record and has
+  always been complete).
+
+## 3. Execution log (session 29)
+
+- [x] S29-1 docs sweep + screenshots + worklog + session_50.md
+- [x] Full gate chain re-run green on the final tree (lint · typecheck ·
+      typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
+      the pulled tree before the sweep (the twice-run no-regression
+      evidence)

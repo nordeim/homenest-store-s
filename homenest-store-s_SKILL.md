@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.25.0
+version: 1.26.0
 last_updated: 2026-10-14
-project_state: "432 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-28; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine — session-27 completed the route-level 429 wiring-pin grid: ALL 14 metered HTTP surfaces carry route-level boundary pins in api-boundaries.test.ts — and session-28 is the hygiene/precision pass: the two audit NITs fall (the unspaced //CouponApplyResponse comment, the comma-style type member on the CouponApplyResponse failure variant), the plan's S27-3 checkbox is ticked with a transparency note, and the count/phrasing anchors are made reproducible)"
+project_state: "432 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-29; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine — session-27 completed the route-level 429 wiring-pin grid: ALL 14 metered HTTP surfaces carry route-level boundary pins in api-boundaries.test.ts — session-28 was the hygiene/precision pass (the two audit NITs + the reproducible count anchors) — and session-29 is the first fully-empty remediation cycle: the deep audit found 0 CRITICAL/HIGH/MEDIUM/LOW/NIT, all 12 count anchors and 8 carried deferrals verified standing, nothing to change in src/tests/prisma)"
 tags:
   - nextjs16
   - react19
@@ -1731,6 +1731,40 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
 - Docs aligned: AGENTS (plan range 2..28), CLAUDE (the session-28 tail),
   SKILL v1.25.0 (project_state + this entry), DEPLOYMENT.md drift-free,
   `.env.example` unchanged; run narrative at `docs/session_48.md`.
+
+### Session 29 (run 30) — the first fully-empty remediation cycle (17th clean session)
+
+- Deep audit 30-a at HEAD `8e33006` (fresh clone — the sandbox reset
+  between runs; the clone tip = `d5061c2` + the operator's
+  `session_49.md` log commit): session-28 fixes **3/3 WIRED** with
+  file:line evidence (the spaced comment holds; a programmatic `//\S`
+  scan over src/ + tests/ found 8 string/regex-literal false-positives
+  and ZERO real unspaced comments; the semicolon-style failure variant
+  holds with the type-heavy files cross-checked — no mixed-style
+  annotation anywhere; the docs precision items all present).
+- Defect-class sweeps clean (all 13). Static counts **12/12 MATCH**
+  (46/432 unit · 14/66 e2e · 18 models · 14 requireAdmin · 14 metered ·
+  16 catch blocks · 127 tracked TS files · 25 screenshots · 3 DSIH · the
+  boundary suite 17 describes / 21 cases). All 8 carried deferrals
+  accurate; the 429 grid re-verified complete (14/14 metered surfaces
+  pinned). **0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 0 NIT /
+  1 Informational — the seventeenth consecutive session without a
+  substantive code finding, and the first with not even a NIT.** The
+  Informational was workspace-side bookkeeping (the sandbox reset
+  truncated the shared workspace log to its Task-21 snapshot; the Task
+  28/29 records were restored from the repo's own worklog — the repo
+  record was always complete).
+- **No code changes this cycle** — the first in the project's history
+  with a fully empty remediation surface. The gates ran twice (on the
+  pulled tree and on the final tree) and carry the no-regression
+  evidence.
+- Final gates: **432/432 unit · 66/66 e2e · lint/typecheck/typecheck:tests/
+  build green** (both runs); 25 screenshots refreshed; mobile menu
+  contract + sitemap 25 URLs + JSON-LD + zero console messages/errors
+  re-verified on the fresh production server.
+- Docs aligned: AGENTS (plan range 2..29), CLAUDE (the session-29 tail),
+  SKILL v1.26.0 (project_state + this entry), DEPLOYMENT.md drift-free,
+  `.env.example` unchanged; run narrative at `docs/session_50.md`.
 
 ## Appendix C — Quick Reference Card
 
