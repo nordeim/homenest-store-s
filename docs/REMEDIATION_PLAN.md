@@ -2845,3 +2845,140 @@ own worklog during this run. Nothing in the repository is affected.
       typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
       the pulled tree before the sweep (the twice-run no-regression
       evidence)
+
+# Session 30 (run 31) — 2026-10-15
+
+## 1. Audit summary (evidence-based)
+
+Fresh clone `712b5e7` (the sandbox was reset between runs; the clone HEAD is
+the pushed main tip — `91ea3ad`, the session-29 verification cycle, plus the
+operator's two session-log commits: `8e33006` appending `docs/session_49.md`
+and `712b5e7` appending `docs/session_51.md`). Reviewed in order: the
+operator's brief, AGENTS.md, CLAUDE.md, README.md,
+Project_Architecture_Document.md, homenest-store-s_SKILL.md v1.26.0; then
+the review list's current narratives `docs/session_50.md` +
+`docs/session_51.md`, `docs/REMEDIATION_PLAN.md` (sessions 2–29), and
+`worklog.md` — cross-checked against the codebase: docs and code agree; the
+project is in the session-29-completed state (432/432 unit · 66/66 e2e).
+This run = **Run 31 (session-30 cycle)**; the narrative numbering lands on
+`session_52.md`, worklog Task 31.
+
+`git diff --stat d5061c2..HEAD` confirms NO `src/**`/`tests/**`/`prisma/**`
+changes since the last-audited tree — only the docs sweep (91ea3ad) and the
+operator's session logs. The audit surface is therefore unchanged, which
+makes this cycle a re-verification plus a fresh-eyes hunt.
+
+Environment: `.env` recreated from the `file:../db/custom.db` contract + the
+dev `AUTH_SECRET`; the sandbox's shadow `DATABASE_URL`
+(`file:/home/z/my-project/db/custom.db` — a symlink left DANGLING by the
+reset, pointing at the pre-reset repo path) re-pointed to the fresh clone's
+`db/` directory (one inode verified, ino 180841). Seed counts through the
+shadow path 16/8/3/3/13 (+ the admin/demo users). `skills/` excluded from
+all checking/testing/compilation per the operator contract.
+
+Gates re-validated on the pulled tree: lint ✓ · typecheck ✓ ·
+typecheck:tests ✓ · **432/432 unit** ✓ · build ✓ · **66/66 e2e** ✓ — the
+documented session-29 state reproduces exactly.
+
+Live-reference parity re-verified via agent-browser (reference logged in
+with the provided credentials; Damascus-first in Featured, the featured
+order matching card-for-card). Clone: home title + Damascus-first +
+JSON-LD (Organization + WebSite) + zero console messages/errors, sitemap
+25 URLs, robots disallows `/admin /account /checkout /api` + sitemap ref,
+mobile menu contract intact (390×844: open → `nav[aria-label="Mobile"]`
+exactly 7 links (Home|Products|Track Order|About|Contact|Sign In|Wishlist)
++ the search box in the panel container → navigate → drawer unmounted),
+desktop parity (4 trust badges).
+
+Fresh deep audit (read-only subagent 31-a + operator file:line
+verification): the session-29 docs-sweep claims **9/9 WIRED** (the plan's
+Session 29 section complete with all checkboxes ticked; AGENTS range 2..29;
+CLAUDE tail; SKILL v1.26.0 project_state + Appendix B; session_50.md
+consistent with its commit; exactly one well-formed Task-30 worklog entry;
+README/PAD badges; `.env.example` contract; DEPLOYMENT.md drift-free).
+Defect-class sweeps clean (all 13 — including a full classification of all
+60 Prisma write sites and a complete read of all 16 route handlers + 3
+action files). Static counts **12/12 MATCH** (46/432 unit — the 432
+independently recounted from the test declarations — 14/66 e2e · 18 models
+· 14 requireAdmin sites · 14 metered · 16 catch blocks / 6 files · 127
+tracked TS files · 25 screenshots · 3 DSIH · boundary suite 17 describes /
+21 cases · range 2..29 / v1.26.0). All 8 carried deferrals accurate (none
+silently resolved; the 429 grid re-verified complete — 14/14 metered
+surfaces pinned, 3 spot-verified in full). New findings **0 CRITICAL /
+0 HIGH / 0 MEDIUM / 0 LOW / 0 NIT / 3 Informational — the eighteenth
+consecutive session without a substantive code finding, and the second
+consecutive fully-empty remediation surface.**
+
+Operator verification reproduced the key claims at the cited lines (the
+14 requireAdmin call sites in `src/lib/actions/admin.ts`, the boundary
+suite shape, the static 432-case recount, the zero-real-`any` scan — the
+single grep hit is inside a comment at
+`src/app/(storefront)/checkout/success/page.tsx:94` — and the 3 DSIH
+sites, all `jsonLdScript`-escaped).
+
+## 2. Findings → work items
+
+### S30-1 (docs sweep) — the standard alignment for a second verification-only cycle
+
+- **Evidence:** the audit found nothing to change in `src/**`, `tests/**`,
+  or `prisma/**` — the second consecutive cycle with a fully empty
+  remediation surface. The only alignment work is the docs sweep: the plan
+  range, the SKILL version/project_state, the CLAUDE.md tail, the Appendix
+  B record, and the screenshots.
+- **Fix:** SKILL v1.26.0 → v1.27.0 (project_state + the Appendix B
+  session-30 entry), AGENTS.md plan range 2..29 → 2..30, CLAUDE.md tail,
+  README/PAD/DEPLOYMENT.md drift checks, `.env.example` verification, the
+  25 screenshots refresh, `docs/session_52.md`, worklog Task 31, and the
+  execution log below. No code changes — the 432/66 suites carry the
+  no-regression evidence by their green runs on the pulled tree AND on the
+  final tree.
+
+### Dispositions (no change, recorded)
+
+- **Info-1 (cart-drawer quantity PATCH failure is a silent optimistic
+  rollback):** `src/components/store/store-chrome.tsx:201-204` — on a
+  failed PATCH the drawer rolls back to the pre-click state with the
+  comment "the drawer re-syncs on next open", without a toast. Verified
+  DELIBERATE: this IS the documented L10 remediation
+  (`docs/REMEDIATION_PLAN.md` L10 — "Per-line pending lock + error
+  rollback, mirroring `cart-lines.tsx`"), the drawer state stays
+  server-truthful, the failure mode is the benign concurrent-edit case
+  (a line deleted by another tab maps to 404), and every load-bearing
+  island (cart-lines, coupon-box, add-all, address-dialog, profile-form)
+  DOES toast. Changing it now would churn a documented acceptance with no
+  defect behind it. No change.
+- **Info-2 (audit-brief DSIH gloss):** the audit brief glossed DSIH as
+  "AGENTS security-invariant headings"; the repo's own usage (plan
+  session-25 anchor "raw-DSIH scans zero") is DSI-HTML
+  (`dangerouslySetInnerHTML`) sites. The anchor value 3 is correct either
+  way — the three sites are `(storefront)/layout.tsx:51,55` +
+  `product/[id]/page.tsx:137`, all through `jsonLdScript`. The drift is in
+  the audit brief, not in any repo document. No repo change; recorded here
+  so the next cycle's brief cites the right definition.
+- **Info-3 (eslint-disable rationale placement):**
+  `src/components/store/mobile-nav.tsx:41` disables
+  `react-hooks/exhaustive-deps` without the inline `-- rationale`
+  convention its sibling uses (`(storefront)/account/page.tsx:334`); the
+  rationale lives in the comment directly above the effect ("Close on
+  route change (links navigate) — matches reference behavior."), which is
+  where a reader looks first, and the behavior is e2e-pinned. Cosmetic
+  consistency only. No change.
+- **Carried deferrals (unchanged, all verified standing):** S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce (static shell);
+  `__Host-` prefix; shared-store limiter; radiogroup roving focus
+  (WCAG-conformant as-is); address content dedup; the external-service
+  epics (real email delivery, OAuth, real payments — blocked on
+  sandbox-external credentials/SMTP). The route-level 429 grid stays
+  retired and complete (14/14).
+- **Workspace-log Informational (carried from 30-a, workspace-side):** the
+  sandbox reset again truncated the shared workspace log to its Task-21
+  snapshot; the Task 22–30 records were restored from the repo's own
+  worklog during this run. Nothing in the repository is affected.
+
+## 3. Execution log (session 30)
+
+- [x] S30-1 docs sweep + screenshots + worklog + session_52.md
+- [x] Full gate chain re-run green on the final tree (lint · typecheck ·
+      typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
+      the pulled tree before the sweep (the twice-run no-regression
+      evidence)

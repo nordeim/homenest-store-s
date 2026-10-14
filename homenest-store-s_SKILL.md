@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.26.0
-last_updated: 2026-10-14
-project_state: "432 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-29; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine — session-27 completed the route-level 429 wiring-pin grid: ALL 14 metered HTTP surfaces carry route-level boundary pins in api-boundaries.test.ts — session-28 was the hygiene/precision pass (the two audit NITs + the reproducible count anchors) — and session-29 is the first fully-empty remediation cycle: the deep audit found 0 CRITICAL/HIGH/MEDIUM/LOW/NIT, all 12 count anchors and 8 carried deferrals verified standing, nothing to change in src/tests/prisma)"
+version: 1.27.0
+last_updated: 2026-10-15
+project_state: "432 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-30; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine — session-27 completed the route-level 429 wiring-pin grid: ALL 14 metered HTTP surfaces carry route-level boundary pins in api-boundaries.test.ts — session-28 was the hygiene/precision pass (the two audit NITs + the reproducible count anchors) — and session-29 is the first fully-empty remediation cycle: the deep audit found 0 CRITICAL/HIGH/MEDIUM/LOW/NIT, all 12 count anchors and 8 carried deferrals verified standing, nothing to change in src/tests/prisma — and session-30 is the second consecutive fully-empty cycle (deep audit 31-a: the session-29 docs-sweep claims 9/9 WIRED, all 60 Prisma write sites classified, counts 12/12 MATCH incl. an independent static recount of the 432 unit cases, 0 CRITICAL/HIGH/MEDIUM/LOW/NIT + 3 Informational all verified deliberate/brief-side/cosmetic and disposed no-change)"
 tags:
   - nextjs16
   - react19
@@ -1765,6 +1765,44 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
 - Docs aligned: AGENTS (plan range 2..29), CLAUDE (the session-29 tail),
   SKILL v1.26.0 (project_state + this entry), DEPLOYMENT.md drift-free,
   `.env.example` unchanged; run narrative at `docs/session_50.md`.
+
+### Session 30 (run 31) — the second consecutive fully-empty cycle (18th clean session)
+
+- Deep audit 31-a at HEAD `712b5e7` (fresh clone — the sandbox reset
+  between runs; the clone tip = `91ea3ad` + the operator's two session-log
+  commits, `session_49.md` and `session_51.md`): the session-29 docs-sweep
+  claims **9/9 WIRED** with file:line evidence (plan section complete with
+  all checkboxes ticked; AGENTS range 2..29; CLAUDE tail; SKILL v1.26.0
+  project_state + Appendix B; session_50.md consistent with its commit;
+  exactly one well-formed Task-30 worklog entry; README/PAD badges;
+  `.env.example` contract; DEPLOYMENT.md drift-free).
+- Defect-class sweeps clean (all 13 — including a full classification of
+  all 60 Prisma write sites against the guarded family and a complete read
+  of all 16 route handlers + 3 action files). Static counts **12/12
+  MATCH** (46/432 unit — the 432 independently recounted from the test
+  declarations · 14/66 e2e · 18 models · 14 requireAdmin · 14 metered ·
+  16 catch blocks · 127 tracked TS files · 25 screenshots · 3 DSIH · the
+  boundary suite 17 describes / 21 cases). All 8 carried deferrals
+  accurate; the 429 grid re-verified complete (14/14, 3 spot-verified in
+  full). **0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 0 NIT /
+  3 Informational — the eighteenth consecutive session without a
+  substantive code finding, and the second consecutive fully-empty
+  remediation surface.** All 3 Informational verified at file:line and
+  disposed no-change: the drawer's silent PATCH rollback IS the documented
+  L10 remediation (deliberate design); the DSIH gloss drift lives in the
+  audit brief, not the repo; the mobile-nav eslint-disable rationale is
+  present adjacent to the disable.
+- **No code changes this cycle** — verified by `git diff --stat
+  d5061c2..HEAD` showing only docs/PNGs since the last-audited tree. The
+  gates run twice (pulled tree + final tree) as the no-regression
+  evidence.
+- Final gates: **432/432 unit · 66/66 e2e · lint/typecheck/typecheck:tests/
+  build green** (both runs); 25 screenshots refreshed; mobile menu
+  contract + sitemap 25 URLs + robots + JSON-LD + zero console
+  messages/errors re-verified on the fresh production server.
+- Docs aligned: AGENTS (plan range 2..30), CLAUDE (the session-30 tail),
+  SKILL v1.27.0 (project_state + this entry), DEPLOYMENT.md drift-free,
+  `.env.example` unchanged; run narrative at `docs/session_52.md`.
 
 ## Appendix C — Quick Reference Card
 
