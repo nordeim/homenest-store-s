@@ -17,6 +17,17 @@ Every change must preserve two properties:
 
 ## Foundational Principles
 
+### Meticulous Approach (Six-Phase Workflow)
+
+1. **ANALYZE** — Read the relevant page/component/route and its tests in full before writing. Identify which contract (db-path, validation, auth session, UI parity) governs the change.
+2. **PLAN** — State the smallest correct path; name the files touched and the specs that must be updated alongside.
+3. **VALIDATE** — Confirm scope for anything touching auth, sessions, or the ticket vocabulary before coding.
+4. **IMPLEMENT** — Modular, typed, test-backed increments. Domain rules go in `src/lib/` seams; UI consumes them.
+5. **VERIFY** — Run the full gate; for visual changes, capture a screenshot and compare against `docs/screenshots/` and the reference captures.
+6. **DELIVER** — Report what was verified, what was not, and any deferred debt. Never claim "works" without executed evidence.
+
+### Application Specific
+
 1. **Server-first.** React Server Components by default; `"use client"` only for interactive islands (drawers, steppers, forms with live state). Data fetching happens in Server Components via Prisma directly — no client-side data fetching for initial renders.
 2. **The server owns the money.** All monetary math is integer cents and re-derived server-side (`computeOrderMoney`) at the only place that matters: `/api/checkout`. Client-side totals are cosmetic mirrors. Never trust prices, discounts, or shipping from the client.
 3. **Zod at every boundary.** Every FormData body and JSON payload passes through `src/lib/validation.ts` before touching Prisma. SQLite has no enums — string vocabularies (order status, roles, payment methods) are validated there and nowhere else.
