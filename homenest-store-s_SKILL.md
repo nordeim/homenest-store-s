@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.27.0
+version: 1.28.0
 last_updated: 2026-10-15
-project_state: "432 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-30; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine — session-27 completed the route-level 429 wiring-pin grid: ALL 14 metered HTTP surfaces carry route-level boundary pins in api-boundaries.test.ts — session-28 was the hygiene/precision pass (the two audit NITs + the reproducible count anchors) — and session-29 is the first fully-empty remediation cycle: the deep audit found 0 CRITICAL/HIGH/MEDIUM/LOW/NIT, all 12 count anchors and 8 carried deferrals verified standing, nothing to change in src/tests/prisma — and session-30 is the second consecutive fully-empty cycle (deep audit 31-a: the session-29 docs-sweep claims 9/9 WIRED, all 60 Prisma write sites classified, counts 12/12 MATCH incl. an independent static recount of the 432 unit cases, 0 CRITICAL/HIGH/MEDIUM/LOW/NIT + 3 Informational all verified deliberate/brief-side/cosmetic and disposed no-change)"
+project_state: "432 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-31; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine — session-27 completed the route-level 429 wiring-pin grid: ALL 14 metered HTTP surfaces carry route-level boundary pins in api-boundaries.test.ts — session-28 was the hygiene/precision pass (the two audit NITs + the reproducible count anchors) — and sessions 29/30 are the first two fully-empty remediation cycles (deep audits 30-a/31-a: 0 CRITICAL/HIGH/MEDIUM/LOW/NIT, all count anchors and 8 carried deferrals verified standing, nothing to change in src/tests/prisma) — session-31 is the third consecutive fully-empty cycle (deep audit 32-a: sweeps 12/12 clean, counts 13/13 MATCH, docs aligned, 0 CRITICAL/HIGH/MEDIUM/LOW/NIT + 4 Informational all verified accepted-shape/docs-only/sandbox-side and disposed no-change)"
 tags:
   - nextjs16
   - react19
@@ -1803,6 +1803,53 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
 - Docs aligned: AGENTS (plan range 2..30), CLAUDE (the session-30 tail),
   SKILL v1.27.0 (project_state + this entry), DEPLOYMENT.md drift-free,
   `.env.example` unchanged; run narrative at `docs/session_52.md`.
+
+### Session 31 (run 32) — the third consecutive fully-empty cycle (19th clean session)
+
+- Deep audit 32-a at HEAD `168d830` (fresh clone — the workspace reset
+  again; the clone tip = `d41aa14` + the operator's session-log commit
+  appending `docs/session_53.md` and the CLAUDE workflow section;
+  `git diff d41aa14..168d830 --stat` = docs-only): the session-30
+  docs-sweep claims WIRED with file:line evidence (plan section complete,
+  AGENTS range 2..30, CLAUDE tail, SKILL v1.27.0 project_state +
+  Appendix B, session_52/53 consistent, one well-formed Task-31 worklog
+  entry, README/PAD badges, `.env.example` contract, DEPLOYMENT
+  drift-free with 5/5 env vars verified against their read sites).
+- Defect-class sweeps clean (all 12; the two raw query-param id DELETE
+  handlers recorded as the standing accepted shape — both
+  ownership-scoped compound filters with route-level boundary pins).
+  Static counts **13/13 MATCH** (46/432 unit — independently recounted ·
+  14/66 e2e · 18 models · 14 requireAdmin · 14 metered · 3 DSIH · 127
+  tracked TS files · 25 screenshots · 16 admin-dialog catches / 6 files ·
+  16 route handlers / 11 files · boundary-suite recounts). All 8 carried
+  deferrals accurate; the 429 grid complete (14/14). **0 CRITICAL /
+  0 HIGH / 0 MEDIUM / 0 LOW / 0 NIT / 4 Informational — the nineteenth
+  consecutive session without a substantive code finding, and the third
+  consecutive fully-empty remediation surface.** The 4 Informationals
+  verified and disposed no-change: the raw query-param id DELETEs (the
+  accepted shape); the prisma `^6.11.1` range resolving to 6.19.3
+  (lockfile-coherent, semver-consistent, the tolerant matcher absorbing
+  engine-shape drift); the seed.ts lint/typecheck split (deliberate);
+  the operator's docs-only CLAUDE.md commit.
+- **No code changes this cycle** — verified by `git diff --stat
+  d41aa14..168d830` showing only docs since the last-audited tree. The
+  gates run twice (pulled tree + final tree) as the no-regression
+  evidence.
+- Environmental notes this cycle: the sandbox now BLOCKS symlink
+  creation, so the shadow `DATABASE_URL` convergence moved to per-command
+  absolute-path exports (one inode, seed 16/8/3/3/13 verified); and the
+  Playwright browser cache was re-paired with the lockfile
+  (`@playwright/test` 1.64.0 needs chromium rev 1248 — `npx playwright
+  install chromium` restored the match before the 66/66 run).
+- Final gates: **432/432 unit · 66/66 e2e · lint/typecheck/typecheck:tests/
+  build green** (both runs); 25 screenshots refreshed (11 dynamic-content
+  deltas, 14 byte-identical); mobile menu contract + sitemap 25 URLs +
+  robots + noindex + security headers + JSON-LD + zero console
+  messages/errors re-verified on the fresh production server; the
+  reference site's mobile push-down panel anatomy re-confirmed live.
+- Docs aligned: AGENTS (plan range 2..31), CLAUDE (the session-31 tail),
+  SKILL v1.28.0 (project_state + this entry), DEPLOYMENT.md drift-free,
+  `.env.example` unchanged; run narrative at `docs/session_54.md`.
 
 ## Appendix C — Quick Reference Card
 

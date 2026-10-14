@@ -2982,3 +2982,146 @@ sites, all `jsonLdScript`-escaped).
       typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
       the pulled tree before the sweep (the twice-run no-regression
       evidence)
+
+---
+
+# Session 31 (run 32) — 2026-10-15
+
+> Verification-only cycle (the third consecutive fully-empty remediation
+> surface). The plan file names increment by run number; this section is
+> numbered by session — the run/plan numbering drift is documented in
+> `docs/session_52.md`.
+
+## 1. Audit summary (evidence-based)
+
+Fresh clone `168d830` (the workspace had been reset; the clone HEAD is the
+pushed main tip — `d41aa14`, the session-30 verification cycle, plus the
+operator's session-log commit `168d830` appending `docs/session_53.md` and
+the CLAUDE.md workflow section; `git diff d41aa14..168d830 --stat` =
+CLAUDE.md +11 / docs/session_53.md +64 — zero src/tests/prisma deltas).
+Reviewed in order: the operator's brief, AGENTS.md, CLAUDE.md, README.md,
+Project_Architecture_Document.md, homenest-store-s_SKILL.md v1.27.0; then
+the review list's current narratives `docs/session_52.md` +
+`docs/session_53.md`, `docs/REMEDIATION_PLAN.md` (sessions 2–30), and
+`worklog.md` — cross-checked against the codebase: docs and code agree;
+the project is in the session-30-completed state (432/432 unit · 66/66
+e2e). This run = **Run 32 (session-31 cycle)**; the narrative numbering
+lands on `session_54.md`, worklog Task 32.
+
+Environment: `.env` recreated from the `file:../db/custom.db` contract +
+the dev `AUTH_SECRET`; the sandbox still shadows `DATABASE_URL` at the
+process level (`file:/home/z/my-project/db/custom.db`), and this sandbox
+now BLOCKS symlink creation (the previous cycles' convergence mechanism),
+so every DB-touching command this run exported the absolute
+`file:/home/z/my-project/homenest-store-s/db/custom.db` value — the
+shadow and the repo contract resolve to ONE inode (seed counts 16/8/3/3/13
++ the admin/demo users verified through that path). One environmental
+recovery this cycle: the sandbox's Playwright browser cache held only
+chromium rev 1200 while `@playwright/test` 1.64.0 (the lockfile version)
+requires rev 1248 — the desktop-chromium project failed 55 launches until
+`npx playwright install chromium` restored the matching pair; the full
+suite then ran 66/66. `skills/` excluded from all checking/testing/
+compilation per the operator contract.
+
+Gates re-validated on the pulled tree: lint ✓ · typecheck ✓ ·
+typecheck:tests ✓ · **432/432 unit** ✓ · build ✓ · **66/66 e2e** ✓ — the
+documented session-30 state reproduces exactly.
+
+Live-reference parity re-verified via agent-browser (reference logged in
+with the provided credentials; Damascus-first in Featured with a
+card-for-card order match, the mobile push-down panel anatomy confirmed
+on the reference at 390×844 — nav links + search + close). Clone: home
+section/order parity, the 4 trust badges, JSON-LD Organization + WebSite
+(+ Product on detail pages), zero console messages/errors, sitemap 25
+URLs, robots disallows `/admin /account /checkout /api` + sitemap ref,
+noindex on every private surface probed, the full security-header set
+(CSP nonce + strict-dynamic, HSTS, X-Frame-Options DENY, nosniff,
+Referrer-Policy, Permissions-Policy, no X-Powered-By), and the mobile
+menu contract intact (390×844: open → `nav[aria-label="Mobile"]` exactly
+7 links (Home|Products|Track Order|About|Contact|Sign In|Wishlist) + the
+search box in the panel container → navigate → drawer unmounted).
+
+Fresh deep audit (read-only subagent 32-a + operator verification): the
+session-30 docs-sweep claims WIRED (the plan's Session 30 section
+complete with all checkboxes ticked; AGENTS range 2..30; CLAUDE tail;
+SKILL v1.27.0 project_state + Appendix B; session_52.md consistent with
+its commit; session_53.md the operator's raw log; exactly one well-formed
+Task-31 worklog entry; README/PAD badges; `.env.example` contract;
+DEPLOYMENT.md drift-free — 5/5 env vars verified against their read
+sites). Defect-class sweeps clean (all 12; the two raw query-param id
+DELETE handlers recorded as the standing accepted shape — both
+ownership-scoped compound filters with route-level boundary pins).
+Static counts **13/13 MATCH** (46/432 unit — independently recounted — ·
+14/66 e2e · 18 models · 14 requireAdmin · 14 metered · 3 DSIH · 127
+tracked TS files · 25 screenshots · 16 admin-dialog catches / 6 files ·
+16 route handlers / 11 files · the boundary suite recounts). All 8
+carried deferrals accurate. New findings **0 CRITICAL / 0 HIGH / 0
+MEDIUM / 0 LOW / 0 NIT / 4 Informational — the nineteenth consecutive
+session without a substantive code finding, and the third consecutive
+fully-empty remediation surface.** The 4 Informationals verified and
+disposed no-change: (1) the raw query-param id DELETEs (the standing
+accepted shape, Info-1 above); (2) the prisma `^6.11.1` declared range
+resolving to 6.19.3 — lockfile-coherent, semver-consistent, the
+S8-3-tolerant matcher absorbing engine-shape drift; (3) `prisma/seed.ts`
+ESLint-excluded but typecheck-covered (deliberate split — CLI output);
+(4) the operator's post-push commit touched CLAUDE.md docs-only.
+
+## 2. Findings → work items
+
+### S31-1 (docs sweep) — the standard alignment for a third verification-only cycle
+
+- **Evidence:** the audit found nothing to change in `src/**`, `tests/**`,
+  or `prisma/**` — the third consecutive cycle with a fully empty
+  remediation surface. The only alignment work is the docs sweep: the plan
+  range, the SKILL version/project_state, the CLAUDE.md tail, the Appendix
+  B record, and the screenshots.
+- **Fix:** SKILL v1.27.0 → v1.28.0 (project_state + the Appendix B
+  session-31 entry), AGENTS.md plan range 2..30 → 2..31, CLAUDE.md tail,
+  README/PAD/DEPLOYMENT.md drift checks, `.env.example` verification, the
+  25 screenshots refresh, `docs/session_54.md`, worklog Task 32, and the
+  execution log below. No code changes — the 432/66 suites carry the
+  no-regression evidence by their green runs on the pulled tree AND on
+  the final tree.
+
+### Dispositions (no change, recorded)
+
+- **Info-1 (raw query-param ids on the two DELETE handlers):**
+  `src/app/api/cart/route.ts:164-166` and `src/app/api/addresses/route.ts:
+  176-179` read the id straight from the query string without a Zod
+  parse. Both writes are ownership-scoped compound filters
+  (`{id, cartId}` / `{id, userId}`), the ids are opaque server-minted
+  cuids, and both surfaces carry route-level boundary pins. The
+  long-standing accepted shape, classified clean in 18 prior audits;
+  recorded here so the next cycle's brief expects it.
+- **Info-2 (prisma declared range vs resolved version):** `^6.11.1` in
+  package.json resolves to 6.19.3 for prisma/@prisma/client/@prisma/engines
+  — lockfile-coherent (lockfileVersion 3, all three at 6.19.3, the
+  `allowScripts` block matching), semver-consistent, and the tolerant
+  P2002 matcher already absorbs engine-shape drift. SKILL/README record
+  the declared ranges; no drift, no action.
+- **Info-3 (seed.ts lint exclusion):** `eslint.config.mjs` global-ignores
+  `prisma/seed.ts` while `tsconfig.tests.json` still type-checks it — the
+  deliberate split (legitimate CLI `console.log`s); recorded for
+  completeness.
+- **Info-4 (operator docs-only commit):** `168d830` added the
+  "Meticulous Approach (Six-Phase Workflow)" section to CLAUDE.md +
+  `docs/session_53.md` — pure documentation, no code impact; noted so the
+  next cycle isn't surprised by a CLAUDE.md delta.
+- **Carried deferrals (unchanged, all verified standing):** S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce (static shell);
+  `__Host-` prefix; shared-store limiter; radiogroup roving focus
+  (WCAG-conformant as-is); address content dedup; the external-service
+  epics (real email delivery, OAuth, real payments — blocked on
+  sandbox-external credentials/SMTP). The route-level 429 grid stays
+  complete (14/14).
+- **Workspace-log Informational (workspace-side):** the sandbox reset
+  again wiped the shared workspace log; it was restored from the repo's
+  own worklog record at run start. Nothing in the repository is affected.
+
+## 3. Execution log (session 31)
+
+- [x] S31-1 docs sweep + screenshots + worklog + session_54.md
+- [x] Full gate chain re-run green on the final tree (lint · typecheck ·
+      typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
+      the pulled tree before the sweep (the twice-run no-regression
+      evidence)
