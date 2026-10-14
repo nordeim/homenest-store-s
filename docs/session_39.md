@@ -1,4 +1,87 @@
-I'll check the current state of the workspace and repository first to determine exactly where the previous session left off, then continue from there.
+I'll continue the task from where we left off. The session document review list has been updated to `session_35.md` + `session_36.md`. Let me start by setting up a task list and refreshing the workspace.
+工作日志显示了之前的会话（最近一次是 session 21 → commit a857949）。该仓库需要重新克隆。让我先读取上传的提示文件，然后再克隆。
+仓库已成功克隆。现在让我检查 repo 状态并审阅核心文档。
+Repo 位于 `5835fdd`，包含 `session_35.md` 和 `session_36.md`。现在让我审阅核心项目文档。
+AGENTS.md 的行数非常长。让我通过 Read 调用来分批读取它。
+AGENTS.md fully reviewed. Now let me read CLAUDE.md and README.md.
+`session_36.md` 是上一个运行周期（运行 22，session-21 周期 → commit `cfaf342`）的描述。当前 HEAD `5835fdd` 为其增加了会话日志。本次运行 = 下一个审计周期。让我阅读一下 `session_35.md` 和工作日志（worklog）。
+现在让我阅读 repo worklog 和 REMEDIATION_PLAN 的末尾，以了解最新的计划部分。
+Worklog 和 plan 的状态已经清晰 —— 本次运行是 **Run 23（session-22 audit cycle）**。让我阅读 REMEDIATION_PLAN.md 的最新部分（Session 21）并检查 README。
+文档审查已接近完成。让我更新待办事项，并在后台开始进行环境配置（`npm install`），同时快速浏览剩余的文档。
+所有文档已审阅 —— 项目处于 session-21-completed 状态（SKILL v1.18.0，379 unit / 65 e2e）。现在让我处理已知的 sandbox DATABASE_URL 阴影陷阱。
+Shadow trap confirmed: sandbox exports `DATABASE_URL=file:/home/z/my-project/db/custom.db` and `/home/z/my-project/db` is a dangling symlink. Let me check npm install progress and set up the repo env.
+Install complete. Now create `.env` and run the first `db:push` with the explicit override (per the documented trap).
+DB created at repo root. Now converge the sandbox shadow symlink onto the same file.
+沙箱会自动恢复悬空的 symlink。让我尝试在单个原子 `node` 调用中重新指定其指向。
+One inode verified, seed complete. Let me verify seed data and confirm the shadow path resolves to the same file.
+Environment fully converged (16/8/3/2/3/13 = docs). Now re-validate the gates — lint, typechecks, and unit tests first.
+379/379 unit green. Now the production build.
+**所有门控在拉取的代码树均已通过**：lint ✓ · typecheck ✓ · typecheck:tests ✓ · 379/379 unit ✓ · build ✓ · **65/65 e2e** ✓ —— 完全符合文档记录的 session-21 状态。
+
+现在进行实时参考一致性检查。让我加载 agent-browser 技能并启动生产服务器。
+Reference is up and unchanged. Let me verify the featured products order (Damascus-first) on the reference.
+Reference order confirmed (Damascus-first in both sections). Now log into the reference with the provided credentials.
+Reference login verified. Now check the clone's home page and mobile menu.
+Clone home parity confirmed (Damascus-first, superset sections). Now the critical mobile menu check at iPhone viewport.
+Mobile menu contract intact (open → 7 links + search → navigate → auto-close/unmount; console clean). Now verify SEO surfaces.
+SEO surfaces verified. Now desktop visual parity — screenshot both sites side by side.
+Desktop parity confirmed — identical header anatomy, hero structure, trust badges, cream/terracotta palette. **Live-reference parity check complete.**
+
+Now the deep audit. Let me check the repo's skills catalog for the audit skill.
+The repo skills catalog confirms `code-review-checklist` is the audit skill used by prior runs. Launching the read-only deep audit subagent (23-a) now.
+Audit verdict: **6/6 session-21 fixes WIRED · 0 CRITICAL/HIGH/MEDIUM/LOW · 2 NIT · 2 Informational · zero doc drift** — the tenth consecutive clean session. Per discipline, let me personally verify both NITs before planning.
+Both NITs verified. Let me examine `applyCouponCode` to design the S22-2 fix.
+Now let me check all consumers of `couponDiscount`/`applyCouponCode`, and verify the claimed "13 specs" figure in SKILL.md Appendix B.
+Both NITs confirmed, and I've verified the exact-shape `toEqual` pins that the widening will affect. Let me check the api-boundaries test pattern to design the route pin.
+让我阅读完整的 `coupon/apply` 路由和购物车摘要签名，以精确设计路由固定（route pin）。
+The route is fully understood (including a stray whitespace line 35 to clean). Let me check `getCartSummary`'s return shape for the mock.
+所有类型已确认。现在让我查看将要加宽的精确形状 pins，然后编写第 22 会话计划。
+All pins mapped. Now writing the **Session 22** section into `docs/REMEDIATION_PLAN.md`.
+计划已保存。现在正在针对代码库进行验证（两个发现点均已通过 `file:line` 确认）。现在开始执行 TDD —— **先进行 RED（失败测试）**：编写新的固定测试（pin）文件。
+**RED confirmed** — 5 failed exactly as predicted (`description` missing from the engine result; `findUnique` called **2 times**; the response-description pin passes only via the wasteful second lookup). Now **GREEN**.
+Engine widened. Now the route fix.
+Route fixed. Now update the exact-shape pins in the two existing test files, plus the S22-1 cosmetic fix.
+All GREEN-side edits applied. Run the new test file — expect green now.
+386/386 unit green (+7 new pins). Now rebuild and run the full e2e suite.
+**Full gate chain green**: 386/386 unit · 65/65 e2e · all other gates ✓. Now the manual verification of the refactored route on the fresh build.
+curl 没有看到浏览器的 cart cookie —— 让我改为在浏览器内进行端到端验证。
+**Route verified live**: "FREESHIP: Free standard shipping on orders over $30 — applied at checkout" renders from the single-lookup path. Quick mobile-menu re-check + console, then screenshots.
+Mobile menu contract intact, zero errors. Now refresh the screenshots and update the plan's execution log.
+24 张截图已刷新。现在更新计划的执行日志并运行文档扫描。
+Now the docs sweep. Let me examine the exact lines to update in each doc.
+Now executing the docs sweep — AGENTS.md, CLAUDE.md, README.md, PAD, SKILL.md.
+Now README.md.
+Now the PAD updates.
+正在修复我引入的一个拼写错误，然后更新 `SKILL.md`。
+DEPLOYMENT.md is drift-free and SKILL's tech table carries no counts. Now write the run narrative `docs/session_37.md`.
+Now append the repo worklog entry (Task 23).
+All docs aligned. Now review the changeset before committing.
+变更集干净（无 `.env`/`db`/`skills` 泄露）。对更新的 `mobile-menu` 截图进行快速视觉完整性检查，然后提交。
+移动端菜单截图已验证（下推面板、活动胶囊、绿色关闭按钮、7 个链接）。现在提交并准备推送 —— 首先阅读推送技能。
+Paramiko 5.0.0 已就绪。现在进行暂存（stage）和提交（commit）。
+已提交 `a7b19a1`。现在执行 SSH push 流程 —— materialize 密钥，验证 fingerprint，进行 dry-run，然后 push。
+Fingerprint matches the recorded Ed25519 key. Dry-run push first.
+预运行（Dry-run）确认了至正确远端仓库的快进（fast-forward）式推送（`5835fdd..a7b19a1`）。现在开始正式推送。
+Push verified — remote main @ `a7b19a1` == local HEAD. Now shred the operator key and confirm final state.
+Finally, update the workspace worklog per the multi-agent protocol.
+**Run 23 (session-22 cycle) complete and pushed** ✅ — remote `main` @ `a7b19a1`, fast-forward from `5835fdd`, working tree clean, key shredded.
+
+**What happened this run:**
+
+1. **Fresh clone + full doc review** (AGENTS/CLAUDE/README/PAD/SKILL v1.18.0 + session_35/36 + plan + worklog) — codebase confirmed at the session-21-completed state; environment symlink converged to one inode, DB seeded (16/8/3/2).
+
+2. **All gates green on the pulled tree**: 379/379 unit · 65/65 e2e · lint/typecheck/build.
+
+3. **Live-reference parity verified** (reference unchanged, logged in with your credentials; Damascus-first in both sections); clone: mobile menu open → 7 links + search → navigate → auto-close/unmount (Tailwind v4 contract intact), sitemap 25 URLs, robots, JSON-LD, desktop parity, zero console errors.
+
+4. **Deep audit (23-a)**: session-21 fixes **6/6 WIRED**; **0 CRITICAL/HIGH/MEDIUM/LOW, 2 NIT** — the tenth consecutive clean session, zero doc drift.
+
+5. **TDD**: **S22-2** went RED (`description` missing; `db.coupon.findUnique` called 2×) → GREEN — the coupon engine result now carries the marketing description and `/api/coupon/apply` resolves a coupon with **one** lookup (pinned by call count). **S22-1** spec artifact cleaned.
+
+6. **Final state**: 386/386 unit · 65/65 e2e · all gates green; 24 screenshots refreshed; docs aligned (SKILL v1.19.0, PAD #84, `session_37.md`, worklog); `.env.example` verified; DEPLOYMENT.md drift-free.
+
+**Suggested next steps:** verify the push on GitHub; the carried deferrals (S8-8 login-limiter tradeoff, S21-7 coupon-aware cart hint, real mailer/OAuth/payments epics) remain documented — with the coupon engine now single-lookup, order-status email notifications and the reference's "Continue with Google" affordance are the natural next increments once sandbox-external credentials become available.
+
 The workspace worklog shows Run 23 (session-22 cycle) was completed with push to `a7b19a1`, but the repo directory listing came back empty — the sandbox may have been reset. Let me verify the actual state.
 The repo directory is empty — sandbox was reset after the previous run. The worklog says Run 23 completed with push to `a7b19a1`. Let me verify the remote state and check for new operator docs since then.
 Remote main is at `a7b19a1` — Run 23's push was fully delivered; no new operator commits since. Following the established cycle pattern, this run = **Run 24 (session-23 cycle)**: fresh clone at `a7b19a1`, review docs, re-validate gates, deep audit, TDD remediation, push. Cloning now.
