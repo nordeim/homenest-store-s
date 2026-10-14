@@ -1786,3 +1786,128 @@ live-repo-doc drift.**
 - [x] S22-1 — the spec's duplicated `.first()` comment dropped + the 4-space reindent
 - [x] Full gate chain re-run green (lint · typecheck · typecheck:tests · 386/386 unit · build · 65/65 e2e); manual verification (agent-browser on the fresh build: the cart's applied-coupon block renders "FREESHIP: Free standard shipping on orders over $30 — applied at checkout" from the single-lookup path; mobile menu open → 7 links → close → unmount; zero console errors)
 - [x] Screenshots refreshed (24); docs sweep; worklog updated
+
+---
+
+# Session 23 (run 24)
+
+> Deep audit 24-a (read-only subagent, HEAD `a7b19a1`) + operator verification.
+> Workspace refreshed by fresh clone; gates re-validated green on the pulled
+> tree (lint · typecheck · typecheck:tests · 386/386 unit · build · 65/65 e2e);
+> live-reference parity re-verified via agent-browser (reference unchanged —
+> logged in with the provided credentials; Damascus-first order holds on both
+> sides; clone: mobile menu open → 7 links + search → navigate →
+> auto-close/unmount, sitemap 25 URLs, robots, JSON-LD, desktop parity, zero
+> console errors).
+
+## 1. Audit summary (evidence-based)
+
+Session-22 fixes **2/2 WIRED** (S22-2 the widened `CouponApplication` ok-branch
+carries `description` through all three success branches `coupons.ts:48/:60/:74`,
+the route imports only `applyCouponCode` and reads `applied.description` with the
+second lookup gone, `session22-hardening.test.ts` pins the widened branches + the
+exactly-once `findUnique` route contract + the response description; S22-1 the
+admin-coupons spec artifact is gone at the 4-space convention). Defect-class
+sweeps CLEAN: 14/14 `requireAdmin`'d actions, 14/14 metered `Retry-After` sites,
+money integer-cents server-derived in-tx, Zod at every boundary, conditional
+stock reservation, token-gated receipt, sitemap/robots/noindex privacy, CSP
+nonce, Tailwind v4 traps, server-only module graph, `gotoHydrated` 14/14 specs,
+every toast assertion `.first()`-conventioned, 16 catch blocks across six
+islands. Pre-session-21 invariant spot-checks 5/5 WIRED (free_shipping
+end-to-end, cart clamp single-source, token-gated order access, CSP nonce
+proxy, Toaster timer registry). Static counts ALL matching the live docs (386
+unit / 39 files · 65 e2e / 14 specs · 18 models · 16/8/3/2/3/13 seed · 14
+requireAdmin · 14 metered · 16 catch blocks); TODO/FIXME/`any`/console.log/
+raw-dangerouslySetInnerHTML/eval scans all zero.
+
+**Result: 0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 1 NIT / 2 Informational — the
+eleventh consecutive session without a CRITICAL/HIGH/MEDIUM finding, and zero
+live-repo-doc drift.** (Informational-1 was an untracked run artifact in the
+workspace, removed before staging; Informational-2 is the documented deliberate
+guest-order seeding in `admin.spec.ts:67-74` — disposition unchanged.)
+
+## 2. Findings → work items
+
+### S23-1 (NIT — cosmetic) — whitespace-only line in the checkout limiter block
+
+- **Evidence (24-a, operator-verified):** `src/app/api/checkout/route.ts:109` —
+  a whitespace-only line (4 spaces) sits between the limiter comment block and
+  the `rateLimit(...)` call. Pre-existing, lint-clean, zero behavior.
+- **Fix:** drop the line (same class as S22-1's stray whitespace cleanup).
+
+### S23-2 (feature increment — S21-7 promoted from deferral) — the cart's free-shipping hint goes coupon-aware
+
+- **Context:** S21-7 (recorded session 21, carried sessions 21→22) — the cart
+  page's threshold-progress hint ("Add $15.01 more for free shipping") is
+  server-rendered from the settings threshold only and does not know an applied
+  `free_shipping` coupon, so with FREESHIP applied below the threshold the hint
+  coexists with the applied block right above it ("Free standard shipping…
+  applied at checkout") — contradictory UX on the money-adjacent surface the
+  store advertises most. The original disposition ("structural change for
+  marginal benefit") is REVISITED now that the defect surface has been clean
+  for eleven consecutive sessions and the coupon engine is single-lookup and
+  description-carrying (session 22): the marginal-benefit calculus has flipped —
+  the widget is the only remaining money-adjacent surface that can contradict
+  the applied-coupon state.
+- **Design (TDD):** lift the applied-coupon state minimally with an idiomatic
+  props-down-events-up bridge — NO context, NO custom events, NO sessionStorage
+  shape change (the `COUPON_STORAGE_KEY` code-string contract with
+  checkout-client.tsx is untouched):
+  1. New client composite `src/app/(storefront)/cart/cart-widgets.tsx` —
+     `CartSummaryWidgets({ subtotalCents, thresholdCents })` renders the
+     free-shipping hint (markup moved verbatim from `cart/page.tsx`) AND the
+     `CouponBox`, holding a mirrored `coupon` state fed by CouponBox's new
+     callback. Hint states: (a) applied free_shipping coupon → emerald
+     coupon-attributed block "Free shipping active — {code} applied at
+     checkout" (Truck icon; no progressbar — shipping is already free); (b) no
+     coupon, subtotal ≥ threshold → the existing "You've unlocked free
+     shipping!" block; (c) otherwise → the existing progress bar + "Add {X}
+     more for free shipping". A percent/fixed coupon leaves states (b)/(c)
+     unchanged (the threshold still applies pre-discount).
+  2. `CouponBox` gains an optional `onAppliedChange?: (applied: AppliedCoupon
+     | null) => void` and the `AppliedCoupon` type is exported; the callback
+     fires on apply success (the payload), on a not-ok response (null), and on
+     remove (null) — the network-catch branch leaves state untouched, so it
+     fires nothing (same shape as `setApplied`). Silent hydration re-apply
+     flows through the same success path.
+  3. `cart/page.tsx` swaps the hint JSX + bare `<CouponBox />` for
+     `<CartSummaryWidgets subtotalCents={summary.subtotal}
+     thresholdCents={settings.freeShippingThresholdCents} />` (server facts as
+     props → the first client render matches the server HTML — no hydration
+     mismatch by construction).
+- **Tests:** new `tests/unit/cart-widgets.test.tsx` (jsdom component test, the
+  S14-1 toaster precedent) pins all hint states by driving the real CouponBox
+  through stubbed fetch (progress state below threshold; unlocked state at
+  threshold; percent coupon leaves the progress state; free_shipping coupon
+  swaps to the coupon-attributed block and removes the nag; remove restores the
+  progress state). `tests/e2e/free-shipping-coupon.spec.ts` gains a cart-hint
+  pin: the $34.99 pin cart shows "Add $15.01 more for free shipping" pre-apply,
+  the hint swaps on FREESHIP apply, and restores on remove.
+
+### Dispositions (no change, recorded)
+
+- **Carried deferrals (S21-7 REMOVED — resolved by S23-2):** login-limiter
+  lockout tradeoff (S8-8), checkout P2002 recovery-loop integration seam,
+  review action two-tier gate pin, `/track-order` page-limiter wiring pin, and
+  the external-service epics (real email delivery, OAuth, real payments —
+  blocked on sandbox-external credentials/SMTP).
+
+## 3. Execution log (session 23)
+
+- [x] RED — `tests/unit/cart-widgets.test.tsx` failed on the missing
+      `CartSummaryWidgets` export (component does not exist): import-resolution
+      failure, 4 of the 5 assertions unreachable
+- [x] GREEN — `cart-widgets.tsx` + the CouponBox `onAppliedChange` callback +
+      the `cart/page.tsx` rewire; **5/5 new pins green** (391/391 unit)
+- [x] E2E — the free-shipping spec's cart-hint pin green against the fresh
+      build (**66/66 e2e**)
+- [x] S23-1 — the whitespace-only line dropped
+- [x] Full gate chain re-run green (lint · typecheck · typecheck:tests ·
+      391/391 unit · build · 66/66 e2e); manual verification (agent-browser on
+      the fresh build: the cart hint swaps on FREESHIP apply and restores on
+      remove; mobile menu open → 7 links → close → unmount; zero console
+      errors)
+- [x] Screenshots refreshed (25 — the new `04b-cart-coupon-hint` evidence shot
+      documents the coupon-attributed state; the capture script's cart step
+      also lost its click→goto race — the badge now gates the navigation);
+      docs sweep; worklog updated

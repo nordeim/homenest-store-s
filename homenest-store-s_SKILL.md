@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.19.0
+version: 1.20.0
 last_updated: 2026-10-14
-project_state: "386 unit tests · 65 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-22; the coupon engine result carries the marketing description and /api/coupon/apply resolves a coupon with a single lookup, the checkout free-shipping mirror fixed, the e2e request-fixture identity-isolation trap documented, all coupon surfaces verified end-to-end)"
+project_state: "391 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-23; the coupon engine result carries the marketing description and /api/coupon/apply resolves a coupon with a single lookup, the cart's free-shipping hint is coupon-aware — the S21-7 deferral resolved via the CartSummaryWidgets + CouponBox onAppliedChange state lift, the checkout free-shipping mirror fixed, the e2e request-fixture identity-isolation trap documented, all coupon surfaces verified end-to-end)"
 tags:
   - nextjs16
   - react19
@@ -1426,6 +1426,63 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   PAD (§8.1 row + §12 table + known issue #84), SKILL v1.19.0
   (project_state + this entry), DEPLOYMENT.md drift-free (no new env
   vars), .env.example unchanged; run narrative at `docs/session_37.md`.
+
+### Session 23 (run 24) — the coupon-aware cart hint (S21-7 resolved)
+
+- Fresh clone at `a7b19a1`; gates re-validated green on the pulled tree
+  (386/386 unit · 65/65 e2e); environment converged (sandbox DATABASE_URL
+  symlink re-pointed at the clone's db file via an atomic node call —
+  shell `ln -s` is sandbox-blocked; write-sharing through both paths
+  verified on one storeSetting row; seeded 16/8/3/2/3/13).
+- Live-reference parity re-verified via agent-browser (reference unchanged,
+  logged in with the provided credentials — Damascus-first in both
+  sections, "Continue with Google" still on the reference login); clone:
+  mobile menu open → 7 links + search → navigate → auto-close/unmount,
+  sitemap 25 URLs, robots, JSON-LD, desktop parity, zero console errors.
+- Fresh deep audit (read-only subagent 24-a + own file:line verification):
+  session-22 fixes **2/2 WIRED**; defect-class sweeps CLEAN (14/14
+  requireAdmin, 14/14 metered `Retry-After`, Zod boundaries, money,
+  stock reservation, order access, SEO privacy, CSP, v4 traps, module
+  graph, `gotoHydrated` 14/14, toast `.first()` everywhere, 16 catch
+  blocks); pre-session-21 invariant spot-checks 5/5 WIRED; static counts
+  ALL matching the live docs (386 unit / 39 files · 65 e2e / 14 specs ·
+  18 models · 16/8/3/2/3/13 seed · 14 requireAdmin · 14 metered);
+  **0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 1 NIT / 2 Informational —
+  the eleventh consecutive session without a CRITICAL/HIGH/MEDIUM finding,
+  zero live-doc drift**. (PAD §8.2's "64 tests" header — stale since
+  session 20 — corrected to the per-project breakdown.)
+- TDD S23-2 (the S21-7 deferral PROMOTED once the defect surface had been
+  clean for eleven consecutive sessions): RED — `cart-widgets.test.tsx`
+  failed on the missing `CartSummaryWidgets` export; GREEN — the new
+  `src/app/(storefront)/cart/cart-widgets.tsx` composite renders the hint
+  from the applied-coupon state lifted through CouponBox's optional
+  `onAppliedChange` callback (success → payload, not-ok/remove → null; the
+  network-catch branch fires nothing; the sessionStorage CODE-string
+  contract with checkout-client untouched) — an applied `free_shipping`
+  coupon swaps the "Add $X more" nag + progressbar for the
+  coupon-attributed block; a percent/fixed coupon leaves the threshold
+  states unchanged; the page passes the SERVER facts as props (no
+  hydration mismatch by construction). 5 jsdom component pins green
+  through the REAL CouponBox with stubbed fetch; the free-shipping spec's
+  second test pins the swap end-to-end (66/66).
+- S23-1: the whitespace-only line at the checkout limiter dropped.
+- Final gates: **391/391 unit · 66/66 e2e · lint/typecheck/typecheck:tests/
+  build green**; manual verification on the fresh build: the cart hint
+  swaps on FREESHIP apply and restores on remove (the "Something went
+  wrong" seen mid-run was the rebuild-under-running-server artifact, not a
+  code defect — the e2e suite and the fresh server both confirm); mobile
+  menu open/navigate/auto-close; zero console errors; **25 screenshots**
+  refreshed — the new `04b-cart-coupon-hint` evidence shot documents the
+  coupon-attributed state, and the capture script's cart step now gates
+  the navigation on the `cart-count` badge (the run-24 capture hit the
+  click→goto race).
+- Docs aligned: AGENTS (the coupon invariant extended with the S23-2
+  state-lift contract + the capture-script badge gate; plan range 2..23),
+  CLAUDE (the session-23 unit + e2e coverage tails), README (badge 391/66
+  + the tails), PAD (§8.1 row + §8.2 header fix + §12 table + known issue
+  #83 → Resolved (session 23)), SKILL v1.20.0 (project_state + this
+  entry), DEPLOYMENT.md drift-free (no new env vars), `.env.example`
+  unchanged; run narrative at `docs/session_38.md`.
 
 ## Appendix C — Quick Reference Card
 

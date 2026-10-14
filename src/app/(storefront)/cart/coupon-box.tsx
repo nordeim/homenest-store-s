@@ -18,15 +18,28 @@ type CouponApplyResponse =
   | { ok: true; code: string; discount: number; label: string; description: string; freeShipping?: true }
   | { ok: false; error: string };
 
-type AppliedCoupon = { code: string; discount: number; label: string; description: string; freeShipping?: true };
+export type AppliedCoupon = { code: string; discount: number; label: string; description: string; freeShipping?: true };
 
 /**
  * CouponBox — coupon code entry for the cart summary card. Applies via
  * POST /api/coupon/apply (the server re-derives the discount from the live
  * cart), shows inline success/error state and persists the code to
  * sessionStorage for checkout.
+ *
+ * Session-23 S23-2: the applied state is reported UP through the optional
+ * `onAppliedChange` callback (success → payload, not-ok → null, remove →
+ * null; the network-catch branch leaves state untouched so it fires nothing)
+ * so the sibling free-shipping hint (CartSummaryWidgets) can react. The
+ * sessionStorage contract (the CODE string for checkout-client.tsx) is
+ * unchanged.
  */
-export function CouponBox({ className }: { className?: string }) {
+export function CouponBox({
+  className,
+  onAppliedChange,
+}: {
+  className?: string;
+  onAppliedChange?: (applied: AppliedCoupon | null) => void;
+}) {
   const [applied, setApplied] = React.useState<AppliedCoupon | null>(null);
   const [input, setInput] = React.useState("");
   const [pending, setPending] = React.useState(false);
@@ -52,11 +65,13 @@ export function CouponBox({ className }: { className?: string }) {
         const data = (await res.json()) as CouponApplyResponse;
         if (data.ok) {
           setApplied(data);
+          onAppliedChange?.(data);
           window.sessionStorage.setItem(COUPON_STORAGE_KEY, data.code);
           setInput("");
           if (!silent) toast({ title: `Coupon ${data.code} applied`, description: data.label, variant: "success" });
         } else {
           setApplied(null);
+          onAppliedChange?.(null);
           window.sessionStorage.removeItem(COUPON_STORAGE_KEY);
           setError(data.error);
           if (!silent) toast({ title: "Coupon not applied", description: data.error, variant: "destructive" });
@@ -68,7 +83,7 @@ export function CouponBox({ className }: { className?: string }) {
         setPending(false);
       }
     },
-    [toast],
+    [toast, onAppliedChange],
   );
 
   // Pick up a code stored by a previous apply (or carried from checkout).
@@ -85,6 +100,7 @@ export function CouponBox({ className }: { className?: string }) {
 
   function remove() {
     setApplied(null);
+    onAppliedChange?.(null);
     setError(null);
     window.sessionStorage.removeItem(COUPON_STORAGE_KEY);
     toast({ title: "Coupon removed" });

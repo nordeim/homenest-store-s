@@ -78,4 +78,36 @@ test.describe("free_shipping coupon (S20-6)", () => {
     await expect(shippingRow).toContainText("FREE");
     expect(params.get("order")).toMatch(/^ORD-\d{4}-\d{3}$/);
   });
+
+  // Session-23 S23-2 — the cart's free-shipping hint is coupon-aware (the
+  // S21-7 deferral resolved). The same pin cart ($34.99, below the $50
+  // threshold) shows the progress nag pre-apply; an applied FREESHIP swaps
+  // the nag for the coupon-attributed block (shipping is ALREADY free — the
+  // "Add $X more" text would contradict the applied block right below it);
+  // removing the coupon restores the threshold-based hint.
+  test("the cart hint goes coupon-aware: nag → applied → restore", async ({ page }) => {
+    await gotoHydrated(page, "/products");
+    const card = page.locator("article").filter({ hasText: "French Rolling Pin & Baking Set" }).first();
+    await card.getByRole("button", { name: "Add to Cart" }).click();
+    await expect(page.getByTestId("cart-count")).toHaveText("1");
+
+    await gotoHydrated(page, "/cart");
+    const nag = page.getByText("Add $15.01 more for free shipping");
+    await expect(nag).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Progress toward free shipping" })).toBeVisible();
+
+    // Apply FREESHIP — the nag and the progressbar give way to the
+    // coupon-attributed block.
+    await page.getByLabel("Coupon code").fill("FREESHIP");
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(page.getByText("Free shipping active — FREESHIP applied at checkout")).toBeVisible();
+    await expect(nag).toHaveCount(0);
+    await expect(page.getByRole("progressbar", { name: "Progress toward free shipping" })).toHaveCount(0);
+
+    // Remove — the threshold-based hint returns.
+    await page.getByRole("button", { name: "Remove coupon FREESHIP" }).click();
+    await expect(nag).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "Progress toward free shipping" })).toBeVisible();
+    await expect(page.getByText("Free shipping active — FREESHIP applied at checkout")).toHaveCount(0);
+  });
 });

@@ -42,6 +42,16 @@ async function login(page, email, password) {
   await page.waitForURL(/\/(admin|account)/, { timeout: 15_000 });
 }
 
+/** Deterministic add-to-cart: the header badge must read the given count. */
+async function expectBadgeCount(page, count) {
+  const badge = page.getByTestId("cart-count");
+  await badge.waitFor({ state: "visible", timeout: 15_000 });
+  const text = (await badge.textContent())?.trim();
+  if (text !== String(count)) {
+    throw new Error(`cart-count badge shows "${text}", expected "${count}"`);
+  }
+}
+
 const browser = await chromium.launch();
 
 // ---------- Public desktop pages ----------
@@ -63,8 +73,32 @@ await shoot(browser, desktop, "04-cart", "full", async (page) => {
   await page.goto("/products");
   await page.waitForSelector('html[data-hydrated="true"]');
   await page.locator("article").first().getByRole("button", { name: "Add to Cart" }).click();
+  // The add is a fire-and-forget fetch — wait for the badge before the
+  // navigation or the goto aborts it and the shot captures the empty cart
+  // (session-23: the run-24 capture hit exactly this race).
+  await expectBadgeCount(page, 1);
   await page.goto("/cart");
   await page.waitForLoadState("networkidle");
+});
+// Session-23 S23-2 evidence: the coupon-aware free-shipping hint. A
+// below-threshold cart shows the progress nag; an applied FREESHIP swaps it
+// for the coupon-attributed block (the S21-7 contradiction, resolved).
+await shoot(browser, desktop, "04b-cart-coupon-hint", "full", async (page) => {
+  await page.goto("/products");
+  await page.waitForSelector('html[data-hydrated="true"]');
+  await page
+    .locator("article")
+    .filter({ hasText: "French Rolling Pin & Baking Set" })
+    .first()
+    .getByRole("button", { name: "Add to Cart" })
+    .click();
+  await expectBadgeCount(page, 1);
+  await page.goto("/cart");
+  await page.waitForLoadState("networkidle");
+  await page.getByText("Add $15.01 more for free shipping").waitFor();
+  await page.getByLabel("Coupon code").fill("FREESHIP");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await page.getByText("Free shipping active — FREESHIP applied at checkout").waitFor();
 });
 await shoot(browser, desktop, "05-login", "viewport", async (page) => {
   await page.goto("/login");

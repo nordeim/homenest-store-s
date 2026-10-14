@@ -106,7 +106,6 @@ export async function POST(request: NextRequest) {
 
     // Per-client budget (x-forwarded-for when behind a proxy, shared bucket
     // for direct connections). Generous: blocks scripted spam, not shoppers.
-    
     const limit = rateLimit(`checkout:${clientIp(request.headers)}`, 20, 60_000);
     if (!limit.ok) {
       return NextResponse.json(

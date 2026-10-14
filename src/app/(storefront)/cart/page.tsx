@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ShoppingBag, Truck } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
@@ -9,7 +9,7 @@ import { formatMoney } from "@/lib/money";
 import { getSettings } from "@/lib/settings";
 
 import { CartLines } from "./cart-lines";
-import { CouponBox } from "./coupon-box";
+import { CartSummaryWidgets } from "./cart-widgets";
 
 export const dynamic = "force-dynamic";
 
@@ -47,9 +47,6 @@ export default async function CartPage() {
     );
   }
 
-  const remaining = settings.freeShippingThresholdCents - summary.subtotal;
-  const progress = Math.min(100, Math.round((summary.subtotal / settings.freeShippingThresholdCents) * 100));
-
   return (
     <div className="container-page py-10">
       <h1 className="font-display text-3xl font-bold sm:text-4xl">Shopping Cart</h1>
@@ -79,32 +76,7 @@ export default async function CartPage() {
               </div>
             </dl>
 
-            {summary.subtotal < settings.freeShippingThresholdCents ? (
-              <div className="mt-4 rounded-xl bg-secondary/60 p-3">
-                <p className="text-xs text-muted-foreground">
-                  Add <span className="font-semibold text-primary">{formatMoney(remaining)}</span> more for free
-                  shipping
-                </p>
-                <div
-                  className="mt-2 h-2 overflow-hidden rounded-full bg-border"
-                  role="progressbar"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={progress}
-                  aria-label="Progress toward free shipping"
-                >
-                  <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
-                </div>
-              </div>
-            ) : (
-              <p className="mt-4 flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-2.5 text-xs font-medium text-emerald-700">
-                <Truck className="h-4 w-4" aria-hidden /> You&apos;ve unlocked free shipping!
-              </p>
-            )}
-
-            <div className="mt-4">
-              <CouponBox />
-            </div>
+            <CartSummaryWidgets subtotalCents={summary.subtotal} thresholdCents={settings.freeShippingThresholdCents} />
 
             <div className="mt-4 flex items-baseline justify-between border-t border-border pt-4">
               <span className="text-sm text-muted-foreground">Estimated Total</span>
