@@ -459,3 +459,23 @@ Stage Summary:
 - Session-27 remediation complete and pushed: remote main advances 8059a67 → this commit (fast-forward, main only, no new branches). All user checklist items satisfied.
 - Codebase state: 432 unit + 66 e2e green; the route-level 429 wiring-pin debt is FULLY retired — all 14 metered HTTP surfaces carry route-level boundary pins; two whitespace NITs fixed; one Informational disposed; docs fully aligned.
 - Remaining carried deferrals: the deliberate S8-8 login-limiter lockout tradeoff, the small UI/infra dispositions (404-shell CSP nonce, __Host- prefix, shared-store limiter, radiogroup roving focus, address content dedup), and the external-service epics (real mailer, OAuth, real payments — sandbox-blocked). The natural next increment: order-status email notifications once a mailer lands.
+
+---
+Task ID: 29 (session 28 — homenest-store-s)
+Agent: Super Z (main agent + 29-a read-only audit subagent)
+Task: Full audit/remediation cycle on github.com/nordeim/homenest-store-s — workspace refresh (fresh clone after the sandbox reset; session_46/47 docs), gates re-validation, live-reference parity, deep audit (session 27 state), the hygiene/precision remediation, screenshots, docs alignment, commit + SSH push to main.
+
+Work Log:
+- Sandbox reset detected → fresh clone at 62cfdc5 (= a37508a session-27 remediation + the operator's session_47.md log commit); env shadowing converged via the symlink (one inode verified); .env from the file:../db/custom.db contract + dev AUTH_SECRET; seeded 16/8/3/3/13.
+- Gates on the pulled tree: 432/432 unit · 66/66 e2e · lint/typecheck/typecheck:tests/build green — the session-27 state reproduces exactly.
+- Live-reference parity + mobile menu + SEO re-verified via agent-browser (reference logged in with the provided credentials; Damascus-first; clone: mobile nav open → 7 links + search → navigate → drawer unmounted, sitemap 25 URLs, robots, JSON-LD, desktop parity, zero console messages/errors).
+- Deep audit (29-a): session-27 fixes 3/3 WIRED (all 11 new boundary pins re-verified point-by-point); sweeps clean (9 fully + 4 documented-pattern-only); counts 11/11 MATCH; carried deferrals 8/8 accurate; 0 CRITICAL/HIGH/MEDIUM/LOW (16th consecutive) — 2 NIT + 4 Informational; all findings operator-verified at file:line.
+- TDD S28-1/S28-2 (the NITs): the unspaced //CouponApplyResponse comment (api-boundaries.test.ts:440) and the comma-style member on the CouponApplyResponse failure variant (coupon/apply/route.ts:12) fixed — the boundary suite 21/21 green before AND after is the zero-behavior evidence (no RED phase possible for comment/annotation-only changes); the runtime `ok: false, error` literals in coupons.ts deliberately untouched (comma members are correct there).
+- S28-3 (the four Informationals): the plan's S27-3 execution-log box ticked with a transparency note (the work shipped in a37508a); the S27-1 "21/21" line clarified to 17 describes / 21 cases; SKILL §5 now carries the reproducible count command (git ls-files src/ | grep -E '\.(ts|tsx)$' — the GLOB pathspec misses src/proxy.ts); Info-3 (audit-brief path drift) recorded as a disposition — it never lived in a repo doc.
+- Final gates: 432/432 unit · 66/66 e2e · lint/typecheck/typecheck:tests/build green; manual verification on the fresh remediated server (zero console messages/errors, mobile menu contract intact, sitemap 25 URLs); 25 screenshots refreshed.
+- Docs aligned: README (badge 432/66 verified), PAD (§8.1/§12 verified), SKILL v1.25.0 (project_state + Appendix B session-28 entry + §5 count command), AGENTS.md (plan range 2..28), CLAUDE.md (the session-28 tail), DEPLOYMENT.md (no drift), .env.example unchanged, docs/session_48.md, repo worklog Task 29.
+
+Stage Summary:
+- Remote main advances a37508a → this commit (fast-forward, main only, no new branches). All user checklist items satisfied.
+- Codebase state: 432 unit + 66 e2e green; 16 consecutive sessions without a substantive code finding; the audit's only actionable items (2 NITs + 4 Informationals) are all disposed this session.
+- Remaining carried deferrals: the deliberate S8-8 login-limiter lockout tradeoff, the small UI/infra dispositions (404-shell CSP nonce, __Host- prefix, shared-store limiter, radiogroup roving focus, address content dedup), and the external-service epics (real mailer, OAuth, real payments — sandbox-blocked). Natural next increment: order-status email notifications once a mailer lands.

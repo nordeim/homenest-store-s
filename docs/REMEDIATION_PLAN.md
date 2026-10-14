@@ -2606,10 +2606,12 @@ split).
 
 - [x] S27-2 whitespace strips (the two space-only lines + the triple
       blank) — zero whitespace-only lines in src/ verified after
-- [x] S27-1 pins written and green on the unmutated code — 11 describes,
-      single-hop unique-IP isolation, the `@/lib/auth` module mock with the
-      per-describe user override — 21/21 (11 new + 10 existing) GREEN ON
-      THE FIRST RUN (the C1 isolation convention pre-applied)
+- [x] S27-1 pins written and green on the unmutated code — 11 new describes
+      appended, single-hop unique-IP isolation, the `@/lib/auth` module mock
+      with the per-describe user override — 21/21 boundary CASES (11 new +
+      10 existing; 17 describes / 21 cases total in the file — clarified in
+      session-28) GREEN ON THE FIRST RUN (the C1 isolation convention
+      pre-applied)
 - [x] RED (mutation checks) — M1 (coupon 30→29) failed EXACTLY the coupon
       pin (1); M2 (cart 60→59) failed EXACTLY the three cart pins — the
       isolation proof (each describe exhausted its OWN bucket); sites
@@ -2618,4 +2620,135 @@ split).
       (10/10 boundary describes unchanged)
 - [x] Full gate chain re-run green (lint · typecheck · typecheck:tests ·
       432/432 unit · build · 66/66 e2e)
-- [ ] S27-3 docs sweep + screenshots + worklog + session_46.md
+- [x] S27-3 docs sweep + screenshots + worklog + session_46.md
+      (ticked in session-28: the work demonstrably shipped in the same
+      commit `a37508a` — session_46.md, SKILL v1.24.0, README 432/66 —
+      but the box was left unticked in run 28; recorded as Informational-2)
+
+# Session 28 (run 29) — 2026-10-14
+
+## 1. Audit summary (evidence-based)
+
+Fresh clone `62cfdc5` (the sandbox was reset between runs; the clone HEAD is
+the pushed main tip — `a37508a`, the session-27 remediation, plus the
+operator's session-log commit appending `docs/session_47.md`). All core
+docs + `session_46`/`session_47` + the plan (sessions 2–27) + `worklog.md`
+cross-checked against the code: docs and code agree; the project is in the
+session-27-completed state. This run = **Run 29 (session-28 cycle)**; the
+narrative numbering lands on `session_48.md`, worklog Task 29.
+
+Environment: `.env` recreated from the `file:../db/custom.db` contract + the
+dev `AUTH_SECRET`; the sandbox's shadow `DATABASE_URL`
+(`file:/home/z/my-project/db/custom.db` → the pre-reset path) converged to
+the repo's `db/custom.db` via the symlink (one inode verified). Seed counts
+through the shadow path 16/8/3/3/13 (+ the admin/demo users). `skills/`
+excluded from all checking/testing/compilation per the operator contract.
+
+Gates re-validated on the pulled tree: lint ✓ · typecheck ✓ ·
+typecheck:tests ✓ · **432/432 unit** ✓ · build ✓ · **66/66 e2e** ✓ — the
+documented session-27 state reproduces exactly.
+
+Live-reference parity re-verified via agent-browser (reference logged in
+with the provided credentials; Damascus-first in Featured; the four trust
+badges): clone home title + Damascus-first + JSON-LD + zero console
+messages/errors, sitemap 25 URLs, robots disallows `/admin /account
+/checkout /api` + sitemap ref, mobile menu contract intact (390×844: open →
+`nav[aria-label="Mobile"]` exactly 7 links (Home|Products|Track Order|About|
+Contact|Sign In|Wishlist) + the search box in the panel → navigate → drawer
+unmounted), desktop parity (4 trust badges, hero, cream/terracotta palette).
+
+Fresh deep audit (read-only subagent 29-a + operator file:line
+verification): session-27 fixes **3/3 WIRED** (all 11 new boundary pins
+verified point-by-point — budgets, single-hop unique-IP isolation, the full
+429 contract incl. the coupon `CouponApplyResponse` body, S15-1 slot
+accounting, the `@/lib/auth` mock reset + per-describe user override;
+whitespace classes at zero; docs claims match). Defect-class sweeps clean
+(9 fully clean + 4 documented-pattern-only). Static counts **11/11 MATCH**
+(46/432 unit · 14/66 e2e · 18 models · 14 requireAdmin · 14 metered ·
+16 catch blocks · 127 tracked TS files · 25 screenshots · 3 DSIH). All 8
+carried deferrals accurate (none silently resolved). New findings **0
+CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW — the sixteenth consecutive session
+without a substantive code finding — 2 NIT / 4 Informational.** Operator
+verification reproduced every finding at the cited lines (the
+`//CouponApplyResponse` comment, the comma-style type member, the unticked
+S27-3 box at the plan's last line, the 21/21 phrasing, and the
+review-form path — which lives at
+`src/app/(storefront)/product/[id]/review-form.tsx`, the drift being in
+the audit brief, not in any repo doc).
+
+## 2. Findings → work items
+
+### S28-1 (NIT — comment hygiene) — missing space after `//`
+
+- **Evidence:** `tests/unit/api-boundaries.test.ts:440` —
+  `//CouponApplyResponse shape …` (the S27-1 comment lost the space after
+  the `//` marker; every other comment in the file is spaced).
+- **Fix:** one-character insertion. No RED phase is possible for a
+  comment-only change; the boundary suite green before AND after IS the
+  zero-behavior-change evidence.
+
+### S28-2 (NIT — type style consistency) — comma vs semicolon member separator
+
+- **Evidence:** `src/app/api/coupon/apply/route.ts:12` — the
+  `CouponApplyResponse` failure variant is written
+  `{ ok: false, error: string }` (comma-style members) while the success
+  variant on line 11 uses semicolons. Legal TS, purely cosmetic, but the
+  type is the file's contract anchor and the two lines should not mix
+  styles.
+- **Fix:** comma → semicolon. Same zero-behavior reasoning (type
+  annotation only); typecheck + the full suite are the evidence.
+
+### S28-3 (docs precision) — the four Informationals
+
+- **Evidence:** (Info-2) the plan's Session 27 execution log ends with an
+  unticked `[ ] S27-3` box although the work shipped in `a37508a`;
+  (Info-1) the S27-1 log line reads "21/21 (11 new + 10 existing)" — both
+  numbers are true of `it()` cases (11 new describes appended, 17
+  describes / 21 cases total in the file) but the phrasing reads as a
+  describe count; (Info-3) the carried-deferral records cite the
+  review-form radiogroup correctly, but future audit briefs must use the
+  real path `src/app/(storefront)/product/[id]/review-form.tsx`;
+  (Info-4) the "127 tracked TS files" anchor is correct and includes
+  `src/proxy.ts`, which the `src/**/*.ts` glob pathspec misses — the
+  reproducible count command is `git ls-files src/ | grep -E '\.(ts|tsx)$'`.
+- **Fix:** tick the S27-3 box with a transparency note; clarify the S27-1
+  line to "17 describes / 21 cases"; add the counting command parenthetical
+  to SKILL §5; record Info-3/Info-4 as dispositions (no repo defect —
+  brief hygiene for the next cycle's audit prompt).
+
+### S28-4 (docs sweep) — the standard alignment after S28-1..3 land
+
+- **Evidence:** the plan range, the SKILL version/project_state, the
+  CLAUDE.md tail, and the Appendix B record must reflect session-28;
+  counts unchanged (432/66) so README/PAD need only verification.
+- **Fix:** SKILL v1.24.0 → v1.25.0 (project_state + the Appendix B
+  session-28 entry), AGENTS.md plan range 2..27 → 2..28, CLAUDE.md tail,
+  README/PAD/DEPLOYMENT.md drift checks, `.env.example` verification, the
+  25 screenshots refresh, `docs/session_48.md`, worklog Task 29, and the
+  execution log below.
+
+### Dispositions (no change, recorded)
+
+- **Carried deferrals (unchanged, all verified standing):** S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce (static shell);
+  `__Host-` prefix; shared-store limiter; radiogroup roving focus
+  (WCAG-conformant as-is — individually focusable/operable buttons);
+  address content dedup; the external-service epics (real email delivery,
+  OAuth, real payments — blocked on sandbox-external credentials/SMTP).
+  The route-level 429 grid stays retired (no new metered surface).
+- **Info-3 (audit-brief path drift)** lives in the operator's audit
+  prompt, not in any repo document — no repo change; recorded here so the
+  next cycle's brief cites the right path.
+- **Info-4 (count command)** recorded via the SKILL §5 parenthetical.
+
+## 3. Execution log (session 28)
+
+- [x] S28-1 comment space (api-boundaries.test.ts:440) — suite green
+      before/after
+- [x] S28-2 type member separator (coupon/apply/route.ts:12) — typecheck
+      + suite green
+- [x] S28-3 docs precision (the S27-3 tick + the 17-describes/21-cases
+      clarification + the SKILL §5 count command)
+- [x] S28-4 docs sweep + screenshots + worklog + session_48.md
+- [x] Full gate chain re-run green (lint · typecheck · typecheck:tests ·
+      432/432 unit · build · 66/66 e2e)

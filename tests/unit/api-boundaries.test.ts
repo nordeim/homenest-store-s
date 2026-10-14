@@ -437,7 +437,7 @@ describe("POST /api/coupon/apply — 429 wiring (S27-1, 30/min)", () => {
     // In-budget attempts parse, pass the limiter, and die on the empty guest
     // cart — a 200 with { ok: false } (the L3 split: a domain no is not an
     // HTTP error). The 31st is the boundary, and its body is the route's
-    //CouponApplyResponse shape — NOT the generic `{ error }` sibling copy.
+    // CouponApplyResponse shape — NOT the generic `{ error }` sibling copy.
     const statuses: number[] = [];
     for (let i = 0; i < 30; i++) {
       const res = await couponApplyPOST(nextReq("POST", "/api/coupon/apply", "203.0.113.56", JSON.stringify({ code: "SAVE10" })));

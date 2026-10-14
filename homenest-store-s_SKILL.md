@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.24.0
+version: 1.25.0
 last_updated: 2026-10-14
-project_state: "432 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-27; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine — and session-27 completed the route-level 429 wiring-pin grid: ALL 14 metered HTTP surfaces now carry route-level boundary pins in api-boundaries.test.ts)"
+project_state: "432 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-28; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine — session-27 completed the route-level 429 wiring-pin grid: ALL 14 metered HTTP surfaces carry route-level boundary pins in api-boundaries.test.ts — and session-28 is the hygiene/precision pass: the two audit NITs fall (the unspaced //CouponApplyResponse comment, the comma-style type member on the CouponApplyResponse failure variant), the plan's S27-3 checkbox is ticked with a transparency note, and the count/phrasing anchors are made reproducible)"
 tags:
   - nextjs16
   - react19
@@ -181,7 +181,10 @@ Key mechanics:
 
 ## 5. Component Architecture & Patterns
 
-127 tracked TS files. Component split in `src/components/`:
+127 tracked TS files (reproducible count:
+`git ls-files src/ | grep -E '\.(ts|tsx)$'` — a `src/**/*.ts` GLOB
+pathspec misses `src/proxy.ts` at the src root; use the ls-files form).
+Component split in `src/components/`:
 **13 client** (`"use client"`) and **9 server** components; 38 client files
 across all of `src/` (pages' interactive islands included).
 
@@ -1689,6 +1692,45 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   header 432 + the api-boundaries row + §12 table), SKILL v1.24.0
   (project_state + this entry), DEPLOYMENT.md drift-free (no new env
   vars), `.env.example` unchanged; run narrative at `docs/session_46.md`.
+
+### Session 28 (run 29) — hygiene & precision pass (16th clean session)
+
+- Deep audit 29-a at HEAD `62cfdc5` (fresh clone — the sandbox reset
+  between runs; the clone tip = `a37508a` + the operator's
+  `session_47.md` log commit): session-27 fixes **3/3 WIRED** with
+  point-by-point evidence (all 11 new boundary pins re-verified — budgets,
+  single-hop unique-IP isolation, the full 429 contract incl. the coupon
+  `CouponApplyResponse` body, S15-1 slot accounting, the `@/lib/auth`
+  mock reset + per-describe user override; the whitespace classes at
+  zero; the docs claims match). Defect-class sweeps clean (9 fully clean
+  + 4 documented-pattern-only). Static counts **11/11 MATCH**. All 8
+  carried deferrals accurate. **0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW /
+  2 NIT / 4 Informational — the sixteenth consecutive session without a
+  substantive code finding.**
+- **The NITs (S28-1/S28-2):** the S27-1 comment lost its space after
+  `//` (`api-boundaries.test.ts:440` — `//CouponApplyResponse`), and the
+  `CouponApplyResponse` failure variant mixed member styles
+  (`{ ok: false, error: string }` comma-style next to the semicolon-style
+  success variant — `coupon/apply/route.ts:12`). Both fixed; the boundary
+  suite green before AND after is the zero-behavior evidence (no RED
+  phase is possible for comment/annotation-only changes — stated in the
+  plan, not skipped silently).
+- **The precision pass (S28-3):** the plan's S27-3 execution-log box was
+  left unticked in run 28 although the work shipped in the same commit —
+  ticked with a transparency note (recorded as Informational-2); the
+  S27-1 log line's "21/21 (11 new + 10 existing)" clarified to "boundary
+  CASES … 17 describes / 21 cases total in the file" (Informational-1);
+  SKILL §5 now carries the reproducible count command
+  (`git ls-files src/ | grep -E '\.(ts|tsx)$'` — a `src/**/*.ts` GLOB
+  pathspec misses `src/proxy.ts`; Informational-4). Informational-3 (the
+  review-form path drift lives in the operator's audit brief, not in any
+  repo doc) recorded as a disposition, no repo change.
+- Final gates: **432/432 unit · 66/66 e2e · lint/typecheck/typecheck:tests/
+  build green**; 25 screenshots refreshed; mobile menu contract + sitemap
+  25 URLs + JSON-LD + zero console messages/errors re-verified.
+- Docs aligned: AGENTS (plan range 2..28), CLAUDE (the session-28 tail),
+  SKILL v1.25.0 (project_state + this entry), DEPLOYMENT.md drift-free,
+  `.env.example` unchanged; run narrative at `docs/session_48.md`.
 
 ## Appendix C — Quick Reference Card
 
