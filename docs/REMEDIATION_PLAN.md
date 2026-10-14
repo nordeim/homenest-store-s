@@ -1911,3 +1911,164 @@ guest-order seeding in `admin.spec.ts:67-74` — disposition unchanged.)
       documents the coupon-attributed state; the capture script's cart step
       also lost its click→goto race — the badge now gates the navigation);
       docs sweep; worklog updated
+
+# Session 24 (run 25)
+
+> Deep audit 25-a (read-only subagent, HEAD `e0bcd23`) + operator verification.
+> Workspace refreshed by `git pull` (fast-forward `38301d3` → `e0bcd23`, the
+> operator's session-log commits); gates re-validated green on the pulled tree
+> (lint · typecheck · typecheck:tests · 391/391 unit · build · 66/66 e2e);
+> live-reference parity re-verified via agent-browser (reference unchanged —
+> logged in with the provided credentials; Damascus-first order holds on both
+> sides; clone: mobile menu open → 7 links + search → navigate →
+> auto-close/unmount, sitemap 25 URLs, robots, JSON-LD, desktop parity, zero
+> console errors).
+
+## 1. Audit summary (evidence-based)
+
+Session-23 fixes **2/2 WIRED** (S23-1 the whitespace-only line is gone at
+`checkout/route.ts:107-109`; S23-2 the `CartSummaryWidgets` composite
+`cart-widgets.tsx:28-73` with the three hint states, the `onAppliedChange`
+callback fired on success/not-ok/remove and NOT on the network-catch branch,
+the page passing server facts as props, the 5 jsdom pins + the e2e cart-hint
+pin — all wired, no dead code; the new-code-path adversarial checks found the
+StrictMode no-op hazard safe under the pinned `reactStrictMode: false`).
+Defect-class sweeps 13/13 CLEAN; static counts ALL matching the live docs
+(391 unit / 40 files · 66 e2e / 14 specs · 18 models · 14 requireAdmin · 14
+metered · 16 catch blocks · 25 screenshots); TODO/FIXME/`any`/console.log/
+eval/raw-DSIH scans zero.
+
+**Result (25-a): 0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 0 NIT / 3
+Informational — the twelfth consecutive session without a
+CRITICAL/HIGH/MEDIUM/LOW finding, and zero live-repo-doc drift.**
+(Informational-1: the silent-reapply effect's schedule-then-guard shape would
+no-op under StrictMode dev double-invocation — a missed apply, not a double
+fetch — safe while `reactStrictMode: false` stays pinned; Informational-2: a
+stale stored code surfaces an inline error on revisit; Informational-3: the
+coupon form's Enter path is not `pending`-gated — last-write-wins, harmless.)
+
+**Operator verification** (the personal file:line pass over 25-a's claims)
+surfaced one NIT the subagent missed and re-examined the carried deferrals:
+- **S24-1 (NIT — cosmetic):** a whitespace-only line at
+  `src/app/(storefront)/track-order/page.tsx:99` (between `const h = await
+  headers();` and the limiter call) — the same artifact class as S22-1/S23-1.
+- The **"actions not import-safe in Vitest"** rationale recorded with the
+  review-action gate pin deferral (session 15) has been DISPROVEN by the
+  session-19 precedent: `tests/unit/session19-hardening.test.ts` imports and
+  exercises the guarded coupon actions through mocked `next/cache` + db +
+  auth. The `/track-order` page is a plain async component importable with
+  mocked `next/headers`/db/rate-limit and renderable via
+  `react-dom/server`. The S23-2 logic applies: the defect surface is clean,
+  the technical blocker is gone, and the marginal-benefit calculus has
+  flipped — the deferrals are promoted.
+
+## 2. Findings → work items
+
+### S24-1 (NIT — cosmetic) — whitespace-only line in the track-order limiter block
+
+- **Evidence (operator-verified):** `src/app/(storefront)/track-order/page.tsx:99`
+  — a whitespace-only line (4 spaces) sits between `const h = await
+  headers();` and the `rateLimit(...)` call. Pre-existing, lint-clean, zero
+  behavior.
+- **Fix:** drop the line (same class as S22-1/S23-1).
+
+### S24-2 (deferral promoted — test increment) — the review action's two-tier gate wiring pin
+
+- **Context:** session 15 recorded "review action two-tier gate pin (actions
+  are not import-safe in Vitest — `next/cache`)"; the constraint no longer
+  holds (the session-19 guarded-action precedent). The KEY SHAPE is pinned
+  (`session11-hardening.test.ts`), but nothing pins that
+  `submitReviewAction` actually consults BOTH tiers and rejects when EITHER
+  fails — a refactor that dropped the author-tier check would stay green.
+- **Design (TDD):** new `tests/unit/review-action-gate.test.ts` (the
+  session-19 mock family: `next/cache`, `@/lib/db`, `@/lib/auth`,
+  `next/headers`; `@/lib/rate-limit` PARTIALLY mocked via `importOriginal`
+  so the REAL `reviewRateLimitKeys` derivation feeds the assertion). Pins:
+  (a) the action consults `rateLimit` with BOTH the per-IP key and the
+  per-author key (real derivation, in the wired order); (b) ip-tier failure
+  → `{ ok: false, error: "Too many reviews submitted. Please try again
+  shortly." }` and `db.product.findUnique` never called (no lookup past the
+  gate); (c) author-tier failure with the ip tier ok → the same rejection;
+  (d) both tiers ok → the review row is created inside the transaction with
+  the aggregate grown and `{ ok: true }` returned.
+- **Mutation check (the RED):** temporarily narrow the action's gate to the
+  ip tier only → pin (c) fails; restore.
+
+### S24-3 (deferral promoted — test increment) — the /track-order page-limiter wiring pin
+
+- **Context:** recorded session 21. The page's limiter
+  (`track-order/page.tsx:100`, 30/min per client) fails CLOSED (an
+  over-budget lookup renders the same denial shell as an unknown number),
+  but nothing pins the wiring — a refactor that bypassed the limiter (or
+  failed OPEN with a different shell) would stay green.
+- **Design (TDD):** new `tests/unit/track-order-limiter.test.ts` — mocked
+  `next/headers` (returns fixed `cf-connecting-ip`), `@/lib/db`,
+  `@/lib/rate-limit` (partial: real `clientIp`, `rateLimit` controllable),
+  `next/image` (passthrough); the page's default export invoked as a plain
+  async component with a resolved `searchParams` Promise and rendered via
+  `react-dom/server`'s `renderToString`. Pins: (a) a submitted lookup
+  consults the limiter with the `track-order:` key derived from the client
+  IP and the documented budget; (b) over-budget → `db.order.findUnique`
+  never called AND the rendered HTML is the denial shell (no order
+  details — indistinguishable from unknown-number); (c) under-budget +
+  matching email → the order's status timeline renders; (d) under-budget +
+  wrong email → the same denial shell (no information leak).
+- **Mutation check (the RED):** temporarily bypass the limiter (`if (true)`)
+  → pin (b) fails; restore.
+
+### S24-4 (deferral promoted — integration seam) — the real engine's P2002 shape feeds the tolerant matchers
+
+- **Context:** the checkout recovery loop (`placeOrderWithRetry`) depends on
+  `uniqueTargetField`/`isUniqueViolation` tolerating BOTH the field-array
+  target shape (today's SQLite engine) and the constraint-name string shape.
+  All existing pins (`session8-hardening.test.ts`) use SYNTHETIC error
+  objects — if the Prisma engine changed its live `meta.target` shape, the
+  synthetic pins would stay green while the recovery loop silently died (the
+  exact failure the S8-3 tolerant-matching comment warns about). This is the
+  "checkout P2002 recovery-loop integration seam" recorded session 12.
+- **Design (TDD):** new `tests/unit/checkout-recovery-integration.test.ts`
+  (the `review-transactional.test.ts` temp-SQLite harness: `mkdtempSync` +
+  `prisma db push --skip-generate` + `datasourceUrl`): against a REAL db
+  file, (a) create an order with an `idempotencyKey`, then attempt a
+  colliding create → the caught error is a REAL P2002 AND
+  `uniqueTargetField(err, "idempotencyKey")` is true (the live field-array
+  shape matches the tolerant matcher); (b) a number collision →
+  `isUniqueViolation(err)` true AND `uniqueTargetField(err,
+  "idempotencyKey")` FALSE (cross-field discrimination — the pin is
+  sensitive to matcher drift, not just engine drift); (c) the recovery read
+  `db.order.findUnique({ where: { idempotencyKey } })` returns the winning
+  row — the exact call shape `placeOrderWithRetry` uses after a key
+  collision.
+- **Mutation check (the RED):** temporarily strip `uniqueTargetField`'s
+  field-array branch (string targets only) → pin (a) fails against the real
+  engine error; restore.
+
+### Dispositions (no change, recorded)
+
+- **Carried deferrals (S24-2/S24-3/S24-4 REMOVED — resolved this session):**
+  login-limiter lockout tradeoff (S8-8 — the deliberate per-IP + per-email
+  budget tradeoff stays documented), checkout saveAddress at-cap skip-save
+  integration pin, checkout coupon-cap concurrency harness, review two-tier
+  budgets e2e, route-level 429 wiring pins beyond the S14-2 representatives,
+  404-shell CSP nonce, `__Host-` prefix, shared-store limiter, admin
+  coupon-management UI, radiogroup roving focus, address content dedup, and
+  the external-service epics (real email delivery, OAuth, real payments —
+  blocked on sandbox-external credentials/SMTP).
+
+## 3. Execution log (session 24)
+
+- [x] RED (mutation checks) — 6 of the 11 new pins failed exactly as
+      predicted: S24-2's both-tiers/author-tier/proceed pins against the
+      ip-only gate; S24-4's key-collision + number-collision matcher pins
+      against the real engine's field-array target (proving the live shape
+      needs the branch the mutation stripped); S24-3's over-budget pin
+      against the bypassed limiter. (The RED run also surfaced a mock-hygiene
+      hardening: a partially-consumed `mockReturnValueOnce` queue leaked
+      across tests once the gate called the limiter once instead of twice —
+      the suite now `vi.resetAllMocks()` per test.)
+- [x] GREEN — all three wiring sites restored byte-for-byte (`git status
+      src/` clean); **11/11 new pins green** (402/402 unit)
+- [x] S24-1 — the whitespace-only line dropped
+- [x] Full gate chain re-run green (lint · typecheck · typecheck:tests ·
+      402/402 unit · build · 66/66 e2e)
+- [x] Screenshots refreshed; docs sweep; worklog updated

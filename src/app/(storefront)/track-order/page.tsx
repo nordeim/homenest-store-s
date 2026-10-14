@@ -96,7 +96,6 @@ export default async function TrackOrderPage({
     // match is the access control. Lookups are rate-limited (per client) so
     // iterating number/email pairs is impractical.
     const h = await headers();
-    
     const limit = rateLimit(`track-order:${clientIp(h)}`, 30, 60_000);
     if (limit.ok) {
       const found = await db.order.findUnique({

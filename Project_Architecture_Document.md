@@ -290,7 +290,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 **Two suites, one gate:** `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e` — all must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 391 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 402 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
@@ -336,6 +336,9 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 | `session19-hardening.test.ts` | S19-2 the scoped unset pin (the checkout save's `updateMany` targets ONLY `isDefault: true` rows — the pre-extraction clause restored) + S19-5 the coupon admin boundary: `couponInputSchema` (percent 1..100 superRefinement copy, fixed cents ≥ 1, code charset/length, negative minSubtotal, 0/negative redemption cap, unparseable expiry, defaults), the pure `couponLabel` truth table, and the guarded actions (`upsertCouponAction`/`deleteCouponAction` — admin denial, uppercase normalization, clash pre-check, P2002/P2025 mappings, the S13-2 rethrows; mocked `db`/`auth`/`next/cache`) |
 | `quantity-stepper.test.tsx` | S19-1 (jsdom): a MOCKED `MAX_CART_QUANTITY = 7` proves the QuantityStepper's DEFAULT `max` binds the imported constant — a retyped literal would leave "+" enabled at 7 |
 | `cart-widgets.test.tsx` | S23-2 (jsdom, the S14-1 component-test precedent): `CartSummaryWidgets` renders the progress nag below the threshold and the unlocked block at it; a percent coupon leaves the threshold states unchanged; an applied `free_shipping` coupon swaps the nag + progressbar for the coupon-attributed block; removing the coupon restores the threshold states — driven through the REAL CouponBox with stubbed fetch |
+| `review-action-gate.test.ts` | S24-2 the review action's two-tier gate is WIRED (the session-15 "actions not import-safe" deferral retired by the session-19 mock precedent): BOTH real-derived tier keys consulted (ip 20/min + author 5/min — `@/lib/rate-limit` partially mocked via importOriginal), either failure rejects with the friendly copy and never reaches the product lookup or the transaction, both passing proceeds to the tx insert + aggregate growth + `revalidatePath`; per-test `vi.resetAllMocks()` (a partially-consumed `mockReturnValueOnce` queue must never leak across tier-count differences) |
+| `track-order-limiter.test.ts` | S24-3 the /track-order page-limiter wiring: the page's default export rendered via `renderToString` (mocked headers/db/rate-limit, null next/image) — a submitted lookup consults `track-order:{ip}` at 30/min, over-budget lookups NEVER touch the DB and render the same denial shell as an unknown number, under-budget + matching email renders the tracking surface, wrong email stays indistinguishable (no enumeration leak) |
+| `checkout-recovery-integration.test.ts` | S24-4 the real-engine P2002 integration seam (the temp-SQLite harness): a genuine idempotency-key collision satisfies `uniqueTargetField(err, "idempotencyKey")` against the LIVE field-array `meta.target` shape (all prior matcher pins were synthetic), a number collision discriminates cross-field (`uniqueTargetField(err, "number")` true, the key field false), and the recovery read `findUnique({ where: { idempotencyKey } })` returns the winner — the contract `placeOrderWithRetry`'s recovery loop depends on |
 | `validation.test.ts` (S17-2 addendum) | `MAX_CART_QUANTITY` is 99 and the cart schemas interpolate the shared constant |
 | `api-boundaries.test.ts` (C7 addendum) | Cart DELETE `?all=1`: no cart → `{itemCount:0}` with `deleteMany` never called; guest cart → cartId-scoped `deleteMany` + the fresh summary's `itemCount` |
 
@@ -527,7 +530,7 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | `src/components/store/store-chrome.tsx` | Sticky header + mobile panel + cart drawer |
 | `src/app/(storefront)/admin/coupons/` | The S19-5 coupon-management surface (page + dialog island) |
 | `prisma/schema.prisma` / `seed.ts` | 18 models / idempotent seed |
-| `tests/unit/*` · `tests/e2e/*` | 391 unit · 66 e2e (incl. the v4 guard + tracking access contract + the session-11..23 hardening pins) |
+| `tests/unit/*` · `tests/e2e/*` | 402 unit · 66 e2e (incl. the v4 guard + tracking access contract + the session-11..24 hardening/wiring pins) |
 | `playwright.config.ts` / `vitest.config.ts` | Suite wiring (standalone webServer; iPhone-13-on-Chromium project) |
 
 ---

@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.20.0
+version: 1.21.0
 last_updated: 2026-10-14
-project_state: "391 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-23; the coupon engine result carries the marketing description and /api/coupon/apply resolves a coupon with a single lookup, the cart's free-shipping hint is coupon-aware — the S21-7 deferral resolved via the CartSummaryWidgets + CouponBox onAppliedChange state lift, the checkout free-shipping mirror fixed, the e2e request-fixture identity-isolation trap documented, all coupon surfaces verified end-to-end)"
+project_state: "402 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-24; the coupon engine result carries the marketing description and /api/coupon/apply resolves a coupon with a single lookup, the cart's free-shipping hint is coupon-aware — the S21-7 deferral resolved via the CartSummaryWidgets + CouponBox onAppliedChange state lift, the checkout free-shipping mirror fixed, the e2e request-fixture identity-isolation trap documented, all coupon surfaces verified end-to-end, and the session-24 wiring pins close the carried review-action gate / track-order limiter / P2002 engine-shape deferrals with the real-SQLite integration seam)"391 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-23; the coupon engine result carries the marketing description and /api/coupon/apply resolves a coupon with a single lookup, the cart's free-shipping hint is coupon-aware — the S21-7 deferral resolved via the CartSummaryWidgets + CouponBox onAppliedChange state lift, the checkout free-shipping mirror fixed, the e2e request-fixture identity-isolation trap documented, all coupon surfaces verified end-to-end)"
 tags:
   - nextjs16
   - react19
@@ -1483,6 +1483,51 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   #83 → Resolved (session 23)), SKILL v1.20.0 (project_state + this
   entry), DEPLOYMENT.md drift-free (no new env vars), `.env.example`
   unchanged; run narrative at `docs/session_38.md`.
+
+### Session 24 (run 25) — the carried wiring-pin deferrals resolved
+
+- Deep audit 25-a at HEAD `e0bcd23` (workspace refreshed by `git pull` —
+  fast-forward `38301d3` → `e0bcd23`, the operator's session-log commits):
+  session-23 fixes **2/2 WIRED** with file:line evidence; defect-class sweeps
+  13/13 CLEAN; static counts ALL matching the live docs (391/40 unit · 66/14
+  e2e · 18 models · 14 requireAdmin · 14 metered · 16 catch blocks · 25
+  screenshots); **0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 0 NIT / 3
+  Informational — the twelfth consecutive session without a
+  CRITICAL/HIGH/MEDIUM/LOW finding, zero live-doc drift** (the StrictMode
+  no-op hazard on the silent-reapply effect is safe under the pinned
+  `reactStrictMode: false`; the stale-code inline error and the
+  non-pending-gated Enter path are pre-existing, internally consistent).
+- Operator verification surfaced one NIT the subagent missed (S24-1: a
+  whitespace-only line at `track-order/page.tsx:99`) and re-examined the
+  carried deferrals: the session-15 "actions not import-safe in Vitest"
+  rationale has been DISPROVEN by the session-19 guarded-action mock
+  precedent — the S23-2 logic applies (clean defect surface + blocker gone +
+  calculus flipped), so three deferrals were promoted:
+  **S24-2** the review action's two-tier gate wiring pin,
+  **S24-3** the /track-order page-limiter wiring pin, and
+  **S24-4** the real-engine P2002 integration seam (all prior
+  `uniqueTargetField` pins were synthetic — the temp-SQLite harness now
+  proves a GENUINE idempotency-key collision satisfies the tolerant matcher
+  against the live field-array `meta.target` shape, with cross-field
+  number/key discrimination).
+- RED (mutation checks) — 6 of the 11 new pins failed exactly as predicted
+  (the ip-only gate; the stripped field-array branch against the real engine;
+  the bypassed limiter); the RED run also hardened the mock hygiene (per-test
+  `vi.resetAllMocks()` — a partially-consumed `mockReturnValueOnce` queue
+  must never leak across tier-count differences). GREEN — all three wiring
+  sites restored byte-for-byte; **11/11 new pins green**. S24-1 dropped.
+- Final gates: **402/402 unit · 66/66 e2e · lint/typecheck/typecheck:tests/
+  build green**; manual verification on the fresh build: the track-order
+  denial shell + the tracking surface render (the EADDRINUSE'd stale server
+  from a pre-rebuild start served the error boundary mid-session — killed by
+  PID, one fresh server, all clean — the documented artifact class); mobile
+  menu open → 7 links + search → navigate → auto-close/unmount; zero console
+  errors; **25 screenshots** refreshed.
+- Docs aligned: AGENTS (plan range 2..24), CLAUDE (the session-24 wiring-pin
+  tail), README (badge 402/66 + the tail), PAD (§8.1 header + the three new
+  rows + §12 table), SKILL v1.21.0 (project_state + this entry),
+  DEPLOYMENT.md drift-free (no new env vars), `.env.example` unchanged; run
+  narrative at `docs/session_40.md`.
 
 ## Appendix C — Quick Reference Card
 
