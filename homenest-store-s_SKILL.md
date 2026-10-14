@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.21.0
+version: 1.22.0
 last_updated: 2026-10-14
-project_state: "402 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-24; the coupon engine result carries the marketing description and /api/coupon/apply resolves a coupon with a single lookup, the cart's free-shipping hint is coupon-aware — the S21-7 deferral resolved via the CartSummaryWidgets + CouponBox onAppliedChange state lift, the checkout free-shipping mirror fixed, the e2e request-fixture identity-isolation trap documented, all coupon surfaces verified end-to-end, and the session-24 wiring pins close the carried review-action gate / track-order limiter / P2002 engine-shape deferrals with the real-SQLite integration seam)"391 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-23; the coupon engine result carries the marketing description and /api/coupon/apply resolves a coupon with a single lookup, the cart's free-shipping hint is coupon-aware — the S21-7 deferral resolved via the CartSummaryWidgets + CouponBox onAppliedChange state lift, the checkout free-shipping mirror fixed, the e2e request-fixture identity-isolation trap documented, all coupon surfaces verified end-to-end)"
+project_state: "409 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-25; the coupon engine result carries the marketing description and /api/coupon/apply resolves a coupon with a single lookup, the cart's free-shipping hint is coupon-aware — the S21-7 deferral resolved via the CartSummaryWidgets + CouponBox onAppliedChange state lift, the checkout free-shipping mirror fixed, the e2e request-fixture identity-isolation trap documented, all coupon surfaces verified end-to-end, and the session-24 wiring pins close the carried review-action gate / track-order limiter / P2002 engine-shape deferrals with the real-SQLite integration seam, and the session-25 real-engine harnesses pin the coupon redemption guard and the saveAddress outcome contract against a live SQLite engine)"
 tags:
   - nextjs16
   - react19
@@ -181,8 +181,8 @@ Key mechanics:
 
 ## 5. Component Architecture & Patterns
 
-101 tracked TS files. Component split in `src/components/`:
-**14 client** (`"use client"`) and **9 server** components; 35 client files
+126 tracked TS files. Component split in `src/components/`:
+**13 client** (`"use client"`) and **9 server** components; 38 client files
 across all of `src/` (pages' interactive islands included).
 
 | Folder | Role | Examples |
@@ -1528,6 +1528,62 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   rows + §12 table), SKILL v1.21.0 (project_state + this entry),
   DEPLOYMENT.md drift-free (no new env vars), `.env.example` unchanged; run
   narrative at `docs/session_40.md`.
+
+### Session 25 (run 26) — the real-engine harness family + the doc-NIT sweep
+
+- Deep audit 26-a at HEAD `496761e` (workspace refreshed by `git pull` —
+  fast-forward `4659776` → `496761e`, the operator's session-log commit
+  appending `docs/session_41.md`): session-24 fixes **4/4 WIRED** with
+  file:line evidence (the whitespace scan of `track-order/page.tsx` returns
+  zero; the two-tier gate consults BOTH real-derived keys before any lookup;
+  the page limiter fails CLOSED before the DB read; the real-engine P2002
+  seam cross-checked against `prisma-errors.ts` and the live recovery loop);
+  defect-class sweeps 13/13 CLEAN; static counts ALL matching the live docs
+  (402/43 unit · 66/14 e2e · 18 models · 14 requireAdmin · 14 metered · 16
+  catch blocks · 25 screenshots · 3 DSIH sites); **0 CRITICAL / 0 HIGH / 0
+  MEDIUM / 0 LOW / 2 NIT / 2 Informational — the thirteenth consecutive
+  session without a CRITICAL/HIGH/MEDIUM/LOW finding**. Both NITs are
+  documentation-class: **S25-1** the SKILL `project_state` carried the
+  ENTIRE stale session-23 value glued after the session-24 value's closing
+  quote (a non-idempotent doc-patch artifact from run 25; the operator
+  surfaced it during the doc review — 26-a's `)"`-glued-text scan confirmed
+  it was the only instance), and **S25-2** the §5 structural stats were
+  frozen at the session-6 era (101/14+9/35 → measured **126/13+9/38**);
+  **S25-3** (operator find) a CJK paste artifact in the PAD ADR ("—任何人
+  can mint an admin", pre-existing since the original migration).
+- **Plan bookkeeping (S25-4):** the carried-deferrals list still carried
+  "admin coupon-management UI" — resolved back in session 19 by S19-5; the
+  entry was copy-forwarded through sessions 20-24's dispositions
+  unexamined. Dropped from session 25's live list (history never rewritten).
+- **Two deferrals promoted** (the S24-4 temp-SQLite pattern generalized):
+  **S25-5** the coupon-cap real-engine seam (`tests/unit/coupon-cap-integration.test.ts`
+  — the LIVE `couponRedemptionFilter` increment shape against a REAL db:
+  at-cap blocks, one-under lands, deactivated blocks, unlimited passes) and
+  **S25-6** the saveAddress at-cap real-engine seam
+  (`tests/unit/save-address-integration.test.ts` — "saved"/"at-cap" inside a
+  REAL transaction, the no-writes-at-cap contract, the single-default
+  promotion). The "review two-tier budgets e2e" deferral was DISPOSED as
+  redundant coverage (S24-2's unit pin is the right altitude; an e2e would
+  need 20+ submissions/min and pollute limiter state).
+- RED (mutation checks) — 3 of the 7 new pins failed exactly as predicted
+  against the REAL engine (the stripped `isActive` guard; the stripped cap
+  clause; the no-op `assertAddressCap` — 21 rows + the default unset
+  instead of "at-cap" + a frozen book); the other 4 stayed green under
+  every mutation. GREEN — all mutation sites restored byte-for-byte;
+  **7/7 new pins green** (409/409 unit). **S25-7**: `track-order-limiter.test.ts`
+  joined the `vi.resetAllMocks()` discipline.
+- Final gates: **409/409 unit · 66/66 e2e · lint/typecheck/typecheck:tests/
+  build green**; the run's one ChunkLoadError was the documented
+  stale-server artifact class (a leftover `next-server` from the prior run
+  survived on :3000 and served old chunks — killed by PID, fresh server,
+  zero console errors); mobile menu open → 7 links + search → navigate →
+  auto-close/unmount; **25 screenshots** refreshed.
+- Docs aligned: AGENTS (plan range 2..25), CLAUDE (the session-25
+  harness-family tail), README (badge 409/66 + the tail), PAD (§8.1 header
+  + the two new rows + §12 table + the ADR-003 paste fix), SKILL v1.22.0
+  (project_state + the §5 stats refresh + this entry), DEPLOYMENT.md
+  drift-free (no new env vars), `.env.example` unchanged; run narrative at
+  `docs/session_42.md`.
 
 ## Appendix C — Quick Reference Card
 

@@ -75,7 +75,7 @@ The starting point of this remediation was a client-only Vite SPA that kept the 
 
 **ADR-003: DB-backed sessions with an HMAC-signed cookie; scrypt password hashing.**
 
-- **Context:** The SPA "auth" stored user rows and unsalted SHA-256 hashes in localStorage —任何人 can mint an admin. The reference implementation uses DB-backed sessions with a signed cookie.
+- **Context:** The SPA "auth" stored user rows and unsalted SHA-256 hashes in localStorage —anyone can mint an admin. The reference implementation uses DB-backed sessions with a signed cookie.
 - **Decision:** `Session` rows (SHA-256 token hashes) + cookie `homenest_session = <token>.<hmac(token)>`; `AUTH_SECRET` signs; 30-day TTL; scrypt (N=16384, r=8, p=1, 64-byte key) password format `scrypt$N$r$p$salt$hash` (`src/lib/password.ts`).
 - **Rationale:** A crafted cookie fails the HMAC before touching the DB; stolen DB rows reveal only token *hashes*; scrypt is memory-hard with zero native deps; pure `node:crypto` so the seed script shares the module.
 - **Consequences:** (+) Real auth, revocable sessions (row delete), no external auth service. (−) No OAuth (the reference's "Continue with Google" button is intentionally not replicated as a fake).
@@ -290,7 +290,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 **Two suites, one gate:** `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e` — all must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 402 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 409 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
@@ -339,6 +339,8 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 | `review-action-gate.test.ts` | S24-2 the review action's two-tier gate is WIRED (the session-15 "actions not import-safe" deferral retired by the session-19 mock precedent): BOTH real-derived tier keys consulted (ip 20/min + author 5/min — `@/lib/rate-limit` partially mocked via importOriginal), either failure rejects with the friendly copy and never reaches the product lookup or the transaction, both passing proceeds to the tx insert + aggregate growth + `revalidatePath`; per-test `vi.resetAllMocks()` (a partially-consumed `mockReturnValueOnce` queue must never leak across tier-count differences) |
 | `track-order-limiter.test.ts` | S24-3 the /track-order page-limiter wiring: the page's default export rendered via `renderToString` (mocked headers/db/rate-limit, null next/image) — a submitted lookup consults `track-order:{ip}` at 30/min, over-budget lookups NEVER touch the DB and render the same denial shell as an unknown number, under-budget + matching email renders the tracking surface, wrong email stays indistinguishable (no enumeration leak) |
 | `checkout-recovery-integration.test.ts` | S24-4 the real-engine P2002 integration seam (the temp-SQLite harness): a genuine idempotency-key collision satisfies `uniqueTargetField(err, "idempotencyKey")` against the LIVE field-array `meta.target` shape (all prior matcher pins were synthetic), a number collision discriminates cross-field (`uniqueTargetField(err, "number")` true, the key field false), and the recovery read `findUnique({ where: { idempotencyKey } })` returns the winner — the contract `placeOrderWithRetry`'s recovery loop depends on |
+| `coupon-cap-integration.test.ts` | S25-5 the coupon-cap real-engine seam (the temp-SQLite harness): the checkout's LIVE guarded increment (`couponRedemptionFilter` + `increment`) against a REAL db file — at-cap → count 0 and the row untouched, one-under → count 1 and `timesUsed` lands, deactivated with budget → count 0 (the always-on `isActive` guard), unlimited (`maxRedemptions: null`) → count 1 at any `timesUsed` |
+| `save-address-integration.test.ts` | S25-6 the saveAddress at-cap real-engine seam (the temp-SQLite harness): `saveCheckoutAddressInTx` inside a REAL transaction — below cap → "saved" with the previous default unset and the new row the single default, at cap → "at-cap" with the book byte-identical (no create, no partial unset — the order-still-places invariant), a label-less draft defaults to "Home" |
 | `validation.test.ts` (S17-2 addendum) | `MAX_CART_QUANTITY` is 99 and the cart schemas interpolate the shared constant |
 | `api-boundaries.test.ts` (C7 addendum) | Cart DELETE `?all=1`: no cart → `{itemCount:0}` with `deleteMany` never called; guest cart → cartId-scoped `deleteMany` + the fresh summary's `itemCount` |
 
@@ -530,7 +532,7 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | `src/components/store/store-chrome.tsx` | Sticky header + mobile panel + cart drawer |
 | `src/app/(storefront)/admin/coupons/` | The S19-5 coupon-management surface (page + dialog island) |
 | `prisma/schema.prisma` / `seed.ts` | 18 models / idempotent seed |
-| `tests/unit/*` · `tests/e2e/*` | 402 unit · 66 e2e (incl. the v4 guard + tracking access contract + the session-11..24 hardening/wiring pins) |
+| `tests/unit/*` · `tests/e2e/*` | 409 unit · 66 e2e (incl. the v4 guard + tracking access contract + the session-11..25 hardening/wiring pins) |
 | `playwright.config.ts` / `vitest.config.ts` | Suite wiring (standalone webServer; iPhone-13-on-Chromium project) |
 
 ---

@@ -2072,3 +2072,199 @@ surfaced one NIT the subagent missed and re-examined the carried deferrals:
 - [x] Full gate chain re-run green (lint · typecheck · typecheck:tests ·
       402/402 unit · build · 66/66 e2e)
 - [x] Screenshots refreshed; docs sweep; worklog updated
+
+# Session 25 (run 26)
+
+> Deep audit 26-a (read-only subagent, HEAD `496761e`) + operator verification.
+> Workspace refreshed by `git pull` (fast-forward `4659776` → `496761e`, the
+> operator's session-log commit appending `docs/session_41.md`); gates
+> re-validated green on the pulled tree (lint · typecheck · typecheck:tests ·
+> 402/402 unit · build · 66/66 e2e); live-reference parity re-verified via
+> agent-browser (reference unchanged — logged in with the provided
+> credentials; Damascus-first holds on both sides; clone: mobile menu open →
+> 7 links + search → navigate → auto-close/unmount, sitemap 25 URLs, robots,
+> JSON-LD, desktop parity; one mid-session ChunkLoadError was the documented
+> stale-server artifact class — a leftover `next-server` from the prior run
+> survived on :3000 and served old chunks; killed by PID, fresh server, zero
+> console errors — a tooling episode, not a code defect).
+
+## 1. Audit summary (evidence-based)
+
+Session-24 fixes **4/4 WIRED** (26-a with file:line evidence: S24-1 the
+whitespace-only line is gone (`track-order/page.tsx:98-99`, a
+`^[ \t]+$` scan of the file returns zero); S24-2 the real action consults
+BOTH tiers via the real `reviewRateLimitKeys` and rejects when either fails
+(`reviews.ts:42-44`), the pin's partial `importOriginal` mock feeds the REAL
+derivation into the assertions; S24-3 the real page consults the limiter
+BEFORE the DB read and fails CLOSED into the identical denial shell
+(`page.tsx:99-101`), the pin renders the REAL page via `renderToString`;
+S24-4 the temp-SQLite harness satisfies `uniqueTargetField` against the
+LIVE field-array shape with cross-field discrimination, cross-checked
+against `prisma-errors.ts:48-65` and the live recovery loop
+(`checkout/route.ts:222-241`); the three new files 11/11 green in
+isolation).
+Defect-class sweeps 13/13 CLEAN; static counts ALL matching the live docs
+(402 unit / 43 files · 66 e2e / 14 specs · 18 models · 14 requireAdmin · 14
+metered · 16 catch blocks · 25 screenshots · 3 DSIH sites).
+
+**Result (26-a): 0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 2 NIT / 2
+Informational — the thirteenth consecutive session without a
+CRITICAL/HIGH/MEDIUM/LOW finding.** The NITs are BOTH documentation-class
+and BOTH introduced/frozen by earlier doc sweeps, not code:
+- **S25-1 (NIT — doc drift):** `homenest-store-s_SKILL.md:15` — the
+  `project_state` value carries the ENTIRE stale session-23 text
+  concatenated after the session-24 value's closing quote (a non-idempotent
+  doc-patch artifact from run 25). The operator surfaced it during the doc
+  review, before 26-a ran; 26-a's `)"`-glued-text scan confirms it is the
+  ONLY instance of the class across SKILL/AGENTS/CLAUDE/README/PAD.
+- **S25-2 (NIT — stale stats):** `homenest-store-s_SKILL.md:184-186` — the
+  §5 structural stats are frozen at the session-6 era ("101 tracked TS
+  files / 14 client + 9 server components / 35 client files"); the measured
+  actuals are **126 / 13 + 9 / 38** (untouched since commit `6220262`).
+- **S25-3 (NIT — paste artifact, operator find):**
+  `Project_Architecture_Document.md:78` — "—任何人 can mint an admin" (a
+  CJK fragment glued into the English sentence; pre-existing since the
+  original migration commit `87cfa40` — a different class from S25-1).
+- **Informational-1:** `track-order-limiter.test.ts:78` uses
+  `vi.clearAllMocks()` where the session-24 hardening established
+  `vi.resetAllMocks()` (per-test) — safe today (no `mockReturnValueOnce`
+  queues in the file; the `beforeEach` re-stubs all three mocks), but the
+  documented Once-queue leak class returns the moment a Once queue is added.
+- **Informational-2:** the checkout-recovery harness leaves its mkdtemp dir
+  behind (OS tmpdir; matches the review-transactional precedent — recorded,
+  no action).
+
+**Plan-bookkeeping defect (operator find):** the LIVE carried-deferrals
+list (session-24 "Dispositions") still carries **"admin coupon-management
+UI"** — resolved back in session 19 by **S19-5** (the `/admin/coupons`
+surface + `upsertCouponAction`/`deleteCouponAction`/`toggleCouponActiveAction`
+shipped and are e2e-pinned by `admin-coupons.spec.ts`). The entry has been
+copy-forwarded through sessions 20-24's dispositions lists unexamined.
+
+## 2. Findings → work items
+
+### S25-1 (NIT — doc drift) — the stale session-23 `project_state` fragment
+
+- **Evidence:** `homenest-store-s_SKILL.md:15` —
+  `…real-SQLite integration seam)"391 unit tests · …end-to-end)"` — the
+  stale session-23 value sits glued after the session-24 value's closing
+  quote.
+- **Fix:** drop the stale fragment; the line ends at the session-24 value.
+
+### S25-2 (NIT — stale stats) — SKILL §5 structural numbers
+
+- **Evidence:** `homenest-store-s_SKILL.md:184-186` claims 101 / 14+9 / 35;
+  measured (this run, `git ls-files` + `"use client"` grep): **126 tracked
+  TS/TSX files in `src/` · 13 client + 9 server components in
+  `src/components/` · 38 client files across `src/`**.
+- **Fix:** refresh the three numbers (the 26-a measurement 126/13+9/38
+  independently reproduced by the operator's own count).
+
+### S25-3 (NIT — paste artifact) — the PAD CJK fragment
+
+- **Evidence:** `Project_Architecture_Document.md:78` — "—任何人 can mint an
+  admin".
+- **Fix:** "—anyone can mint an admin".
+
+### S25-4 (bookkeeping) — the stale carried-deferral entry
+
+- **Evidence:** session-24 "Dispositions" (the live tail of the plan) lists
+  "admin coupon-management UI" among the carried deferrals; S19-5 resolved
+  it (session 19, `/admin/coupons` shipped, e2e-pinned).
+- **Fix:** session-25's dispositions list drops the entry with the
+  resolution note; historical sections are NEVER rewritten (the plan is an
+  audit trail — each section records its session's state).
+
+### S25-5 (deferral promoted — integration seam) — the coupon-cap real-engine harness
+
+- **Context:** recorded session 11 as "checkout coupon-cap concurrency
+  harness". All existing pins for the redemption guard are SYNTHETIC:
+  `couponRedemptionFilter`'s truth table (session 20) inspects the
+  where-clause OBJECT shape, never against a live engine. If the filter
+  drifted (dropped the `isActive` guard or the `timesUsed` cap clause), the
+  synthetic pins would stay green while the checkout's atomic guard
+  silently weakened — the exact class the S24-4 real-engine seam closed for
+  the P2002 matchers.
+- **Design (TDD):** new `tests/unit/coupon-cap-integration.test.ts` (the
+  `review-transactional.test.ts` temp-SQLite harness: `mkdtempSync` +
+  `prisma db push --skip-generate` + `datasourceUrl` — no process env, no
+  sandbox shadow). Against a REAL db file, run the LIVE increment call
+  shape (`checkout/route.ts:312-313`):
+  `tx.coupon.updateMany({ where: couponRedemptionFilter(code, maxRedemptions), data: { timesUsed: { increment: 1 } } })`.
+  Pins: (a) at-cap (`timesUsed === maxRedemptions`) → `count === 0` (the
+  caller throws the 409; the coupon row is untouched); (b) one-under →
+  `count === 1` AND `timesUsed` actually incremented (the happy-path write
+  lands); (c) DEACTIVATED with budget remaining → `count === 0` (the
+  always-on `isActive` guard, against the real engine); (d) `maxRedemptions
+  === null` (unlimited) → `count === 1` even at high `timesUsed` (the
+  absent-cap branch passes through).
+- **Mutation checks (the RED):** (1) strip the `isActive: true` guard from
+  `couponRedemptionFilter` → pin (c) fails; (2) strip the
+  `timesUsed: { lt }` cap clause → pin (a) fails. Restore byte-for-byte.
+
+### S25-6 (deferral promoted — integration seam) — the saveAddress at-cap real-engine harness
+
+- **Context:** recorded session 18 ("checkout saveAddress at-cap skip-save
+  integration pin — needs the deferred address-cap + checkout harness
+  family"). The outcome contract is unit-pinned synthetically
+  (`session18-hardening.test.ts`: "saved"/"at-cap" via an in-memory fake
+  client); nothing proves the contract against a REAL address table — e.g.
+  that at-cap lands NO writes (no partial unset of the previous defaults),
+  and below-cap actually promotes the new row to default.
+- **Design (TDD):** new `tests/unit/save-address-integration.test.ts` (the
+  same temp-SQLite harness; `saveCheckoutAddressInTx` accepts the Prisma tx
+  client directly — `CheckoutAddressSavingClient` is a structural subset).
+  Pins: (a) below cap with an existing default → returns `"saved"`, the
+  previous default is UNSET, the new row is `isDefault: true` (exactly one
+  default remains — `findFirst` determinism); (b) at cap (a book pre-seeded
+  with `MAX_ADDRESSES_PER_USER` rows) → returns `"at-cap"` AND the book is
+  byte-identical after the call (row count 20, no unset happened — the
+  no-writes-at-cap contract against the real engine, the order-still-places
+  invariant); (c) a label-less draft defaults to "Home".
+- **Mutation check (the RED):** temporarily bypass the cap gate (make
+  `assertAddressCap` a no-op) → pin (b) fails (the save writes row 21 and
+  unsets the defaults). Restore byte-for-byte.
+
+### S25-7 (test hygiene — promoted from Informational-1) — the resetAllMocks discipline
+
+- **Evidence:** `tests/unit/track-order-limiter.test.ts:78` —
+  `vi.clearAllMocks()`.
+- **Fix:** `vi.resetAllMocks()` (the session-24 discipline; the
+  `beforeEach` re-stubs all three mocks, so the stronger reset is safe) —
+  the Once-queue leak class can never return here.
+
+### Dispositions (no change, recorded)
+
+- **review two-tier budgets e2e — DISPOSED (redundant coverage):** S24-2's
+  unit pin already exercises BOTH tiers through the REAL action with the
+  REAL key derivation; an e2e would need 20+ review submissions inside a
+  minute (limiter-state pollution across specs, minutes of runtime, flaky
+  under parallelism) to assert what the wiring pin asserts exactly. The
+  unit pin is the right altitude.
+- **Carried deferrals (S25-4's stale entry REMOVED — resolved by S19-5,
+  session 19; S25-5/S25-6 REMOVED — resolved this session):** login-limiter
+  lockout tradeoff (S8-8 — the deliberate per-IP + per-email budget
+  tradeoff stays documented), route-level 429 wiring pins beyond the S14-2
+  representatives, 404-shell CSP nonce, `__Host-` prefix, shared-store
+  limiter, radiogroup roving focus, address content dedup, and the
+  external-service epics (real email delivery, OAuth, real payments —
+  blocked on sandbox-external credentials/SMTP).
+
+## 3. Execution log (session 25)
+
+- [x] RED (mutation checks) — S25-5: stripping `isActive: true` failed the
+      deactivated pin (count 1 ≠ 0) and stripping the `timesUsed` cap clause
+      failed the at-cap pin (count 1 ≠ 0, row 5→6); S25-6: the no-op
+      `assertAddressCap` failed the at-cap pin (21 rows + the default unset
+      instead of "at-cap" + a frozen book) — 3 of the 7 new pins failed
+      exactly as predicted, against the REAL engine in both harnesses; the
+      other 4 stayed green under every mutation (mutation-sensitive pins).
+- [x] GREEN — all mutation sites restored byte-for-byte (`git status src/`
+      clean); **7/7 new pins green** (4 coupon-cap + 3 save-address)
+- [x] S25-7 — `clearAllMocks` → `resetAllMocks` (the file's 4 pins stay
+      green; the `beforeEach` re-stubs all three mocks)
+- [x] S25-1/S25-2/S25-3 — the three doc NITs fixed; S25-4 recorded in the
+      dispositions above
+- [x] Full gate chain re-run green (lint · typecheck · typecheck:tests ·
+      409/409 unit · build · 66/66 e2e)
+- [x] Screenshots refreshed; docs sweep; worklog updated

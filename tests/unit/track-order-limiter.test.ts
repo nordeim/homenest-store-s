@@ -75,7 +75,7 @@ function renderTrack(number: string, email: string): Promise<string> {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   mockedHeaders.mockResolvedValue(new Headers({ "cf-connecting-ip": IP }));
   mockedRateLimit.mockReturnValue({ ok: true });
   vi.mocked(db.order.findUnique).mockResolvedValue(ORDER);
