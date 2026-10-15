@@ -42,12 +42,14 @@ export function productSeedUpdate(data: ProductSeedData): Partial<ProductSeedDat
 }
 
 /**
- * Seed creation timestamps (session-12 S12-5) — the reference site's observable
- * "Newest" order is its authored catalog order (first-listed product first).
- * Backdating each seed row one minute older than its predecessor makes the
- * seed list order AND the `createdAt: desc` consumers agree, so `/products`
- * default sort and the home "New Arrivals" grid render the reference's order
- * (Damascus Steel Chef Knife Set first) while admin-created products (real
+ * Seed creation timestamps (session-12 S12-5, re-aligned session-33 S33-1) — the
+ * reference site's observable "Newest" order is its authored catalog order
+ * (first-listed product first). Backdating each seed row one minute older
+ * than its predecessor makes the seed list order AND the `createdAt: desc`
+ * consumers agree, so `/products` default sort and the home "New Arrivals" /
+ * "Featured" grids render the reference's order (session-33: the reference
+ * re-ordered its live catalog — Enameled Cast Iron Dutch Oven first now;
+ * the seed list was re-aligned to it) while admin-created products (real
  * `now()` timestamps) correctly sort as the newest. Create-only: the upsert
  * update branch (`productSeedUpdate`) never touches `createdAt`, so reseeds
  * cannot rewrite the order of existing rows. Pure and unit-pinned in

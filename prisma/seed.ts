@@ -106,7 +106,54 @@ const CATEGORIES = [
 
 export const PRODUCTS: SeedProduct[] = [
   // ---- The reference catalog (visual-parity core) ----
-  {
+                {
+    slug: "enameled-cast-iron-dutch-oven",
+    name: "Enameled Cast Iron Dutch Oven",
+    category: "cookware",
+    price: 14999,
+    compareAtPrice: 19999,
+    sku: "HN-DUTCH-004",
+    stock: 21,
+    rating: 4.9,
+    reviewCount: 367,
+    images: ["/images/product-dutch-oven.png", "/images/product-copper-pan-2.png"],
+    tags: ["cast iron", "enamel", "Dutch oven"],
+    specs: [
+      { label: "Capacity", value: "6 quarts" },
+      { label: "Material", value: "Enameled cast iron" },
+      { label: "Color", value: "Deep burgundy" },
+      { label: "Lid", value: "Self-basting" },
+    ],
+    shortDescription: "6-quart cast iron Dutch oven with premium enamel coating in deep burgundy.",
+    description:
+      "6-quart cast iron Dutch oven with premium enamel coating in deep burgundy. Self-basting lid locks in moisture. Perfect for braising, roasting, and slow-cooking.",
+    badge: "Featured",
+    isFeatured: true,
+    isNewArrival: true,
+  },
+{
+    slug: "glass-storage-container-set",
+    name: "Glass Storage Container Set",
+    category: "storage",
+    price: 4299,
+    sku: "HN-STORE-007",
+    stock: 50,
+    rating: 4.5,
+    reviewCount: 156,
+    images: ["/images/product-glass-storage.png"],
+    tags: ["glass", "eco-friendly", "airtight"],
+    specs: [
+      { label: "Pieces", value: "12-piece set" },
+      { label: "Material", value: "Borosilicate glass" },
+      { label: "Lids", value: "Airtight bamboo" },
+      { label: "Safe", value: "Oven, microwave & freezer" },
+    ],
+    shortDescription: "12-piece borosilicate glass food storage set with airtight bamboo lids.",
+    description:
+      "12-piece borosilicate glass food storage set with airtight bamboo lids. Eco-friendly alternative to plastic. Oven, microwave, and freezer safe.",
+    isNewArrival: true,
+  },
+{
     slug: "damascus-steel-chef-knife-set",
     name: "Damascus Steel Chef Knife Set",
     category: "kitchen-tools",
@@ -132,7 +179,54 @@ export const PRODUCTS: SeedProduct[] = [
     isFeatured: true,
     isNewArrival: true,
   },
-  {
+{
+    slug: "walnut-cutting-board-collection",
+    name: "Walnut Cutting Board Collection",
+    category: "kitchen-tools",
+    price: 7999,
+    sku: "HN-BOARD-005",
+    stock: 40,
+    rating: 4.7,
+    reviewCount: 142,
+    images: ["/images/product-walnut-boards.png", "/images/product-damascus-knife-set-2.png"],
+    tags: ["walnut", "handcrafted", "natural"],
+    specs: [
+      { label: "Pieces", value: "3 boards (large, medium, small)" },
+      { label: "Material", value: "Premium walnut" },
+      { label: "Feature", value: "Juice grooves" },
+      { label: "Finish", value: "Food-safe mineral oil" },
+    ],
+    shortDescription: "Set of 3 premium walnut cutting boards with juice grooves.",
+    description:
+      "Set of 3 premium walnut cutting boards with juice grooves. Hand-finished with food-safe mineral oil. Includes large, medium, and small sizes.",
+    isNewArrival: true,
+  },
+{
+    slug: "ceramic-mixing-bowl-set",
+    name: "Ceramic Mixing Bowl Set",
+    category: "bakeware",
+    price: 5499,
+    compareAtPrice: 6999,
+    sku: "HN-BOWL-006",
+    stock: 35,
+    rating: 4.6,
+    reviewCount: 187,
+    images: ["/images/product-mixing-bowls.png"],
+    tags: ["ceramic", "set", "nesting"],
+    specs: [
+      { label: "Pieces", value: "4 nesting bowls" },
+      { label: "Material", value: "Durable stoneware" },
+      { label: "Base", value: "Non-slip" },
+      { label: "Care", value: "Microwave & dishwasher safe" },
+    ],
+    shortDescription: "Set of 4 nesting mixing bowls in beautiful matte earth tones.",
+    description:
+      "Set of 4 nesting mixing bowls in beautiful matte earth tones. Made from durable stoneware with non-slip bases. Microwave and dishwasher safe.",
+    badge: "Featured",
+    isFeatured: true,
+    isNewArrival: true,
+  },
+{
     slug: "artisan-copper-frying-pan",
     name: "Artisan Copper Frying Pan",
     category: "cookware",
@@ -158,126 +252,7 @@ export const PRODUCTS: SeedProduct[] = [
     isFeatured: true,
     isNewArrival: true,
   },
-  {
-    slug: "artisan-ceramic-dinner-set",
-    name: "Artisan Ceramic Dinner Set",
-    category: "dining",
-    price: 11999,
-    compareAtPrice: 15999,
-    sku: "HN-DINING-003",
-    stock: 18,
-    rating: 4.8,
-    reviewCount: 203,
-    images: ["/images/product-ceramic-dinner-set.png"],
-    tags: ["handcrafted", "ceramic", "dinner set"],
-    specs: [
-      { label: "Pieces", value: "16-piece set" },
-      { label: "Includes", value: "4 plates, 4 salad plates, 4 bowls, 4 mugs" },
-      { label: "Material", value: "Glazed stoneware" },
-      { label: "Care", value: "Dishwasher & microwave safe" },
-    ],
-    shortDescription: "16-piece handcrafted dinner set in warm terracotta and cream.",
-    description:
-      "16-piece handcrafted dinner set in warm terracotta and cream. Includes 4 each of dinner plates, salad plates, bowls, and mugs. Each piece is uniquely glazed.",
-    badge: "Featured",
-    isFeatured: true,
-    isNewArrival: true,
-  },
-  {
-    slug: "enameled-cast-iron-dutch-oven",
-    name: "Enameled Cast Iron Dutch Oven",
-    category: "cookware",
-    price: 14999,
-    compareAtPrice: 19999,
-    sku: "HN-DUTCH-004",
-    stock: 21,
-    rating: 4.9,
-    reviewCount: 367,
-    images: ["/images/product-dutch-oven.png", "/images/product-copper-pan-2.png"],
-    tags: ["cast iron", "enamel", "Dutch oven"],
-    specs: [
-      { label: "Capacity", value: "6 quarts" },
-      { label: "Material", value: "Enameled cast iron" },
-      { label: "Color", value: "Deep burgundy" },
-      { label: "Lid", value: "Self-basting" },
-    ],
-    shortDescription: "6-quart cast iron Dutch oven with premium enamel coating in deep burgundy.",
-    description:
-      "6-quart cast iron Dutch oven with premium enamel coating in deep burgundy. Self-basting lid locks in moisture. Perfect for braising, roasting, and slow-cooking.",
-    badge: "Featured",
-    isFeatured: true,
-    isNewArrival: true,
-  },
-  {
-    slug: "walnut-cutting-board-collection",
-    name: "Walnut Cutting Board Collection",
-    category: "kitchen-tools",
-    price: 7999,
-    sku: "HN-BOARD-005",
-    stock: 40,
-    rating: 4.7,
-    reviewCount: 142,
-    images: ["/images/product-walnut-boards.png", "/images/product-damascus-knife-set-2.png"],
-    tags: ["walnut", "handcrafted", "natural"],
-    specs: [
-      { label: "Pieces", value: "3 boards (large, medium, small)" },
-      { label: "Material", value: "Premium walnut" },
-      { label: "Feature", value: "Juice grooves" },
-      { label: "Finish", value: "Food-safe mineral oil" },
-    ],
-    shortDescription: "Set of 3 premium walnut cutting boards with juice grooves.",
-    description:
-      "Set of 3 premium walnut cutting boards with juice grooves. Hand-finished with food-safe mineral oil. Includes large, medium, and small sizes.",
-    isNewArrival: true,
-  },
-  {
-    slug: "ceramic-mixing-bowl-set",
-    name: "Ceramic Mixing Bowl Set",
-    category: "bakeware",
-    price: 5499,
-    compareAtPrice: 6999,
-    sku: "HN-BOWL-006",
-    stock: 35,
-    rating: 4.6,
-    reviewCount: 187,
-    images: ["/images/product-mixing-bowls.png"],
-    tags: ["ceramic", "set", "nesting"],
-    specs: [
-      { label: "Pieces", value: "4 nesting bowls" },
-      { label: "Material", value: "Durable stoneware" },
-      { label: "Base", value: "Non-slip" },
-      { label: "Care", value: "Microwave & dishwasher safe" },
-    ],
-    shortDescription: "Set of 4 nesting mixing bowls in beautiful matte earth tones.",
-    description:
-      "Set of 4 nesting mixing bowls in beautiful matte earth tones. Made from durable stoneware with non-slip bases. Microwave and dishwasher safe.",
-    badge: "Featured",
-    isFeatured: true,
-    isNewArrival: true,
-  },
-  {
-    slug: "glass-storage-container-set",
-    name: "Glass Storage Container Set",
-    category: "storage",
-    price: 4299,
-    sku: "HN-STORE-007",
-    stock: 50,
-    rating: 4.5,
-    reviewCount: 156,
-    images: ["/images/product-glass-storage.png"],
-    tags: ["glass", "eco-friendly", "airtight"],
-    specs: [
-      { label: "Pieces", value: "12-piece set" },
-      { label: "Material", value: "Borosilicate glass" },
-      { label: "Lids", value: "Airtight bamboo" },
-      { label: "Safe", value: "Oven, microwave & freezer" },
-    ],
-    shortDescription: "12-piece borosilicate glass food storage set with airtight bamboo lids.",
-    description:
-      "12-piece borosilicate glass food storage set with airtight bamboo lids. Eco-friendly alternative to plastic. Oven, microwave, and freezer safe.",
-    isNewArrival: true,
-  },
-  {
+{
     slug: "professional-stand-mixer",
     name: "Professional Stand Mixer",
     category: "appliances",
@@ -298,6 +273,31 @@ export const PRODUCTS: SeedProduct[] = [
     shortDescription: "Powerful 800W stand mixer with 10-speed settings and 5-quart stainless bowl.",
     description:
       "Powerful 800W stand mixer with 10-speed settings and 5-quart stainless steel bowl. Includes dough hook, flat beater, and wire whisk attachments.",
+    badge: "Featured",
+    isFeatured: true,
+    isNewArrival: true,
+  },
+{
+    slug: "artisan-ceramic-dinner-set",
+    name: "Artisan Ceramic Dinner Set",
+    category: "dining",
+    price: 11999,
+    compareAtPrice: 15999,
+    sku: "HN-DINING-003",
+    stock: 18,
+    rating: 4.8,
+    reviewCount: 203,
+    images: ["/images/product-ceramic-dinner-set.png"],
+    tags: ["handcrafted", "ceramic", "dinner set"],
+    specs: [
+      { label: "Pieces", value: "16-piece set" },
+      { label: "Includes", value: "4 plates, 4 salad plates, 4 bowls, 4 mugs" },
+      { label: "Material", value: "Glazed stoneware" },
+      { label: "Care", value: "Dishwasher & microwave safe" },
+    ],
+    shortDescription: "16-piece handcrafted dinner set in warm terracotta and cream.",
+    description:
+      "16-piece handcrafted dinner set in warm terracotta and cream. Includes 4 each of dinner plates, salad plates, bowls, and mugs. Each piece is uniquely glazed.",
     badge: "Featured",
     isFeatured: true,
     isNewArrival: true,
@@ -614,9 +614,13 @@ async function main() {
 
   // ---- Products ----
   let createdProducts = 0;
-  // Session-12 S12-5: create rows with BACKDATED timestamps (productSeedCreatedAt)
-  // so the seed-list order = the reference's authored order = the `createdAt: desc`
-  // consumers' newest-first order (products "Newest", home New Arrivals).
+  // Session-12 S12-5 (re-aligned session-33 S33-1): create rows with BACKDATED
+  // timestamps (productSeedCreatedAt) so the seed-list order = the reference's
+  // authored order = the `createdAt: desc` consumers' newest-first order
+  // (products "Newest", home New Arrivals + Featured). Session-33: the
+  // reference re-ordered its live catalog — the core list now matches it
+  // (Dutch Oven first); the superset tail follows (create-only: reseeds never
+  // rewrite the createdAt of existing rows — re-ordering requires a fresh DB).
   for (const [index, p] of PRODUCTS.entries()) {
     const categoryId = categoryIds.get(p.category);
     if (!categoryId) throw new Error(`Unknown category ${p.category} for ${p.slug}`);

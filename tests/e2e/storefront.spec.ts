@@ -5,7 +5,8 @@ import { gotoHydrated } from "./helpers";
 // DB's exact row counts (the S14-4 data-depletion class — a deactivated seed
 // product or an admin-created extra permanently breaks an absolute pin).
 // The e2e layer therefore pins the count FORMAT + the seeded slugs/order;
-// the exact seed-owned values (16 products, 3 cookware, Damascus-first) are
+// the exact seed-owned values (16 products, 3 cookware, the session-33
+// re-aligned reference order) are
 // pinned where the seed constant can actually be imported —
 // tests/unit/seed-catalog.test.ts — and the restore-demo-stock harness
 // (which now also restores isActive) keeps the live DB aligned with them.
@@ -54,8 +55,11 @@ test.describe("storefront", () => {
     await expect(page.getByText(/^\d+ products found$/)).toBeVisible();
 
     // Page 1 (newest-first) opens with the reference's authored order — the
-    // seed backdates rows so Damascus-first is both the reference's observable
-    // default order AND the store's newest-first sort (session-12 S12-5).
+    // seed backdates rows so the seed-list order is both the reference's
+    // observable default order AND the store's newest-first sort (session-12
+    // S12-5; re-aligned to the reference's current live order in session-33
+    // S33-1 — Dutch-Oven-first). Order-agnostic visibility pins: both of
+    // these reference products sit inside page 1 under either order.
     await expect(page.getByRole("heading", { name: "Damascus Steel Chef Knife Set" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Artisan Copper Frying Pan" })).toBeVisible();
 

@@ -4,7 +4,8 @@
 // guard).
 //
 // The storefront e2e spec consumes these assumptions (16-product catalog,
-// Damascus-first authored order, 2-page pagination at 12/page, 3 cookware
+// Damascus-first authored order → session-33 re-aligned authored order
+// (S33-1), 2-page pagination at 12/page, 3 cookware
 // rows); the restore-demo-stock harness keeps the live demo DB aligned with
 // them (stock AND isActive since S15-2). If a seed change moves any value
 // here, re-check the storefront/shopping-flow e2e assumptions in the same
@@ -19,8 +20,22 @@ describe("seed catalog constants (S15-2)", () => {
     expect(new Set(PRODUCTS.map((p) => p.slug)).size).toBe(16);
   });
 
-  it("opens with the reference's authored order — Damascus-first (S12-5)", () => {
-    expect(PRODUCTS[0]?.slug).toBe("damascus-steel-chef-knife-set");
+  it("opens with the reference's authored order — session-33 re-alignment (S12-5 + S33-1)", () => {
+    // The live reference re-ordered its catalog (verified 2026-10-15): the
+    // first 8 slugs below are the reference's current /products "Newest"
+    // order card-for-card; the remaining 8 are the superset tail (the
+    // reference's visible catalog is itself 8 products now — the clone keeps
+    // all 16 per the superset principle).
+    expect(PRODUCTS.slice(0, 8).map((p) => p.slug)).toEqual([
+      "enameled-cast-iron-dutch-oven",
+      "glass-storage-container-set",
+      "damascus-steel-chef-knife-set",
+      "walnut-cutting-board-collection",
+      "ceramic-mixing-bowl-set",
+      "artisan-copper-frying-pan",
+      "professional-stand-mixer",
+      "artisan-ceramic-dinner-set",
+    ]);
   });
 
   it("carries the 3 cookware rows the /products category-filter pin assumes", () => {
