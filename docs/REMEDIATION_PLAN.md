@@ -3371,3 +3371,157 @@ exactly why the logged-in parity comparison is a standing checklist item.
       CLAUDE tail + pin description, README/PAD authored-order wording,
       SKILL v1.30.0 (project_state + Appendix B session-33 entry), 25
       screenshots refreshed, `docs/session_58.md`, worklog Task 34
+
+---
+
+# Session 34 (run 35) — 2026-10-16
+
+> The second consecutive reference-parity cycle: the repo-side audit
+> surface stayed clean again, and the LIVE reference re-ordered its
+> catalog a SECOND time since the original pinning — discoverable only
+> through the logged-in reference comparison, exactly like session-33's
+> S33-1. File names increment by run number; this section is numbered by
+> session — the run/plan numbering drift is documented in
+> `docs/session_52.md`.
+
+## 1. Audit summary (evidence-based)
+
+Pulled tree `99eca4a` (= `9a62e66`, the pushed session-33 cycle, + the
+operator's session-log commit appending `docs/session_59.md`, the raw
+run-34 log; `git diff 9a62e66..99eca4a --stat` = one file, +107 lines —
+**zero src/tests/prisma deltas from the last-audited tree**). The full
+gate chain re-validated green on the pulled tree: lint ✓ · typecheck ✓ ·
+typecheck:tests ✓ · **432/432 unit** (46 files, 20.0s) ✓ · build ✓
+(standalone, 22/22 static pages) · **66/66 e2e** ✓ (1.9m) — the
+documented session-33 state reproduces exactly. Environment (fresh clone
+— the sandbox was reset): `.env` from the `file:../db/custom.db`
+contract + a dev `AUTH_SECRET`; `npm install`; `db:setup` re-created the
+seeded `db/custom.db` at the repo root (16/8/3/3/13 + admin/demo users
+through the per-command absolute-export convergence — the sandbox shadow
+`DATABASE_URL` points at a non-existent path); the Playwright cache
+re-paired with the lockfile's chromium rev 1248 (the cache held only rev
+1200 — the documented Task-32 recovery). The `ecommerce-store`
+reference repo re-cloned at `1ffda3d` (the same commit reviewed in
+run 34): its stack patterns still match (Next 16 · React 19 · TS strict
+· Tailwind v4 CSS-first · Prisma/SQLite · Vitest + Playwright); its
+skills folder is IDENTICAL to homenest-store-s's (file lists +
+skills-catalog.md byte-verified) — no adoption gaps. The
+sitemap/SEO surfaces re-compared against the reference repo's
+implementation: homenest's is the stricter superset (private surfaces
+excluded from sitemap.xml, single-sourced `siteBaseUrl()`, DB-failure
+tolerance) — no change needed.
+
+**The parity finding (live-reference drift, verified logged-in):** the
+reference re-ordered its catalog AGAIN — /products "Newest" (All
+Categories, "8 products found") now renders **Damascus Steel Chef Knife
+Set first** — Damascus → Artisan Copper Frying Pan → Artisan Ceramic
+Dinner Set → Enameled Cast Iron Dutch Oven → Walnut Cutting Board
+Collection → Ceramic Mixing Bowl Set → Glass Storage Container Set →
+Professional Stand Mixer; home "Featured" renders exactly that order
+filtered by the featured flag (Damascus → Copper Frying → Ceramic Dinner
+→ Dutch Oven → Mixing Bowl → Stand Mixer); home "New Arrivals" renders
+the same 8 in the products order — while the clone rendered the
+session-33-pinned Dutch-Oven-first order. Everything else matched:
+prices (all 8, compare-at included), review counts (±1 live-traffic
+noise on Damascus), the 8 category tiles, the hero carousel (3 rotating
+slides), the section anatomy (Shop by Category → Featured → New
+Arrivals → Transform Your Kitchen Today), the 4 trust badges, the
+mobile-menu anatomy at 390×844 (push-down panel, nav links + search,
+close button, navigating closes the panel), and the track-order/about
+surfaces (track-order number-only on the reference remains the
+documented anti-enumeration superset divergence).
+
+Fresh deep audit (read-only subagent 35-a + operator verification): the
+session-33 docs-sweep claims **9/9 WIRED** (plan section 3/3 ticked;
+AGENTS range 2..33; CLAUDE tail; SKILL v1.30.0 project_state + Appendix
+B; session_58/59 consistent; one well-formed Task-34 worklog entry;
+README/PAD badges; `.env.example` 5/5 env vars verified against their
+read sites; DEPLOYMENT drift-free). Defect-class sweeps clean (12/12).
+Static counts **9/9 MATCH** (46/432 unit independently recounted AND
+dynamically re-run green · 14/66 e2e · 18 models · 14 requireAdmin · 14
+metered · 3 DSIH · 127 src-scoped TS files · 25 screenshots · 16
+admin-dialog catches / 6 files · the route-handler anchor in its precise
+15-HTTP-handlers + 1-exported-type form). All 8 carried deferrals
+standing. **Repo-side findings: 0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW /
+0 NIT / 3 Informational** (the brief-side DELETE-handler wording gloss;
+the untracked sandbox-side verify-seed scratch; the parent-sandbox
+worklog stub after the reset — all disposed no-change). The substantive
+finding of this cycle is live-reference-side again.
+
+## 2. Findings → work items
+
+### S34-1 (MEDIUM — reference parity) — the reference re-ordered its catalog a second time; re-align the seed's authored order
+
+- **Evidence:** reference /products "Newest" renders Damascus → Copper
+  Frying → Ceramic Dinner → Dutch Oven → Walnut → Mixing Bowl → Glass
+  Storage → Stand Mixer (count text "8 products found", All Categories);
+  the clone rendered the session-33 Dutch-Oven-first order on all three
+  `createdAt: desc` surfaces. The reference's ordering stays
+  consistently newest-first across its products page, New Arrivals and
+  Featured (Featured = the products order filtered by the featured
+  flag) — the clone's rendering code already queries the same way, so
+  only the seed's authored order (the backdated `createdAt` index
+  mapping) needs re-alignment, exactly the S33-1 class.
+- **Fix (TDD):**
+  1. RED: `tests/unit/seed-catalog.test.ts`'s authored-order pin
+     extended FIRST to assert the new 8-slug reference order (verified
+     failing against the old seed: 1 failed | 5 passed).
+  2. GREEN: the PRODUCTS array in `prisma/seed.ts` reordered (a
+     persisted Python script, `reorder_seed_s34.py` in the sandbox — a
+     pure block move with a line-multiset purity check; `git diff
+     --stat` = 97 insertions / 97 deletions, zero product-data changes;
+     the 8 superset blocks untouched; the S33-1 move's mixed
+     opening-brace indentation normalized to the canonical 2-space
+     shape).
+  3. The order-related comments re-anchored: `src/lib/seed-policy.ts`
+     (the `productSeedCreatedAt` docblock — now documenting the twice
+     re-aligned history), `tests/e2e/storefront.spec.ts` (the header +
+     page-1 comments), and `prisma/seed.ts` (the loop comment).
+  4. **Fresh-DB re-seed** (createdAt is create-only — existing rows keep
+     their order, so `db/custom.db` was deleted and `db:setup` re-run):
+     the new DB order verified — the first 8 exactly the reference's
+     current order, the superset tail following.
+  5. Card-for-card parity verified on a fresh production server
+     (agent-browser): /products, home Featured and home New Arrivals all
+     render the reference's current order; the mobile-menu contract
+     re-verified at 390×844 (7 links + close + navigate-closes-panel +
+     aria-expanded binding); the full gate chain green on the
+     remediated tree.
+
+### Dispositions (no change, recorded)
+
+- **The reference's visible catalog stays 8 products:** unchanged since
+  session-33 — the clone keeps all 16 per the superset principle (the
+  reference's deletions never propagate; the S7-3 seed policy never
+  deletes).
+- **Info-1 (brief-side gloss):** the audit brief described the two
+  accepted raw query-param id DELETE handlers as "cart and wishlist";
+  the actual standing pair is cart (`?line=`) and addresses (`?id=`) —
+  both re-verified ownership-scoped compound filters with route-level
+  boundary pins. No repo defect; the wording is corrected in this
+  section.
+- **Info-2 (environmental):** the sandbox-side `scripts/verify-seed.ts`
+  scratch (untracked, outside the audited tree) and the parent-worklog
+  stub restored at run start — the documented reset pattern; the repo
+  worklog is authoritative.
+- **Carried deferrals (unchanged, all verified standing):** S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce (static shell);
+  `__Host-` prefix; shared-store limiter; radiogroup roving focus
+  (WCAG-conformant as-is); address content dedup; the external-service
+  epics (real email delivery, OAuth, real payments — blocked on
+  sandbox-external credentials/SMTP). The route-level 429 grid stays
+  complete (14/14).
+
+## 3. Execution log (session 34)
+
+- [x] S34-1: seed-catalog pin extended (RED) → PRODUCTS reordered
+      (GREEN) → comments re-anchored → fresh-DB re-seed → card-for-card
+      parity verified on /products + Featured + New Arrivals
+- [x] Full gate chain re-run green on the final tree (lint · typecheck ·
+      typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
+      the pulled tree before the change (the twice-run no-regression
+      evidence)
+- [x] Docs sweep: AGENTS S12-5 invariant reworded + plan range 2..34,
+      CLAUDE tail + pin description, README/PAD authored-order wording,
+      SKILL v1.31.0 (project_state + Appendix B session-34 entry), 25
+      screenshots refreshed, `docs/session_60.md`, worklog Task 35

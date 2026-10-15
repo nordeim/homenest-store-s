@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.30.0
+version: 1.31.0
 last_updated: 2026-10-16
-project_state: "432 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-33; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine — session-27 completed the route-level 429 wiring-pin grid: ALL 14 metered HTTP surfaces carry route-level boundary pins in api-boundaries.test.ts — session-28 was the hygiene/precision pass (the two audit NITs + the reproducible count anchors) — and sessions 29/30 are the first two fully-empty remediation cycles (deep audits 30-a/31-a: 0 CRITICAL/HIGH/MEDIUM/LOW/NIT, all count anchors and 8 carried deferrals verified standing, nothing to change in src/tests/prisma) — session-31 is the third consecutive fully-empty cycle (deep audit 32-a: sweeps 12/12 clean, counts 13/13 MATCH, docs aligned, 0 CRITICAL/HIGH/MEDIUM/LOW/NIT + 4 Informational all verified accepted-shape/docs-only/sandbox-side and disposed no-change) — session-32 is the fourth consecutive fully-empty cycle (deep audit 33-a at 6e62d01: docs claims 8/8 WIRED, sweeps 12/12 clean, counts 12/13 exact MATCH + 1 count-convention gloss (the '16 route handlers' anchor = 15 HTTP handlers + 1 exported response type across 11 files — clarified going forward), 8/8 deferrals standing, 0 CRITICAL/HIGH/MEDIUM/LOW/NIT + 2 Informational disposed no-change) — session-33 is a REFERENCE-PARITY cycle (deep audit 34-a at e444df8: repo-side 9/9 docs claims WIRED, 13/13 sweeps clean, 7/7 counts MATCH, 8/8 deferrals standing, 0 repo-side defects; the live reference re-ordered its catalog AND shrank its visible catalog 16→8 — S33-1 re-aligned the seed's authored order to the reference's current live order (Dutch-Oven-first core of 8, the 16-product superset kept), TDD: the seed-catalog order pin extended first, then the PRODUCTS block reorder, fresh-DB re-seed, all gates green twice)"
+project_state: "432 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-34; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine — session-27 completed the route-level 429 wiring-pin grid: ALL 14 metered HTTP surfaces carry route-level boundary pins in api-boundaries.test.ts — session-28 was the hygiene/precision pass (the two audit NITs + the reproducible count anchors) — and sessions 29/30 are the first two fully-empty remediation cycles (deep audits 30-a/31-a: 0 CRITICAL/HIGH/MEDIUM/LOW/NIT, all count anchors and 8 carried deferrals verified standing, nothing to change in src/tests/prisma) — session-31 is the third consecutive fully-empty cycle (deep audit 32-a: sweeps 12/12 clean, counts 13/13 MATCH, docs aligned, 0 CRITICAL/HIGH/MEDIUM/LOW/NIT + 4 Informational all verified accepted-shape/docs-only/sandbox-side and disposed no-change) — session-32 is the fourth consecutive fully-empty cycle (deep audit 33-a at 6e62d01: docs claims 8/8 WIRED, sweeps 12/12 clean, counts 12/13 exact MATCH + 1 count-convention gloss (the '16 route handlers' anchor = 15 HTTP handlers + 1 exported response type across 11 files — clarified going forward), 8/8 deferrals standing, 0 CRITICAL/HIGH/MEDIUM/LOW/NIT + 2 Informational disposed no-change) — session-33 is a REFERENCE-PARITY cycle (deep audit 34-a at e444df8: repo-side 9/9 docs claims WIRED, 13/13 sweeps clean, 7/7 counts MATCH, 8/8 deferrals standing, 0 repo-side defects; the live reference re-ordered its catalog AND shrank its visible catalog 16→8 — S33-1 re-aligned the seed's authored order to the reference's current live order (Dutch-Oven-first core of 8, the 16-product superset kept), TDD: the seed-catalog order pin extended first, then the PRODUCTS block reorder, fresh-DB re-seed, all gates green twice) — session-34 is the SECOND consecutive reference-parity cycle (deep audit 35-a at 99eca4a: repo-side 9/9 docs claims WIRED, 12/12 sweeps clean, 9/9 counts MATCH incl. the audit's own dynamic 432/432 re-run, 8/8 deferrals standing, 0 repo-side defects + 3 Informational disposed no-change; the live reference re-ordered its catalog AGAIN — S34-1 re-aligned the seed's authored order to the current live order (Damascus-first core of 8, the 16-product superset kept), TDD: pin extended first (red), the pure 97/97 block reorder (green, with the S33-1 move's mixed brace indentation normalized), the twice-re-aligned history re-anchored in the seed-policy/spec/seed comments, fresh-DB re-seed, card-for-card parity re-verified on all three surfaces, all gates green twice)"
 tags:
   - nextjs16
   - react19
@@ -1943,6 +1943,57 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   README/PAD (the authored-order wording), SKILL v1.30.0 (project_state +
   this entry), DEPLOYMENT.md drift-free, `.env.example` unchanged; run
   narrative at `docs/session_58.md`.
+
+### Session 34 (run 35) — the second consecutive reference-parity cycle (S34-1)
+
+- **The finding (live-reference drift, again):** the reference site
+  re-ordered its catalog a SECOND time since the original pinning —
+  /products "Newest", home New Arrivals AND home Featured now render
+  Damascus Steel Chef Knife Set first (Damascus → Copper Frying →
+  Ceramic Dinner → Dutch Oven → Walnut → Mixing Bowl → Glass Storage →
+  Stand Mixer; Featured = that order filtered by the featured flag),
+  while the clone still rendered the session-33 re-aligned
+  Dutch-Oven-first order. Everything else matched again: prices (all 8,
+  compare-at included), review counts (±1 live-traffic noise), the 8
+  category tiles, the hero carousel (3 rotating slides), the section
+  anatomy, the 4 trust badges, the mobile-menu anatomy at 390×844, and
+  the track-order/about surfaces — the catalog ORDER was the only delta,
+  exactly the S33-1 class.
+- **S34-1 fix (TDD, red → green):** the seed-catalog order pin
+  (`tests/unit/seed-catalog.test.ts`) extended FIRST to the new 8-slug
+  reference order (red: 1 failed | 5 passed); then the PRODUCTS array in
+  `prisma/seed.ts` reordered through a persisted sandbox script
+  (`reorder_seed_s34.py`) — a pure block move with a line-multiset
+  purity check (97 insertions / 97 deletions, zero product-data
+  changes), the 8 superset blocks untouched as the tail, and the S33-1
+  move's mixed opening-brace indentation normalized to the canonical
+  2-space shape; the order-related comments re-anchored
+  (seed-policy.ts, storefront.spec.ts, seed.ts — now documenting the
+  twice-re-aligned history); fresh-DB re-seed (createdAt is
+  create-only).
+- **Verification:** /products, Featured and New Arrivals render the
+  reference's current order card-for-card (agent-browser, fresh
+  production server); the mobile-menu contract re-verified live at
+  390×844 (open → 7 links + close → navigate → panel unmounted,
+  aria-expanded bound); the e2e storefront pins are order-agnostic by
+  design and stayed green untouched; full gate chain green twice
+  (pulled tree + final tree): lint · typecheck · typecheck:tests ·
+  432/432 unit · build · 66/66 e2e.
+- Deep audit 35-a (repo-side): 9/9 docs claims WIRED · 12/12 sweeps
+  clean · 9/9 counts MATCH (incl. the audit's own dynamic 432/432
+  re-run) · 8/8 deferrals standing · 0 repo-side findings + 3
+  Informational disposed no-change (the brief-side DELETE-handler
+  wording gloss — the actual accepted pair is cart `?line=` +
+  addresses `?id=`; the untracked sandbox verify-seed scratch; the
+  parent-worklog stub after the reset) — the parity finding was
+  live-reference-side again, discoverable only through the logged-in
+  reference comparison.
+- Docs aligned: AGENTS (the S12-5 invariant reworded for the twice
+  re-aligned history + plan range 2..34), CLAUDE (the session-34 tail +
+  the seed-catalog pin description), README/PAD (the authored-order
+  wording), SKILL v1.31.0 (project_state + this entry), DEPLOYMENT.md
+  drift-free, `.env.example` unchanged; run narrative at
+  `docs/session_60.md`.
 
 ## Appendix C — Quick Reference Card
 
