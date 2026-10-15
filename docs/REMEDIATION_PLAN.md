@@ -3125,3 +3125,122 @@ ESLint-excluded but typecheck-covered (deliberate split — CLI output);
       typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
       the pulled tree before the sweep (the twice-run no-regression
       evidence)
+
+---
+
+# Session 32 (run 33) — 2026-10-15
+
+> Verification-only cycle (the fourth consecutive fully-empty remediation
+> surface). The plan file names increment by run number; this section is
+> numbered by session — the run/plan numbering drift is documented in
+> `docs/session_52.md`.
+
+## 1. Audit summary (evidence-based)
+
+Pulled tree `6e62d01` (= `a850067`, the pushed session-31 cycle, + the
+operator's session-log commit appending `docs/session_55.md` — the raw
+run-32 log). `git diff a850067..6e62d01 --stat` = docs-only (+78 lines,
+one file): **zero src/tests/prisma deltas from the last-audited tree.**
+The full gate chain re-validated green on the pulled tree: lint ✓ ·
+typecheck ✓ · typecheck:tests ✓ · **432/432 unit** (46 files) ✓ ·
+build ✓ (standalone) · **66/66 e2e** ✓ (1.9m) — the documented
+session-31 state reproduces exactly. Environment: `.env` carries the
+`file:../db/custom.db` contract; the sandbox process-env shadow
+(`file:/home/z/my-project/db/custom.db`) points at a non-existent path,
+so every DB-touching command exported the absolute
+`file:/home/z/my-project/homenest-store-s/db/custom.db` value (the
+run-32 convergence mechanism — symlinks stay blocked); seed verified
+through that path: 16 products / 8 categories / 3 carousel / 3 coupons /
+13 settings. The `ecommerce-store` reference repo sits at the same
+commit `641aa81` reviewed last run — its stack patterns (Next 16 ·
+React 19 · TS strict · Tailwind v4 CSS-first · Prisma/SQLite · Vitest +
+Playwright) still match; no adoption gaps.
+
+Live-reference parity re-verified via agent-browser (reference logged
+in with the operator's credentials; Damascus-first in Featured with the
+card-for-card order match — Damascus → Copper Frying Pan → Ceramic
+Dinner Set → Dutch Oven → Mixing Bowl Set → Stand Mixer — and the
+reference's mobile push-down panel anatomy confirmed live at 390×844:
+hamburger → panel with nav links + search + close button). Clone (fresh
+production server on :3000): home section/order parity, the 4 trust
+badges, JSON-LD Organization + WebSite (+ Product on detail pages),
+zero console messages/errors, sitemap 25 URLs (9 static + 16 products),
+robots disallowing `/admin /account /checkout /api` + the sitemap ref,
+noindex on every private surface probed, the full security-header set
+(CSP per-request nonce + strict-dynamic, HSTS, X-Frame-Options DENY,
+nosniff, Referrer-Policy, Permissions-Policy, no X-Powered-By), and the
+mobile menu contract intact (390×844: open → `nav[aria-label="Mobile"]`
+exactly 7 links (Home|Products|Track Order|About|Contact|Sign
+In|Wishlist) + the search box in the panel container + close →
+navigating via Products lands on `/products` AND the drawer unmounts).
+
+Fresh deep audit (read-only subagent 33-a + operator verification of
+every load-bearing claim): the session-31 docs-sweep claims **8/8
+WIRED** (the plan's Session 31 section complete with all boxes ticked;
+AGENTS range 2..31; CLAUDE tail; SKILL v1.28.0 project_state + Appendix
+B; session_54/55 consistent; exactly one well-formed Task-32 worklog
+entry; README/PAD badges; `.env.example` contract with all 5 env vars
+verified against their read sites; DEPLOYMENT.md drift-free).
+Defect-class sweeps clean (all 12; the two raw query-param id DELETE
+handlers re-confirmed as the standing accepted shape — both
+ownership-scoped compound filters with route-level boundary pins).
+Static counts **12/13 exact MATCH + 1 count-convention gloss** (46/432
+unit — independently recounted, and dynamically re-run green inside the
+audit · 14/66 e2e · 18 models · 14 requireAdmin · 14 metered · 3 DSIH ·
+127 tracked TS files · 25 screenshots · 16 admin-dialog catches /
+6 files · the route-handler anchor — see Info-1 · boundary-suite
+recounts). All 8 carried deferrals accurate. New findings **0
+CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 0 NIT / 2 Informational — the
+twentieth consecutive session without a substantive code finding, and
+the fourth consecutive fully-empty remediation surface.**
+
+## 2. Findings → work items
+
+### S32-1 (docs sweep) — the standard alignment for a fourth verification-only cycle
+
+- **Evidence:** the audit found nothing to change in `src/**`,
+  `tests/**`, or `prisma/**` — the fourth consecutive cycle with a
+  fully empty remediation surface. The only alignment work is the docs
+  sweep: the plan range, the SKILL version/project_state, the CLAUDE.md
+  tail, the Appendix B record, and the screenshots.
+- **Fix:** SKILL v1.28.0 → v1.29.0 (project_state + the Appendix B
+  session-32 entry), AGENTS.md plan range 2..31 → 2..32, CLAUDE.md
+  tail, README/PAD/DEPLOYMENT.md drift checks, `.env.example`
+  verification, the 25 screenshots refresh, `docs/session_56.md`,
+  worklog Task 33, and the execution log below. No code changes — the
+  432/66 suites carry the no-regression evidence by their green runs on
+  the pulled tree AND on the final tree.
+
+### Dispositions (no change, recorded)
+
+- **Info-1 (docs-precision — the route-handler count convention):** the
+  standing "16 route handlers / 11 files" anchor (claimed MATCH by
+  audits 31-a/32-a and recorded in the session-30/31 plan narratives +
+  Appendix B) counts 16 top-level route-file exports; precisely, those
+  are **15 HTTP method handlers + 1 exported response type**
+  (`CouponApplyResponse`, `src/app/api/coupon/apply/route.ts:10`)
+  across the 11 `route.ts` files. The historical claims are
+  reproducible under their raw-export convention and stay untouched;
+  the anchor is restated in the precise form in this section, the SKILL
+  v1.29.0 project_state, and the Appendix B session-32 entry so future
+  audits count handlers, not exports. Zero code impact.
+- **Info-2 (environmental, already documented):** the sandbox
+  process-env shadow `DATABASE_URL` points at a non-existent path — the
+  documented Task-32 trap; the per-command absolute-export convergence
+  (one inode, seeds verified through it) keeps every command honest.
+  Nothing in the repository is affected.
+- **Carried deferrals (unchanged, all verified standing):** S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce (static shell);
+  `__Host-` prefix; shared-store limiter; radiogroup roving focus
+  (WCAG-conformant as-is); address content dedup; the external-service
+  epics (real email delivery, OAuth, real payments — blocked on
+  sandbox-external credentials/SMTP). The route-level 429 grid stays
+  complete (14/14).
+
+## 3. Execution log (session 32)
+
+- [x] S32-1 docs sweep + screenshots + worklog + session_56.md
+- [x] Full gate chain re-run green on the final tree (lint · typecheck ·
+      typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
+      the pulled tree before the sweep (the twice-run no-regression
+      evidence)

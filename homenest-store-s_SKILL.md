@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.28.0
+version: 1.29.0
 last_updated: 2026-10-15
-project_state: "432 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-31; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine — session-27 completed the route-level 429 wiring-pin grid: ALL 14 metered HTTP surfaces carry route-level boundary pins in api-boundaries.test.ts — session-28 was the hygiene/precision pass (the two audit NITs + the reproducible count anchors) — and sessions 29/30 are the first two fully-empty remediation cycles (deep audits 30-a/31-a: 0 CRITICAL/HIGH/MEDIUM/LOW/NIT, all count anchors and 8 carried deferrals verified standing, nothing to change in src/tests/prisma) — session-31 is the third consecutive fully-empty cycle (deep audit 32-a: sweeps 12/12 clean, counts 13/13 MATCH, docs aligned, 0 CRITICAL/HIGH/MEDIUM/LOW/NIT + 4 Informational all verified accepted-shape/docs-only/sandbox-side and disposed no-change)"
+project_state: "432 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-32; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine — session-27 completed the route-level 429 wiring-pin grid: ALL 14 metered HTTP surfaces carry route-level boundary pins in api-boundaries.test.ts — session-28 was the hygiene/precision pass (the two audit NITs + the reproducible count anchors) — and sessions 29/30 are the first two fully-empty remediation cycles (deep audits 30-a/31-a: 0 CRITICAL/HIGH/MEDIUM/LOW/NIT, all count anchors and 8 carried deferrals verified standing, nothing to change in src/tests/prisma) — session-31 is the third consecutive fully-empty cycle (deep audit 32-a: sweeps 12/12 clean, counts 13/13 MATCH, docs aligned, 0 CRITICAL/HIGH/MEDIUM/LOW/NIT + 4 Informational all verified accepted-shape/docs-only/sandbox-side and disposed no-change) — session-32 is the fourth consecutive fully-empty cycle (deep audit 33-a at 6e62d01: docs claims 8/8 WIRED, sweeps 12/12 clean, counts 12/13 exact MATCH + 1 count-convention gloss (the '16 route handlers' anchor = 15 HTTP handlers + 1 exported response type across 11 files — clarified going forward), 8/8 deferrals standing, 0 CRITICAL/HIGH/MEDIUM/LOW/NIT + 2 Informational disposed no-change)"
 tags:
   - nextjs16
   - react19
@@ -1850,6 +1850,63 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
 - Docs aligned: AGENTS (plan range 2..31), CLAUDE (the session-31 tail),
   SKILL v1.28.0 (project_state + this entry), DEPLOYMENT.md drift-free,
   `.env.example` unchanged; run narrative at `docs/session_54.md`.
+
+### Session 32 (run 33) — the fourth consecutive fully-empty cycle (20th clean session)
+
+- Deep audit 33-a at HEAD `6e62d01` (= `a850067`, the session-31 cycle,
+  + the operator's session-log commit appending `docs/session_55.md`;
+  `git diff a850067..6e62d01 --stat` = docs-only, +78 lines, zero
+  src/tests/prisma deltas from the last-audited tree): the session-31
+  docs-sweep claims **8/8 WIRED** with file:line evidence (plan Session 31
+  section complete with all boxes ticked, AGENTS range 2..31, SKILL
+  v1.28.0 project_state + Appendix B, session_54/55 consistent, one
+  well-formed Task-32 worklog entry, README/PAD badges, `.env.example`
+  contract with all 5 env vars verified against their read sites,
+  DEPLOYMENT drift-free).
+- Defect-class sweeps clean (all 12 — the two raw query-param id DELETE
+  handlers re-confirmed as the standing accepted shape, both
+  ownership-scoped compound filters with route-level boundary pins).
+  Static counts **12/13 exact MATCH + 1 count-convention gloss**: the
+  "16 route handlers / 11 files" anchor counts 16 top-level route-file
+  exports, which is precisely **15 HTTP handlers + 1 exported response
+  type** (`CouponApplyResponse`, coupon/apply/route.ts:10) across the 11
+  files — reproducible under its raw-export convention, restated in the
+  precise form going forward (this entry + the Session 32 plan section);
+  the historical records stay untouched. All 8 carried deferrals
+  accurate; the 429 grid complete (14/14).
+- **0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 0 NIT / 2 Informational —
+  the twentieth consecutive session without a substantive code finding,
+  and the fourth consecutive fully-empty remediation surface.** The 2
+  Informationals verified and disposed no-change: (1) the route-handler
+  count-convention gloss above (docs-precision, zero code impact —
+  clarified in this entry, history untouched); (2) the sandbox process-env
+  shadow `DATABASE_URL` pointing at a non-existent path (the documented
+  Task-32 environmental trap — every DB-touching command this run
+  exported the absolute repo path so the shadow and the repo contract
+  resolve to ONE inode; seed 16/8/3/3/13 verified through it).
+- **No code changes this cycle** — verified by `git diff --stat
+  a850067..6e62d01` showing only the operator's session log since the
+  last-audited tree. The gates run twice (pulled tree + final tree) as
+  the no-regression evidence.
+- Final gates: **432/432 unit (46 files) · 66/66 e2e (1.9m) ·
+  lint/typecheck/typecheck:tests/build green** (both runs); 25
+  screenshots refreshed (11 dynamic-content deltas, 14 byte-identical);
+  live-reference parity re-verified via agent-browser (the reference
+  logged in with the operator's credentials: Damascus-first featured
+  order card-for-card, and the reference's mobile push-down panel
+  anatomy confirmed live at 390×844 — nav links + search + close);
+  clone verified on the fresh production server: home parity + the 4
+  trust badges + JSON-LD Organization/WebSite (+ Product on detail
+  pages) + zero console messages/errors + sitemap 25 URLs + robots +
+  noindex on private surfaces + the full security-header set (CSP
+  per-request nonce + strict-dynamic, HSTS, X-Frame-Options DENY,
+  nosniff, Referrer-Policy, Permissions-Policy, no X-Powered-By) + the
+  mobile menu contract intact (open → `nav[aria-label="Mobile"]` with
+  exactly 7 links + the search box in the panel container + close →
+  navigate → drawer unmounted, `aria-expanded` bound).
+- Docs aligned: AGENTS (plan range 2..32), CLAUDE (the session-32 tail),
+  SKILL v1.29.0 (project_state + this entry), DEPLOYMENT.md drift-free,
+  `.env.example` unchanged; run narrative at `docs/session_56.md`.
 
 ## Appendix C — Quick Reference Card
 
