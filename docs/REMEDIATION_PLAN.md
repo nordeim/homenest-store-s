@@ -4230,3 +4230,196 @@ consecutive both-surfaces-clean cycle.
       typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
       the pulled tree before the sweep (the twice-run no-regression
       evidence)
+
+# Session 39 (run 40) — 2026-10-16
+
+> The NINTH fully-empty remediation cycle — and the fifth consecutive
+> cycle with BOTH surfaces clean: the repo-side audit found zero
+> defects AND the live reference kept its catalog in the
+> session-34-pinned order (the SIXTH consecutive stable-reference
+> cycle). The plan file names increment by run number; this section is
+> numbered by session — the run/plan numbering drift is documented in
+> `docs/session_52.md`.
+
+## 1. Audit summary (evidence-based)
+
+Pulled tree `0d6f1fe` (= `5511f1d`, the pushed session-38 verification
+cycle, + the operator's session-log commit appending
+`docs/session_69.md`, the raw run-39 log; `git diff 5511f1d..0d6f1fe
+--stat` = one file, +93 lines — **zero src/tests/prisma deltas from
+the last-audited tree**). The workspace SURVIVED for the third
+consecutive cycle (git pull refresh only): `.env` (the
+`file:../db/custom.db` contract + a strong `AUTH_SECRET`), the
+repo-root `db/custom.db` (verified to match the pushed run-39 state —
+16 products, 10 orders, the seeded Damascus-first pinned order,
+Damascus reviewCount 414 / stock 24), `node_modules`, and the
+Playwright chromium-1248 cache all in place; the only standing
+recovery item is the per-command absolute-export convergence for the
+sandbox's process-level `DATABASE_URL` shadow
+(`file:/home/z/my-project/db/custom.db` — nonexistent), which applies
+to every DB-touching command including `next build` (whose sitemap
+static generation would otherwise log `prisma:error 14` against the
+shadow path and lose the 16 product URLs). `skills/` excluded from
+all checking, testing and compilation per the operator contract.
+Gates on the pulled tree: lint ✓ · typecheck ✓ · typecheck:tests ✓ ·
+**432/432 unit** ✓ (46 files, 20.32s) · build ✓ (standalone, 22/22
+static pages, sitemap 25 URLs) · **66/66 e2e** ✓ (1.9m) — the
+documented session-38 state reproduces exactly.
+
+**Reference-tech-stack alignment:** the `ecommerce-store` repo
+re-checked at `1ffda3d` (still up to date with its origin/main — the
+same commit reviewed in runs 35–39); its `skills/` folder re-verified
+IDENTICAL to homenest-store-s's (file lists + skills-catalog.md md5
+`f69408bf…`); its sitemap/SEO implementation re-compared —
+homenest's remains the stricter superset (private surfaces excluded,
+single-sourced `siteBaseUrl()`, DB-failure tolerance). No adoption
+gaps.
+
+**Live-reference parity (agent-browser, logged in with the
+operator's credentials): NO FINDING — the pinned order holds for the
+SIXTH consecutive cycle.** /products "Newest" (All Categories, count
+"8 products found") renders the session-34-pinned Damascus-first
+order (**Damascus Steel Chef Knife Set → Artisan Copper Frying Pan →
+Artisan Ceramic Dinner Set → Enameled Cast Iron Dutch Oven → Walnut
+Cutting Board Collection → Ceramic Mixing Bowl Set → Glass Storage
+Container Set → Professional Stand Mixer**); home Featured renders
+the featured-flag-filtered pinned order (6 cards); home New
+Arrivals renders the same 8 in the products order. All 8 prices
+re-verified to the cent WITH compare-at values and discount badges
+(199.99/279.99 −29% · 89.99/129.99 −31% · 119.99/159.99 −25% ·
+149.99/199.99 −25% · 79.99 · 54.99/69.99 −21% · 42.99 ·
+349.99/429.99 −19%); review counts match the seed's authored display
+counts exactly (412/234/203/367/142/187/156/298 — the local DB's
+Damascus 414 is the traffic-owned aggregate from prior e2e runs; the
+reference shows the authored 412); the 8 category tiles (Cookware /
+Bakeware / Kitchen Tools / Storage / Appliances / Dining / Cleaning /
+Decor), the rotating hero ("New Arrivals" observed first, "Sale Up
+to 40% Off" observed mid-rotation 4.5s later), the 4 trust badges
+(Free Shipping / Secure Payment / Easy Returns / 24/7 Support), and
+the mobile-menu contract at 390×844 verified on BOTH sides: the
+reference's hamburger (rightmost icon header button) → push-down
+panel with 5 nav links + the icon-only "Search products..." search
+BUTTON, toggle-closes, and navigate-closes (verified with a REAL
+Playwright click on the panel link — an earlier synthetic
+`dom.click()` had hit the hidden DESKTOP nav's first matching link
+and left the panel mounted, a testing artifact, not reference
+behavior); the clone's Tailwind v4 conditional-mount contract
+verified with 16/16 automated checks.
+
+**Clone parity (fresh standalone server on :3000, 16/16 automated
+checks PASS):** health `{"status":"ok","db":"up"}` · sitemap.xml 25
+URLs (9 static + 16 products, private surfaces excluded) · robots
+disallowing `/admin /account /checkout /api` + the sitemap ref ·
+`noindex` on all 8 probed private surfaces (login / register / cart /
+wishlist / track-order / checkout / account / admin) · /products
+count "16 products found" with the first 8 exactly the pinned order
+and all 8 prices + compare-at + badges byte-identical to the
+reference's live values · home Featured (6) and New Arrivals (8)
+card-for-card in the pinned order · the mobile-menu contract: panel
+mounted via `data-testid="mobile-menu-button"` → exactly 7 links
+(Home / Products / Track Order / About / Contact / Sign In /
+Wishlist — the guest contract state) → the `aria-label="Close menu"`
+green circular button RENDERED 44×44 at x330,y78 → the panel's own
+search box RENDERED 209×40 at x16,y80 (the e2e panel-scoped
+methodology) → navigate → panel unmounted. **Zero parity gaps.**
+(Methodology note for future cycles: the clone's ProductCard renders
+`article > h3 > Link` — the name link lives INSIDE the h3, unlike
+the reference's single-anchor cards — so parity scripts must extract
+card names via article-scoped queries, and the mobile panel's close
+button + search box live in `div[data-testid="mobile-menu"]` OUTSIDE
+`nav[aria-label="Mobile"]`, so the panel scope for those checks is
+the testid container.)
+
+**Repo-side audit (40-a, read-only subagent):** 9/9 docs claims WIRED
+(the plan's Session 38 section complete — its execution log carries
+the verification-only-cycle 2-box shape, consistent with the Session
+36 precedent; AGENTS range 2..38; CLAUDE tail; SKILL v1.35.0
+project_state + Appendix B; session_68/69 consistent; one
+well-formed Task-39 worklog entry; README/PAD badges; `.env.example`
+contract — all 5 env vars verified against their read sites, plus a
+fresh hunt confirming NO undocumented env vars in src; DEPLOYMENT
+drift-free) · 12/12 defect sweeps clean (zero real `any`; the
+comment-only catch census precisely **7 src + 1 test**; 3 DSIH sites
+all through `jsonLdScript`; no client-trusted money; Zod at every
+boundary with the two raw query-param id DELETE handlers re-confirmed
+as the standing accepted shape; 14/14 admin actions
+requireAdmin-first; 14/14 metered surfaces 429 + `Retry-After`; no
+injection/eval/secrets; one legitimate console.error; zero TODO
+markers; no Tailwind v4 display-utility toggling; mobile-nav
+conditional mount) · 10/10 counts MATCH (incl. the audit's own
+dynamic 432/432 unit re-run, 21.63s · 14/66 e2e · 18 models · 14
+requireAdmin · 14 metered · 3 DSIH · 127 tracked src TS files · 25
+screenshots · 16 admin-dialog catches / 6 files · the route-handler
+anchor in its precise 15-HTTP-handlers + 1-exported-type form across
+11 files) · 8/8 carried deferrals standing. The audit's proactive
+hunts (searchParams readers, ownership scoping, race shapes, SEO,
+a11y, plus fresh surfaces: no open redirects — all 6 `redirect()`
+calls static; all `fetch()` same-origin; no client component
+importing db/prisma; timing-safe HMAC; health degraded-503 path; the
+login demo credentials passed server-side only) all came back clean.
+**Repo-side findings: 0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 0 NIT
++ 3 Informational** (all citation glosses in the audit brief itself,
+not repo drift: the "3/3 boxes" expectation vs the actual
+verification-only 2-box convention; the login-limiter citation
+`src/lib/auth.ts` vs the actual `src/lib/actions/auth.ts:85-91`; the
+radiogroup "native radio inputs" wording vs the actual button-based
+ARIA radios — the repo's own deferral wording is accurate) — all
+disposed no-change. The audit's verdict: the 27th consecutive clean
+session; the repo is EXACTLY in its documented session-38 state.
+
+Both surfaces clean — this cycle makes the remediation surface
+fully-empty for the ninth time (sessions 29/30/31/32/35/36/37/38 were
+the first eight) and the fifth consecutive both-surfaces-clean cycle.
+
+## 2. Findings → work items
+
+### S39-1 (docs sweep) — the standard alignment for a ninth verification-only cycle
+
+- **Evidence:** both audit surfaces came back clean — the repo-side
+  audit found nothing to change in `src/**`, `tests/**`, or
+  `prisma/**`, and the live reference kept its catalog in the pinned
+  order for the sixth consecutive cycle (no S33-1/S34-1-class
+  re-alignment item). The only alignment work is the docs sweep: the
+  plan range, the SKILL version/project_state, the Appendix B record,
+  and the screenshots.
+- **Fix:** SKILL v1.35.0 → v1.36.0 (project_state + the Appendix B
+  session-39 entry), AGENTS.md plan range 2..38 → 2..39, CLAUDE.md
+  tail, README/PAD/DEPLOYMENT.md drift checks, `.env.example`
+  verification (unchanged, git-tracked), the 25 screenshots refresh,
+  `docs/session_70.md`, worklog Task 40, and the execution log below.
+  No code changes — the 432/66 suites carry the no-regression evidence
+  by their green runs on the pulled tree AND on the final tree.
+
+### Dispositions (no change, recorded)
+
+- **The reference's visible catalog stays 8 products:** unchanged
+  since session-33 — the clone keeps all 16 per the superset principle
+  (the reference's deletions never propagate; the S7-3 seed policy
+  never deletes).
+- **Info-1..3 (audit-brief citation glosses, restated):** the
+  Session 38 execution log's 2-box shape is the verification-only-cycle
+  convention (fix cycles 35/37 carry 3 boxes — `session_68.md`'s
+  "3/3" phrasing refers to the Session 37 section, which genuinely
+  has 3); the S8-8 login limiter lives in
+  `src/lib/actions/auth.ts:85-91` (the `src/lib/auth.ts` citation in
+  prior audit-brief phrasings was a gloss); the review-form
+  radiogroup uses button-based ARIA radios (`role="radio"`), not
+  native `<input type="radio">` — the repo's own deferral wording
+  ("buttons remain individually focusable/operable") is accurate.
+  All three disposed no-change; recorded here so future audit briefs
+  cite the exact shapes.
+- **Carried deferrals (unchanged, all verified standing):** S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce (static shell);
+  `__Host-` prefix; shared-store limiter; radiogroup roving focus
+  (WCAG-conformant as-is); address content dedup; the
+  external-service epics (real email delivery, OAuth, real payments —
+  blocked on sandbox-external credentials/SMTP). The route-level 429
+  grid stays complete (14/14).
+
+## 3. Execution log (session 39)
+
+- [x] S39-1 docs sweep + screenshots + worklog + session_70.md
+- [x] Full gate chain re-run green on the final tree (lint · typecheck ·
+      typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
+      the pulled tree before the sweep (the twice-run no-regression
+      evidence)
