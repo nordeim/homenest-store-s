@@ -52,8 +52,8 @@ The starting point of this remediation was a client-only Vite SPA that kept the 
 | UI primitives | Radix UI (dialog, select, sheet, label, tabs, radio) + CVA + lucide-react | latest | Accessible primitives; the shadcn pattern without the CLI |
 | Charts | Recharts | ^3 | Admin revenue + analytics surfaces |
 | Validation | Zod | ^3.25 | Single validation boundary (ADR-005) |
-| Unit tests | Vitest | ^3.2 | Node-env pure-function suite (131 tests) |
-| E2E tests | Playwright | ^1.64 | 32 tests incl. the Tailwind v4 mobile-nav regression guard |
+| Unit tests | Vitest | ^3.2 | Node-env suite (432 tests; grew with every remediation session — see §8.1) |
+| E2E tests | Playwright | ^1.64 | 66 tests incl. the Tailwind v4 mobile-nav regression guard |
 | Fonts | next/font (Playfair Display + Inter) | — | Self-hosted at build, no runtime font requests |
 
 ### 1.3 Architecture Decision Records
