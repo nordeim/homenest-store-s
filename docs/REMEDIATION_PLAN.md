@@ -3866,3 +3866,187 @@ both-surfaces-clean cycle.
       typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
       the pulled tree before the sweep (the twice-run no-regression
       evidence)
+
+# Session 37 (run 38) — 2026-10-16
+
+> The SEVENTH fully-empty remediation cycle — and the third consecutive
+> cycle with BOTH surfaces clean: the repo-side audit found zero
+> defects AND the live reference kept its catalog in the
+> session-34-pinned order (the FOURTH consecutive stable-reference
+> cycle). The plan file names increment by run number; this section is
+> numbered by session — the run/plan numbering drift is documented in
+> `docs/session_52.md`.
+
+## 1. Audit summary (evidence-based)
+
+Pulled tree `a7a9743` (= `011d2ec`, the pushed session-36 verification
+cycle, + the operator's session-log commit appending
+`docs/session_65.md`, the raw run-37 log; `git diff 011d2ec..a7a9743
+--stat` = one file, +77 lines — **zero src/tests/prisma deltas from
+the last-audited tree**). The workspace SURVIVED for the second
+consecutive cycle — a `git pull` refresh only: `.env`, the repo-root
+`db/custom.db`, `node_modules`, and the Playwright chromium-1248 cache
+were all in place; the only recurring recovery was the per-command
+absolute-export convergence for the sandbox's shadowed
+`DATABASE_URL` (one inode, the documented pattern). The full gate
+chain re-validated green on the pulled tree: lint ✓ · typecheck ✓ ·
+typecheck:tests ✓ · **432/432 unit** (46 files, 19.56s) ✓ · build ✓
+(standalone, 22/22 static pages) · **66/66 e2e** ✓ (1.8m) — the
+documented session-36 state reproduces exactly. The `ecommerce-store`
+reference repo re-checked at `1ffda3d` (still up to date with its
+origin/main — the same commit reviewed in runs 35/36/37); its skills
+folder re-verified IDENTICAL to homenest-store-s's (file lists +
+skills-catalog.md md5-verified), and its sitemap/SEO implementation
+re-compared: homenest's is the stricter superset (private surfaces
+excluded — the reference's own sitemap lists login/register/wishlist;
+single-sourced `siteBaseUrl()`; DB-failure tolerance) — no adoption
+gaps.
+
+**Live-reference parity (verified logged-in): NO finding this cycle.**
+The reference's catalog order is UNCHANGED for the FOURTH consecutive
+cycle from the session-34 pinning: /products "Newest" (All
+Categories, count text "8 products found") renders **Damascus Steel
+Chef Knife Set → Artisan Copper Frying Pan → Artisan Ceramic Dinner
+Set → Enameled Cast Iron Dutch Oven → Walnut Cutting Board
+Collection → Ceramic Mixing Bowl Set → Glass Storage Container Set →
+Professional Stand Mixer**; home "Featured" renders exactly that
+order filtered by the featured flag (Damascus → Copper Frying →
+Ceramic Dinner → Dutch Oven → Mixing Bowl → Stand Mixer); home "New
+Arrivals" renders the same 8 in the products order — the clone
+renders ALL THREE surfaces card-for-card in exactly this order (the
+seeded S34-1 alignment; the 16-product superset tail follows on
+/products at "16 products found"). Everything else matched too:
+prices (all 8 re-verified: 199.99/279.99 −29% · 89.99/129.99 −31% ·
+119.99/159.99 −25% · 149.99/199.99 −25% · 79.99 · 54.99/69.99 −21% ·
+42.99 · 349.99/429.99 −19%, the Damascus card's -29% badge +
+$279.99 strike-through confirmed on both sides), review counts (the
+reference shows 412 on Damascus = the seed's authored display count;
+the clone's local DB shows 418 — the traffic-owned aggregate
+accumulated over the run-37 and run-38 e2e runs, one increment per
+reviews-spec submission; a fresh re-seed restores 412 exactly; the
+documented live-traffic tolerance), the 8 category tiles (Cookware /
+Bakeware / Kitchen Tools / Storage / Appliances / Dining / Cleaning /
+Decor), the 3-slide rotating hero ("Sale Up to 40% Off" observed
+mid-rotation), the section anatomy, the 4 trust badges (Free Shipping
+$50 / Secure Payment / Easy Returns 30-day / 24/7 Support), the
+mobile-menu anatomy at 390×844 (hamburger → push-down panel with the
+nav links + the search box + a close button; navigating closes the
+panel — verified live on the reference AND on the clone, where the
+Tailwind v4 conditional-mount contract held: `nav[aria-label="Mobile"]`
+with exactly 7 links (Home / Products / Track Order / About / Contact
+/ Sign In / Wishlist), the `aria-label="Close menu"` button present
+and visible in the panel container, the "Search products..." box
+present, panel unmounted after navigation), and the track-order/about
+surfaces. The clone's server-side SEO re-verified live on the fresh
+standalone build: sitemap.xml 25 URLs (9 static + 16 products), robots
+disallowing `/admin /account /checkout /api` + the sitemap ref,
+`noindex, follow` on the login surface probed, health
+`{"status":"ok","db":"up"}`.
+
+Fresh deep audit (read-only subagent 38-a + operator verification of
+every load-bearing claim): the session-36 docs-sweep claims **9/9
+WIRED** (the plan's Session 36 section complete with all boxes
+ticked; AGENTS range 2..36; CLAUDE tail; SKILL v1.33.0 project_state
++ Appendix B; session_64/65 consistent; exactly one well-formed
+Task-37 worklog entry; README/PAD badges; `.env.example` 5/5 env
+vars verified against their read sites; DEPLOYMENT drift-free).
+Defect-class sweeps clean (11/11; the two raw query-param id DELETE
+handlers — cart `?line=` and addresses `?id=` — re-confirmed as the
+standing accepted shape, both ownership-scoped compound filters).
+Static counts **10/10 MATCH** (46/432 unit — independently recounted
+AND dynamically re-run green inside the audit, 20.10s · 14/66 e2e ·
+18 models · 14 requireAdmin · 14 metered · 3 DSIH · 127 tracked TS
+files · 25 screenshots · 16 admin-dialog catches / 6 files · the
+route-handler anchor in its precise 15-HTTP-handlers +
+1-exported-type form). All 8 carried deferrals standing.
+**Repo-side findings: 0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 0
+NIT / 2 Informational** (one environmental — the parent-sandbox
+worklog stub, now RESOLVED: the surviving workspace carried the
+in-progress Task-38 record, so the recurring stub observation no
+longer applies — the second consecutive surviving workspace; one
+informational — README/PAD carry the accurate 432/66 test-count
+badges while the plan-range/SKILL-version strings live in
+AGENTS/CLAUDE/SKILL per the long-standing doc layout — a
+layout-consistency note, not drift) — both disposed no-change. The
+audit's verdict: the 25th consecutive clean session; this cycle makes
+the remediation surface fully-empty for the seventh time (sessions
+29/30/31/32/35/36 were the first six) and the third consecutive
+both-surfaces-clean cycle.
+
+## 2. Findings → work items
+
+### S37-1 (docs sweep) — the standard alignment for a seventh verification-only cycle
+
+- **Evidence:** both audit surfaces came back clean — the repo-side
+  audit found nothing to change in `src/**`, `tests/**`, or
+  `prisma/**`, and the live reference kept its catalog in the pinned
+  order for the fourth consecutive cycle (no S33-1/S34-1-class
+  re-alignment item). The only alignment work is the docs sweep: the
+  plan range, the SKILL version/project_state, the Appendix B record,
+  and the screenshots.
+- **Fix:** SKILL v1.33.0 → v1.34.0 (project_state + the Appendix B
+  session-37 entry), AGENTS.md plan range 2..36 → 2..37, CLAUDE.md
+  tail, README/PAD/DEPLOYMENT.md drift checks, `.env.example`
+  verification (unchanged, git-tracked), the 25 screenshots refresh,
+  `docs/session_66.md`, worklog Task 38, and the execution log below.
+  No code changes — the 432/66 suites carry the no-regression evidence
+  by their green runs on the pulled tree AND on the final tree.
+
+### S37-2 (LOW, docs tooling — surfaced during this cycle's screenshot refresh, post-audit)
+
+- **Evidence:** the run-38 capture's `04b-cart-coupon-hint.png` showed
+  a ~800-byte flip vs repo HEAD on an otherwise-unchanged page — the
+  S35-2 lesson ("a byte flip on an unchanged page can hide a race")
+  demanded investigation. Pixel-diff isolated the ONLY differing
+  region to the transient **"Coupon FREESHIP applied" toast** itself
+  (x 1026–1433, y 817–924 — the toast LI at x 1036, y 884): the
+  capture screenshotted mid-animation at an arbitrary enter/exit
+  frame, so the shot was run-to-run byte-non-deterministic (two
+  consecutive runs of the exact capture logic produced different
+  md5s). NOT the S35-2 content-race class — the cart content was
+  always correct (the badge gate passed; both texts explicitly
+  awaited) — purely the toast's animation frame. The shot had merely
+  landed byte-identical across runs 36/37 by timing luck.
+- **Fix:** `scripts/capture-screenshots.mjs`'s 04b capture now waits
+  for the coupon toast's 4s auto-dismiss (`li` filtered on
+  "Coupon FREESHIP applied" → `state: "detached"`) before the
+  screenshot — the same determinism discipline as the S35-2 badge
+  gates. Verified deterministic the S35-2 way: consecutive capture
+  runs produce a byte-identical md5 (`6ed62e85…`, the pin). The shot
+  is now permanently byte-stable (the /cart surface it documents
+  carries no traffic-dynamic content — the toast was the only noise
+  source). No changes in `src/**`, `tests/**`, or `prisma/**`.
+
+### Dispositions (no change, recorded)
+
+- **The reference's visible catalog stays 8 products:** unchanged
+  since session-33 — the clone keeps all 16 per the superset principle
+  (the reference's deletions never propagate; the S7-3 seed policy
+  never deletes).
+- **Info-1 (environmental, RESOLVED):** the parent-sandbox worklog
+  stub — the standing pattern after resets — no longer applies: the
+  workspace survived for the second consecutive cycle and the sandbox
+  worklog carried the in-progress Task-38 record through the audit.
+- **Info-2 (informational — doc layout):** README/PAD carry the
+  432/66 test-count badges (both accurate) but not the
+  plan-range/SKILL-version strings; those live in AGENTS/CLAUDE/SKILL
+  by the long-standing documented layout — noted so future audits do
+  not count it as drift.
+- **Carried deferrals (unchanged, all verified standing):** S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce (static shell);
+  `__Host-` prefix; shared-store limiter; radiogroup roving focus
+  (WCAG-conformant as-is); address content dedup; the
+  external-service epics (real email delivery, OAuth, real payments —
+  blocked on sandbox-external credentials/SMTP). The route-level 429
+  grid stays complete (14/14).
+
+## 3. Execution log (session 37)
+
+- [x] S37-1 docs sweep + screenshots + worklog + session_66.md
+- [x] S37-2: the 04b capture gated on the coupon toast's auto-dismiss
+      (the S35-2 determinism discipline applied to the toast animation
+      frame; the byte-identical md5 pin recorded above)
+- [x] Full gate chain re-run green on the final tree (lint · typecheck ·
+      typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
+      the pulled tree before the sweep (the twice-run no-regression
+      evidence)

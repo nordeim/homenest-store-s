@@ -99,6 +99,15 @@ await shoot(browser, desktop, "04b-cart-coupon-hint", "full", async (page) => {
   await page.getByLabel("Coupon code").fill("FREESHIP");
   await page.getByRole("button", { name: "Apply", exact: true }).click();
   await page.getByText("Free shipping active — FREESHIP applied at checkout").waitFor();
+  // S37-2: gate on the coupon toast's 4s auto-dismiss so the shot is
+  // byte-stable — the toast's enter/exit animation frame at capture time was
+  // run-to-run noise (pixel-diff isolated the ONLY differing region to the
+  // "Coupon FREESHIP applied" toast itself; the content was always correct).
+  // Same determinism discipline as the S35-2 badge gates.
+  await page
+    .locator("li")
+    .filter({ hasText: "Coupon FREESHIP applied" })
+    .waitFor({ state: "detached", timeout: 10000 });
 });
 await shoot(browser, desktop, "05-login", "viewport", async (page) => {
   await page.goto("/login");
