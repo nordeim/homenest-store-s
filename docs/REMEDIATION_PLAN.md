@@ -3713,3 +3713,156 @@ repo's src/tests/prisma surface stays fully-empty; S35-2 touches only
       typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
       the pulled tree before the sweep (the twice-run no-regression
       evidence)
+
+# Session 36 (run 37) — 2026-10-16
+
+> The SIXTH fully-empty remediation cycle — and the second consecutive
+> cycle with BOTH surfaces clean: the repo-side audit found zero
+> defects AND the live reference kept its catalog in the
+> session-34-pinned order (the third consecutive stable-reference
+> cycle). The plan file names increment by run number; this section is
+> numbered by session — the run/plan numbering drift is documented in
+> `docs/session_52.md`.
+
+## 1. Audit summary (evidence-based)
+
+Pulled tree `ef1b7b4` (= `4a28031`, the pushed session-35 verification
+cycle, + the operator's session-log commit appending
+`docs/session_63.md`, the raw run-36 log; `git diff 4a28031..ef1b7b4
+--stat` = one file, +102 lines — **zero src/tests/prisma deltas from
+the last-audited tree**). The workspace SURVIVED this cycle — a
+`git pull` refresh only (the first non-reset environment since the
+run-33 reset streak began): `.env`, the repo-root `db/custom.db`,
+`node_modules`, and the Playwright chromium-1248 cache were all in
+place; the only recurring recovery was the per-command
+absolute-export convergence for the sandbox's shadowed
+`DATABASE_URL` (one inode, the documented pattern). The full gate
+chain re-validated green on the pulled tree: lint ✓ · typecheck ✓ ·
+typecheck:tests ✓ · **432/432 unit** (46 files, 20.5s) ✓ · build ✓
+(standalone, 22/22 static pages) · **66/66 e2e** ✓ (1.9m) — the
+documented session-35 state reproduces exactly. The `ecommerce-store`
+reference repo re-checked at `1ffda3d` (still up to date with its
+origin/main — the same commit reviewed in runs 35/36): its stack
+patterns still match; its skills folder re-verified IDENTICAL to
+homenest-store-s's (file lists + skills-catalog.md byte-verified) —
+no adoption gaps. The sitemap/SEO surfaces re-compared: homenest's
+remains the stricter superset (private surfaces excluded from
+sitemap.xml, single-sourced `siteBaseUrl()`, DB-failure tolerance) —
+no change needed.
+
+**Live-reference parity (verified logged-in): NO finding this cycle.**
+The reference's catalog order is UNCHANGED for the third consecutive
+cycle from the session-34 pinning: /products "Newest" (All
+Categories, count text "8 products found") renders **Damascus Steel
+Chef Knife Set → Artisan Copper Frying Pan → Artisan Ceramic Dinner
+Set → Enameled Cast Iron Dutch Oven → Walnut Cutting Board
+Collection → Ceramic Mixing Bowl Set → Glass Storage Container Set →
+Professional Stand Mixer**; home "Featured" renders exactly that
+order filtered by the featured flag (Damascus → Copper Frying →
+Ceramic Dinner → Dutch Oven → Mixing Bowl → Stand Mixer); home "New
+Arrivals" renders the same 8 in the products order — the clone
+renders ALL THREE surfaces card-for-card in exactly this order (the
+seeded S34-1 alignment; the 16-product superset tail follows on
+/products at "16 products found"). Everything else matched too:
+prices (all 8 verified: 199.99 / 89.99 / 119.99 / 149.99 / 79.99 /
+54.99 / 42.99 / 349.99, compare-at included — the Damascus card's
+-29% badge + $279.99 strike-through confirmed on both sides), review
+counts (the reference shows 412 on Damascus = the seed's authored
+display count; the clone's local DB shows 416 — the traffic-owned
+aggregate accumulated over run-36's three e2e runs plus run-37's
+pulled-tree e2e run, one increment per reviews-spec submission; a
+fresh re-seed restores 412 exactly; the documented live-traffic
+tolerance), the 8 category tiles, the 3-slide rotating hero (New
+Arrivals / Sale Up to 40% Off observed mid-rotation), the section
+anatomy, the 4 trust badges, the mobile-menu anatomy at 390×844
+(hamburger → push-down panel with the nav links + the search box +
+a close button; navigating closes the panel — verified live on the
+reference AND on the clone, where the Tailwind v4 conditional-mount
+contract held: `nav[aria-label="Mobile"]` with exactly 7 links,
+panel unmounted after navigation, `aria-expanded` bound), and the
+track-order/about surfaces. The clone's server-side SEO re-verified
+live on the fresh standalone build: sitemap.xml 25 URLs (9 static +
+16 products), robots disallowing `/admin /account /checkout /api` +
+the sitemap ref, `noindex, follow` on the login surface probed,
+health `{"status":"ok","db":"up"}`.
+
+Fresh deep audit (read-only subagent 37-a + operator verification of
+every load-bearing claim): the session-35 docs-sweep claims **9/9
+WIRED** (the plan's Session 35 section complete with all boxes
+ticked; AGENTS range 2..35; CLAUDE tail; SKILL v1.32.0 project_state
++ Appendix B; session_62/63 consistent; exactly one well-formed
+Task-36 worklog entry; README/PAD badges; `.env.example` 5/5 env
+vars verified against their read sites; DEPLOYMENT drift-free).
+Defect-class sweeps clean (11/11; the two raw query-param id DELETE
+handlers — cart `?line=` and addresses `?id=` — re-confirmed as the
+standing accepted shape, both ownership-scoped compound filters).
+Static counts **10/10 MATCH** (46/432 unit — independently recounted
+AND dynamically re-run green inside the audit, 20.16s · 14/66 e2e ·
+18 models · 14 requireAdmin · 14 metered · 3 DSIH · 127 tracked TS
+files · 25 screenshots · 16 admin-dialog catches / 6 files · the
+route-handler anchor in its precise 15-HTTP-handlers +
+1-exported-type form). All 8 carried deferrals standing.
+**Repo-side findings: 0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 0
+NIT / 2 Informational** (one environmental — the parent-sandbox
+worklog stub after the documented reset, the standing pattern, with
+36-a's untracked verify-seed scratch item RESOLVED by this cycle's
+surviving workspace; one informational — the SKILL Appendix B
+session-35 entry references session_61/62 but not session_63.md, an
+inherent commit-chronology artifact (the operator's raw log lands
+post-push), not a docs error) — both disposed no-change. The audit's
+verdict: the 24th consecutive clean session; this cycle makes the
+remediation surface fully-empty for the sixth time (sessions 29/30/
+31/32/35 were the first five) and the second consecutive
+both-surfaces-clean cycle.
+
+## 2. Findings → work items
+
+### S36-1 (docs sweep) — the standard alignment for a sixth verification-only cycle
+
+- **Evidence:** both audit surfaces came back clean — the repo-side
+  audit found nothing to change in `src/**`, `tests/**`, or
+  `prisma/**`, and the live reference kept its catalog in the pinned
+  order for the third consecutive cycle (no S33-1/S34-1-class
+  re-alignment item). The only alignment work is the docs sweep: the
+  plan range, the SKILL version/project_state, the Appendix B record,
+  and the screenshots.
+- **Fix:** SKILL v1.32.0 → v1.33.0 (project_state + the Appendix B
+  session-36 entry), AGENTS.md plan range 2..35 → 2..36, CLAUDE.md
+  tail, README/PAD/DEPLOYMENT.md drift checks, `.env.example`
+  verification (unchanged, git-tracked), the 25 screenshots refresh,
+  `docs/session_64.md`, worklog Task 37, and the execution log below.
+  No code changes — the 432/66 suites carry the no-regression evidence
+  by their green runs on the pulled tree AND on the final tree.
+
+### Dispositions (no change, recorded)
+
+- **The reference's visible catalog stays 8 products:** unchanged
+  since session-33 — the clone keeps all 16 per the superset principle
+  (the reference's deletions never propagate; the S7-3 seed policy
+  never deletes).
+- **Info-1 (environmental):** the parent-sandbox worklog stub (the
+  standing pattern after resets; the repo worklog is authoritative).
+  36-a's untracked sandbox-side `scripts/verify-seed.ts` scratch item
+  is RESOLVED — the working tree at this cycle's start was fully
+  clean.
+- **Info-2 (informational — commit chronology):** the SKILL Appendix
+  B session-35 entry cites `session_62.md` (the run narrative) but
+  not `session_63.md` (the operator's raw log) because the raw log
+  lands as a separate post-push commit — inherent to the operator's
+  workflow, not a docs error; noted here so future audits do not
+  count it as drift.
+- **Carried deferrals (unchanged, all verified standing):** S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce (static shell);
+  `__Host-` prefix; shared-store limiter; radiogroup roving focus
+  (WCAG-conformant as-is); address content dedup; the
+  external-service epics (real email delivery, OAuth, real payments —
+  blocked on sandbox-external credentials/SMTP). The route-level 429
+  grid stays complete (14/14).
+
+## 3. Execution log (session 36)
+
+- [x] S36-1 docs sweep + screenshots + worklog + session_64.md
+- [x] Full gate chain re-run green on the final tree (lint · typecheck ·
+      typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
+      the pulled tree before the sweep (the twice-run no-regression
+      evidence)

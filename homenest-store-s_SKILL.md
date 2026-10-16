@@ -10,9 +10,9 @@ description: >
   model, TDD workflow, debugging playbooks, and the complete pre-ship gate
   chain. Use when extending, debugging, auditing, onboarding, or replicating
   this codebase — every pattern below was verified against a live build.
-version: 1.32.0
+version: 1.33.0
 last_updated: 2026-10-16
-project_state: "432 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-35; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine — session-27 completed the route-level 429 wiring-pin grid: ALL 14 metered HTTP surfaces carry route-level boundary pins in api-boundaries.test.ts — session-28 was the hygiene/precision pass (the two audit NITs + the reproducible count anchors) — and sessions 29/30 are the first two fully-empty remediation cycles (deep audits 30-a/31-a: 0 CRITICAL/HIGH/MEDIUM/LOW/NIT, all count anchors and 8 carried deferrals verified standing, nothing to change in src/tests/prisma) — session-31 is the third consecutive fully-empty cycle (deep audit 32-a: sweeps 12/12 clean, counts 13/13 MATCH, docs aligned, 0 CRITICAL/HIGH/MEDIUM/LOW/NIT + 4 Informational all verified accepted-shape/docs-only/sandbox-side and disposed no-change) — session-32 is the fourth consecutive fully-empty cycle (deep audit 33-a at 6e62d01: docs claims 8/8 WIRED, sweeps 12/12 clean, counts 12/13 exact MATCH + 1 count-convention gloss (the '16 route handlers' anchor = 15 HTTP handlers + 1 exported response type across 11 files — clarified going forward), 8/8 deferrals standing, 0 CRITICAL/HIGH/MEDIUM/LOW/NIT + 2 Informational disposed no-change) — session-33 is a REFERENCE-PARITY cycle (deep audit 34-a at e444df8: repo-side 9/9 docs claims WIRED, 13/13 sweeps clean, 7/7 counts MATCH, 8/8 deferrals standing, 0 repo-side defects; the live reference re-ordered its catalog AND shrank its visible catalog 16→8 — S33-1 re-aligned the seed's authored order to the reference's current live order (Dutch-Oven-first core of 8, the 16-product superset kept), TDD: the seed-catalog order pin extended first, then the PRODUCTS block reorder, fresh-DB re-seed, all gates green twice) — session-34 is the SECOND consecutive reference-parity cycle (deep audit 35-a at 99eca4a: repo-side 9/9 docs claims WIRED, 12/12 sweeps clean, 9/9 counts MATCH incl. the audit's own dynamic 432/432 re-run, 8/8 deferrals standing, 0 repo-side defects + 3 Informational disposed no-change; the live reference re-ordered its catalog AGAIN — S34-1 re-aligned the seed's authored order to the current live order (Damascus-first core of 8, the 16-product superset kept), TDD: pin extended first (red), the pure 97/97 block reorder (green, with the S33-1 move's mixed brace indentation normalized), the twice-re-aligned history re-anchored in the seed-policy/spec/seed comments, fresh-DB re-seed, card-for-card parity re-verified on all three surfaces, all gates green twice) — session-35 is the FIFTH fully-empty remediation cycle and the first with BOTH surfaces clean (deep audit 36-a at 98359d0: repo-side 9/9 docs claims WIRED, 11/11 sweeps clean, 10/10 counts MATCH incl. the audit's own dynamic 432/432 re-run, 8/8 deferrals standing, 0 repo-side defects + 3 Informational (2 environmental + 1 docs-precision on the '16 admin-dialog catches / 6 files' anchor's file-set convention: the five admin *-dialog.tsx files + settings-form.tsx, with the account address-dialog's three catches outside the admin set — restated precisely going forward) disposed no-change; the live reference KEPT its catalog in the session-34-pinned Damascus-first order — no re-alignment item this cycle; card-for-card parity re-verified on /products + Featured + New Arrivals, all gates green twice; plus S35-2, a LOW docs-tooling fix: the 11-checkout screenshot capture's fire-and-forget add-to-cart race (the run-35 shot had silently shipped the empty-cart shell at /checkout — the session-23/run-24 class) now gated on expectBadgeCount like the 04-cart shot, verified deterministic by a byte-identical md5 across consecutive capture runs)"
+project_state: "432 unit tests · 66 e2e tests · lint/typecheck/typecheck:tests/build green · security-hardened (post-remediation sessions 2-36; the placeOrderTx money authority is extracted verbatim into src/lib/order-placement.ts with the db client injected — route behavior byte-equivalent, the C1/C3 boundary pins green unchanged — the money-path real-engine harness pins the server-derived money (the args' cosmetic mirrors carry garbage; the live product rows win), the receipt snapshots, stock reservation incl. the WRITE-side atomic decrement guard (the duplicate-product handoff), the coupon burn plus the engine-level atomic rollback, the S12-1 cart-clear scoping, and the S7-8 best-effort address save against a live SQLite engine — session-27 completed the route-level 429 wiring-pin grid: ALL 14 metered HTTP surfaces carry route-level boundary pins in api-boundaries.test.ts — session-28 was the hygiene/precision pass (the two audit NITs + the reproducible count anchors) — and sessions 29/30 are the first two fully-empty remediation cycles (deep audits 30-a/31-a: 0 CRITICAL/HIGH/MEDIUM/LOW/NIT, all count anchors and 8 carried deferrals verified standing, nothing to change in src/tests/prisma) — session-31 is the third consecutive fully-empty cycle (deep audit 32-a: sweeps 12/12 clean, counts 13/13 MATCH, docs aligned, 0 CRITICAL/HIGH/MEDIUM/LOW/NIT + 4 Informational all verified accepted-shape/docs-only/sandbox-side and disposed no-change) — session-32 is the fourth consecutive fully-empty cycle (deep audit 33-a at 6e62d01: docs claims 8/8 WIRED, sweeps 12/12 clean, counts 12/13 exact MATCH + 1 count-convention gloss (the '16 route handlers' anchor = 15 HTTP handlers + 1 exported response type across 11 files — clarified going forward), 8/8 deferrals standing, 0 CRITICAL/HIGH/MEDIUM/LOW/NIT + 2 Informational disposed no-change) — session-33 is a REFERENCE-PARITY cycle (deep audit 34-a at e444df8: repo-side 9/9 docs claims WIRED, 13/13 sweeps clean, 7/7 counts MATCH, 8/8 deferrals standing, 0 repo-side defects; the live reference re-ordered its catalog AND shrank its visible catalog 16→8 — S33-1 re-aligned the seed's authored order to the reference's current live order (Dutch-Oven-first core of 8, the 16-product superset kept), TDD: the seed-catalog order pin extended first, then the PRODUCTS block reorder, fresh-DB re-seed, all gates green twice) — session-34 is the SECOND consecutive reference-parity cycle (deep audit 35-a at 99eca4a: repo-side 9/9 docs claims WIRED, 12/12 sweeps clean, 9/9 counts MATCH incl. the audit's own dynamic 432/432 re-run, 8/8 deferrals standing, 0 repo-side defects + 3 Informational disposed no-change; the live reference re-ordered its catalog AGAIN — S34-1 re-aligned the seed's authored order to the current live order (Damascus-first core of 8, the 16-product superset kept), TDD: pin extended first (red), the pure 97/97 block reorder (green, with the S33-1 move's mixed brace indentation normalized), the twice-re-aligned history re-anchored in the seed-policy/spec/seed comments, fresh-DB re-seed, card-for-card parity re-verified on all three surfaces, all gates green twice) — session-35 is the FIFTH fully-empty remediation cycle and the first with BOTH surfaces clean (deep audit 36-a at 98359d0: repo-side 9/9 docs claims WIRED, 11/11 sweeps clean, 10/10 counts MATCH incl. the audit's own dynamic 432/432 re-run, 8/8 deferrals standing, 0 repo-side defects + 3 Informational (2 environmental + 1 docs-precision on the '16 admin-dialog catches / 6 files' anchor's file-set convention: the five admin *-dialog.tsx files + settings-form.tsx, with the account address-dialog's three catches outside the admin set — restated precisely going forward) disposed no-change; the live reference KEPT its catalog in the session-34-pinned Damascus-first order — no re-alignment item this cycle; card-for-card parity re-verified on /products + Featured + New Arrivals, all gates green twice; plus S35-2, a LOW docs-tooling fix: the 11-checkout screenshot capture's fire-and-forget add-to-cart race (the run-35 shot had silently shipped the empty-cart shell at /checkout — the session-23/run-24 class) now gated on expectBadgeCount like the 04-cart shot, verified deterministic by a byte-identical md5 across consecutive capture runs) — session-36 is the SIXTH fully-empty remediation cycle and the second consecutive with BOTH surfaces clean (deep audit 37-a at ef1b7b4: repo-side 9/9 docs claims WIRED, 11/11 sweeps clean, 10/10 counts MATCH incl. the audit's own dynamic 432/432 re-run, 8/8 deferrals standing, 0 repo-side defects + 2 Informational (one environmental — the parent-worklog stub; one informational — the Appendix B session-35 entry citing session_62 but not session_63, an inherent commit-chronology artifact) disposed no-change, with 36-a's untracked verify-seed scratch RESOLVED by the surviving workspace; the live reference KEPT its catalog in the session-34-pinned Damascus-first order for the THIRD consecutive cycle — no re-alignment item; card-for-card parity re-verified on /products + Featured + New Arrivals incl. all 8 prices and the mobile-menu contract at 390×844 on both sides, all gates green twice)"
 tags:
   - nextjs16
   - react19
@@ -2059,6 +2059,67 @@ limiter; atomic stock reservation; uniform login errors; demo-mode gate.
   single-sourced `siteBaseUrl()`; DB-failure tolerance).
 - Run narrative at `docs/session_61.md` (the operator's raw run-35
   log) and `docs/session_62.md` (this run).
+
+### Session 36 (run 37) — the sixth fully-empty remediation cycle, both surfaces clean again (S36-1)
+
+- **No finding this cycle — the second consecutive cycle with BOTH
+  audit surfaces clean, and the third consecutive stable-reference
+  cycle.** The live reference KEPT its catalog in the session-34-
+  pinned Damascus-first order (/products "Newest" · home Featured ·
+  home New Arrivals all unchanged; count text "8 products found"), so
+  there was no S33-1/S34-1-class re-alignment item: the clone renders
+  all three surfaces card-for-card in exactly the pinned order
+  (verified agent-browser against a fresh standalone server, logged
+  into the reference with the operator's credentials). All 8 prices
+  re-verified to the cent (199.99 / 89.99 / 119.99 / 149.99 / 79.99 /
+  54.99 / 42.99 / 349.99 + the Damascus -29% compare-at), review
+  counts (reference 412 = the seed's authored display count; the
+  clone's local DB 416 from accumulated e2e review traffic across
+  runs — a fresh re-seed restores 412 exactly), the 8 category tiles,
+  the 3-slide rotating hero, the 4 trust badges, the mobile-menu
+  contract at 390×844 verified on BOTH sides (the reference's
+  push-down panel + navigate-closes; the clone's Tailwind v4
+  conditional-mount, 7 links, unmount-on-navigate, aria-expanded),
+  and the track-order/about surfaces. The clone's SEO re-verified
+  live: sitemap 25 URLs, robots disallow set, noindex on private
+  surfaces, health ok/db-up.
+- **Repo-side audit (37-a, read-only):** 9/9 docs claims WIRED · 11/11
+  defect sweeps clean · 10/10 counts MATCH (incl. the audit's own
+  dynamic 432/432 unit re-run, 20.16s) · 8/8 carried deferrals
+  standing · **0 CRITICAL/HIGH/MEDIUM/LOW/NIT + 2 Informational**
+  disposed no-change (one environmental — the parent-worklog stub;
+  one informational — the Appendix B session-35 entry citing
+  session_62 but not session_63, an inherent commit-chronology
+  artifact: the operator's raw log lands as a post-push commit, so
+  pre-push Appendix B entries cannot cite it). 36-a's untracked
+  verify-seed scratch item RESOLVED — the workspace survived this
+  cycle (git pull refresh only, the first non-reset environment since
+  the reset streak), so the working tree was fully clean at cycle
+  start.
+- **S36-1 (docs sweep):** SKILL v1.32.0 → v1.33.0 (project_state
+  sessions 2-36 + this entry), AGENTS plan range 2..35 → 2..36,
+  CLAUDE tail, README/PAD/DEPLOYMENT drift checks, `.env.example`
+  verified unchanged, the 25 screenshots refreshed on a final single
+  clean run captured AFTER the final-tree e2e so the pushed shots
+  match the committed DB state (9 changed vs repo HEAD — the Damascus
+  review-count 414→417 delta from run-36's final-tree e2e runs plus
+  this cycle's two e2e runs, and the admin/account dynamic deltas
+  incl. the order count 20→25; 16 byte-identical — including both
+  order-bearing card grids where the review-count text is the only
+  pixel delta, and the S35-2-gated 11-checkout shot byte-stable
+  across both of this cycle's captures), the plan's Session 36
+  section,
+  `docs/session_64.md`, worklog Task 37. No changes in
+  src/tests/prisma — the 432/66 suites carry the no-regression
+  evidence by their green runs on the pulled tree AND on the final
+  tree (the twice-run evidence).
+- **Reference-tech-stack re-verification:** the `ecommerce-store` repo
+  re-checked at `1ffda3d` (still up to date with its origin/main —
+  the same commit reviewed in runs 35/36); skills folders
+  byte-identical; the sitemap/SEO comparison re-run — homenest's
+  remains the stricter superset.
+- Run narrative at `docs/session_63.md` (the operator's raw run-36
+  log) and `docs/session_64.md` (this run).
 
 ## Appendix C — Quick Reference Card
 
