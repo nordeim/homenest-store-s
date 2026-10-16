@@ -183,6 +183,12 @@ await shoot(browser, mobile, "21-mobile-menu-open", "viewport", async (page) => 
   await page.waitForSelector('html[data-hydrated="true"]');
   await page.getByTestId("mobile-menu-button").click();
   await page.getByTestId("mobile-menu").waitFor();
+  // S42-2: the panel-mount re-rasterizes the photographic hero (and the
+  // header's backdrop-blur + the category tile photos) — screenshotting
+  // before the re-raster settles flips the shot between two raster states
+  // run-to-run (the S37-2 class, ~12.6% of pixels, content-identical).
+  // The 700ms settle (the parity-script methodology) pins one state.
+  await page.waitForTimeout(700);
 });
 await shoot(browser, mobile, "22-tracking-locked", "viewport", async (page) => {
   // The anti-enumeration contract, visually: a number without its email.
