@@ -4423,3 +4423,198 @@ the first eight) and the fifth consecutive both-surfaces-clean cycle.
       typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
       the pulled tree before the sweep (the twice-run no-regression
       evidence)
+
+# Session 40 (run 41) — 2026-10-16
+
+> The TENTH fully-empty remediation cycle — and the sixth consecutive
+> cycle with BOTH surfaces clean: the repo-side audit found zero
+> defects AND the live reference kept its catalog in the
+> session-34-pinned order (the SEVENTH consecutive stable-reference
+> cycle). The plan file names increment by run number; this section is
+> numbered by session — the run/plan numbering drift is documented in
+> `docs/session_52.md`.
+
+## 1. Audit summary (evidence-based)
+
+Pulled tree `5f14a88` (= `6c7fc3d`, the pushed session-39 verification
+cycle, + the operator's session-log commit appending
+`docs/session_71.md`, the raw run-40 log; `git diff 6c7fc3d..5f14a88
+--stat` = one file, +87 lines — **zero src/tests/prisma deltas from
+the last-audited tree**). The workspace SURVIVED for the fourth
+consecutive cycle (git pull refresh only): `.env` (the
+`file:../db/custom.db` contract + a strong `AUTH_SECRET`), the
+repo-root `db/custom.db` (verified to match the pushed run-40 state —
+16 products, 20 orders, the seeded Damascus-first pinned order,
+Damascus reviewCount 416 / stock 24, latest order ORD-2026-020),
+`node_modules` (429 top-level packages), and the Playwright
+chromium-1248 cache all in place; the only standing recovery item is
+the per-command absolute-export convergence for the sandbox's
+process-level `DATABASE_URL` shadow
+(`file:/home/z/my-project/db/custom.db` — nonexistent), which applies
+to every DB-touching command including `next build` (whose sitemap
+static generation would otherwise log `prisma:error 14` against the
+shadow path and lose the 16 product URLs). `skills/` excluded from
+all checking, testing and compilation per the operator contract.
+Gates on the pulled tree: lint ✓ · typecheck ✓ · typecheck:tests ✓ ·
+**432/432 unit** ✓ (46 files, 19.51s) · build ✓ (standalone, 22/22
+static pages, sitemap 25 URLs, zero `prisma:error` lines) · **66/66
+e2e** ✓ (1.9m) — the documented session-39 state reproduces exactly.
+
+**Reference-tech-stack alignment:** the `ecommerce-store` repo
+re-checked at `1ffda3d` (still up to date with its origin/main — the
+same commit reviewed in runs 35–40); its `skills/` folder re-verified
+IDENTICAL to homenest-store-s's (full file lists, 2559 = 2559 files,
+plus skills-catalog.md md5 `f69408bf…`); its sitemap/SEO
+implementation re-compared — homenest's remains the stricter
+superset. No adoption gaps.
+
+**Live-reference parity (agent-browser, logged in with the
+operator's credentials): NO FINDING — the pinned order holds for the
+SEVENTH consecutive cycle.** /products "Newest" (All Categories,
+count "8 products found") renders the session-34-pinned
+Damascus-first order (**Damascus Steel Chef Knife Set → Artisan
+Copper Frying Pan → Artisan Ceramic Dinner Set → Enameled Cast Iron
+Dutch Oven → Walnut Cutting Board Collection → Ceramic Mixing Bowl
+Set → Glass Storage Container Set → Professional Stand Mixer**); home
+Featured renders the featured-flag-filtered pinned order (6 cards);
+home New Arrivals renders the same 8 in the products order. All 8
+prices re-verified to the cent WITH compare-at values and discount
+badges (199.99/279.99 −29% · 89.99/129.99 −31% · 119.99/159.99 −25% ·
+149.99/199.99 −25% · 79.99 · 54.99/69.99 −21% · 42.99 ·
+349.99/429.99 −19%); review counts match the seed's authored display
+counts exactly (412/234/203/367/142/187/156/298 — the reference
+renders them parenthesized next to the category, e.g. "(412)" on
+Damascus; the local DB's Damascus 416 is the traffic-owned aggregate
+from prior e2e runs); the 8 category tiles (Cookware / Bakeware /
+Kitchen Tools / Storage / Appliances / Dining / Cleaning / Decor,
+extracted via their `/products?category=` deep links), the rotating
+hero ("New Arrivals" observed first, "Sale Up to 40% Off" observed
+mid-rotation ~5s later), the 4 trust badges (Free Shipping / Secure
+Payment / Easy Returns / 24/7 Support), and the mobile-menu contract
+at 390×844 verified on BOTH sides: the reference's hamburger (the
+rightmost icon-only header button, 36×36 at x338,y14) → push-down
+panel with 5 nav links (Home / Products / Track Order / About /
+Contact, each 358×44 stacked from y121) + the icon-only "Search
+products..." search BUTTON (40×28 at x16,y81); toggle-closes; and
+navigate-closes — **verified with a REAL Playwright click on the
+panel's Products link** (URL → /products, panel unmounted, re-checked
+defensively: zero visible panel links AND zero panel search buttons);
+the clone's Tailwind v4 conditional-mount contract verified with
+16/16 automated checks.
+
+**Clone parity (fresh standalone server on :3000, 16/16 automated
+checks PASS):** health `{"status":"ok","db":"up"}` · sitemap.xml 25
+URLs (9 static + 16 products, private surfaces excluded) · robots
+disallowing `/admin /account /checkout /api` + the sitemap ref ·
+`noindex` on all 8 probed private surfaces (login / register / cart /
+wishlist / track-order / checkout / account / admin) · /products
+count "16 products found" with the first 8 exactly the pinned order
+and all 8 prices + compare-at + badges byte-identical to the
+reference's live values · home Featured (6) and New Arrivals (8)
+card-for-card in the pinned order · the mobile-menu contract: panel
+mounted via `data-testid="mobile-menu-button"` → exactly 7 links
+(Home / Products / Track Order / About / Contact / Sign In /
+Wishlist — the guest contract state) → the `aria-label="Close menu"`
+green circular button RENDERED 44×44 at x330,y78 → the panel's own
+"Search products..." box RENDERED 209×40 at x16,y80 (the e2e
+panel-scoped methodology) → navigate → panel unmounted · home h1
+renders. **Zero parity gaps.** (The run-40 methodology notes stand:
+article-scoped card extraction; the panel's close button + search box
+live in `div[data-testid="mobile-menu"]` OUTSIDE
+`nav[aria-label="Mobile"]`.)
+
+**Repo-side audit (41-a, read-only subagent):** 9/9 docs claims WIRED
+(the plan's Session 39 section complete with its 2-box
+verification-only shape; AGENTS range 2..39; CLAUDE tail; SKILL
+v1.36.0 project_state + Appendix B; session_70/71 consistent; one
+well-formed Task-40 worklog entry; README/PAD badges; `.env.example`
+contract — all 5 env vars verified against their read sites, plus a
+fresh hunt confirming NO undocumented env vars in src; DEPLOYMENT
+drift-free) · 12/12 defect sweeps clean (zero real `any`; the
+comment-only catch census precisely **7 src + 1 test**; 3 DSIH sites
+all through `jsonLdScript`; no client-trusted money; Zod at every
+boundary with the two raw query-param id DELETE handlers re-confirmed
+as the standing accepted shape; 14/14 admin actions
+requireAdmin-first; 14/14 metered surfaces 429 + `Retry-After`; no
+injection/eval/secrets; one legitimate console.error; zero TODO
+markers; no Tailwind v4 display-utility toggling and full `hsl()`
+theme values; `@custom-variant hover` present; mobile-nav conditional
+mount) · 10/10 counts MATCH (46/432 unit independently recounted AND
+dynamically re-run green inside the audit, 19.86s · 14/66 e2e · 18
+models · 14 requireAdmin · 14 metered · 3 DSIH · 127 tracked src TS
+files · 25 screenshots · 16 admin-dialog catches / 6 files · the
+route-handler anchor in its precise 15-HTTP-handlers +
+1-exported-type form across 11 files; extra permitted gates lint ✓ ·
+typecheck ✓ · typecheck:tests ✓) · 8/8 carried deferrals standing.
+The audit's fresh hunts all clean (redirects static/role-derived; 4
+`router.push` sites same-origin incl. the server-minted order+token
+pair; all 15 `fetch()` same-origin; no client component importing
+db/prisma; timing-safe HMAC with length guard; health degraded-503;
+demo credentials server-side props only; zero Math.random/@ts-ignore/
+innerHTML writes; `target="_blank"` hardened). **Repo-side findings:
+0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 0 NIT + 2 Informational**
+(both brief-side citation glosses, not repo drift: the literal
+`git ls-files 'src/**/*.ts'` pathspec returns 52 on this git build
+(zero-depth `src/proxy.ts` missed without `:(glob)` magic) — the
+documented **127** is the true tracked count, verified two
+independent ways; and "all 6 redirect() calls" is 6 textual
+occurrences of which 5 are executable, the 6th a comment — all
+non-user-controlled either way) — both disposed no-change. The
+audit's verdict: the 28th consecutive clean session; the repo is
+EXACTLY in its documented session-39 state.
+
+Both surfaces clean — this cycle makes the remediation surface
+fully-empty for the tenth time (sessions 29/30/31/32/35/36/37/38/39
+were the first nine) and the sixth consecutive both-surfaces-clean
+cycle.
+
+## 2. Findings → work items
+
+### S40-1 (docs sweep) — the standard alignment for a tenth verification-only cycle
+
+- **Evidence:** both audit surfaces came back clean — the repo-side
+  audit found nothing to change in `src/**`, `tests/**`, or
+  `prisma/**`, and the live reference kept its catalog in the pinned
+  order for the seventh consecutive cycle (no S33-1/S34-1-class
+  re-alignment item). The only alignment work is the docs sweep: the
+  plan range, the SKILL version/project_state, the Appendix B record,
+  and the screenshots.
+- **Fix:** SKILL v1.36.0 → v1.37.0 (project_state + the Appendix B
+  session-40 entry), AGENTS.md plan range 2..39 → 2..40, CLAUDE.md
+  tail, README/PAD/DEPLOYMENT.md drift checks, `.env.example`
+  verification (unchanged, git-tracked), the 25 screenshots refresh,
+  `docs/session_72.md`, worklog Task 41, and the execution log below.
+  No code changes — the 432/66 suites carry the no-regression evidence
+  by their green runs on the pulled tree AND on the final tree.
+
+### Dispositions (no change, recorded)
+
+- **The reference's visible catalog stays 8 products:** unchanged
+  since session-33 — the clone keeps all 16 per the superset principle
+  (the reference's deletions never propagate; the S7-3 seed policy
+  never deletes).
+- **Info-1..2 (audit-brief citation glosses, restated):** the
+  tracked-src-files anchor **127** is the true count — a bare
+  `git ls-files 'src/**/*.ts'` pathspec (without `:(glob)` magic)
+  returns 52 on this git build because zero-depth `src/proxy.ts`
+  drops out; future audits should count with
+  `git ls-files -- 'src/*.ts' 'src/**/*.ts' 'src/**/*.tsx'` or the
+  two-independent-ways convention. And the redirect-sweep anchor is
+  "6 textual `redirect()` occurrences, 5 executable + 1 comment" —
+  all static/role-derived either way. Both disposed no-change;
+  recorded here so future audit briefs cite the exact shapes.
+- **Carried deferrals (unchanged, all verified standing):** S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce (static shell);
+  `__Host-` prefix; shared-store limiter; radiogroup roving focus
+  (WCAG-conformant as-is); address content dedup; the
+  external-service epics (real email delivery, OAuth, real payments —
+  blocked on sandbox-external credentials/SMTP). The route-level 429
+  grid stays complete (14/14).
+
+## 3. Execution log (session 40)
+
+- [x] S40-1 docs sweep + screenshots + worklog + session_72.md
+- [x] Full gate chain re-run green on the final tree (lint · typecheck ·
+      typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
+      the pulled tree before the sweep (the twice-run no-regression
+      evidence)
