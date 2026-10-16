@@ -4050,3 +4050,183 @@ both-surfaces-clean cycle.
       typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
       the pulled tree before the sweep (the twice-run no-regression
       evidence)
+
+# Session 38 (run 39) — 2026-10-16
+
+> The EIGHTH fully-empty remediation cycle — and the fourth consecutive
+> cycle with BOTH surfaces clean: the repo-side audit found zero
+> defects AND the live reference kept its catalog in the
+> session-34-pinned order (the FIFTH consecutive stable-reference
+> cycle). The plan file names increment by run number; this section is
+> numbered by session — the run/plan numbering drift is documented in
+> `docs/session_52.md`.
+
+## 1. Audit summary (evidence-based)
+
+Pulled tree `28053f4` (= `5a7d51e`, the pushed session-37 verification
+cycle, + the operator's session-log commit appending
+`docs/session_67.md`, the raw run-38 log; `git diff 5a7d51e..28053f4
+--stat` = one file, +89 lines — **zero src/tests/prisma deltas from
+the last-audited tree**). The sandbox RESET again (the first reset
+since the run-34/35 streak broke) — the fresh-clone recovery pattern:
+`.env` rewritten with the `file:../db/custom.db` contract + a strong
+random `AUTH_SECRET` (the standalone production server enforces
+`assertAuthSecret`, so the dev fallback would refuse to boot under
+`npm run start`), `npm install` (588 packages), `db:setup`
+re-created `db/custom.db` at the repo root (seed 16 products / 8
+categories / 3 slides / 13 settings / 3 coupons + the admin/demo
+users; the seeded order re-confirmed = the session-34-pinned
+Damascus-first order), and the Playwright chromium-1248 cache
+re-paired (`npx playwright install chromium`). The sandbox still
+shadows `DATABASE_URL` at the process level
+(`file:/home/z/my-project/db/custom.db` — a path that does not
+exist), so every DB-touching command exported the absolute
+`file:/home/z/my-project/homenest-store-s/db/custom.db` value: the
+shadow and the repo contract resolve to ONE inode (the documented
+per-command convergence — including the `next build`, whose
+sitemap static generation logged a `prisma:error 14` without it).
+The full gate chain re-validated green on the pulled tree: lint ✓ ·
+typecheck ✓ · typecheck:tests ✓ · **432/432 unit** (46 files,
+19.64s) ✓ · build ✓ (standalone, 22/22 static pages) · **66/66 e2e**
+✓ (1.9m) — the documented session-37 state reproduces exactly. The
+`ecommerce-store` reference repo re-cloned at `1ffda3d` (still up to
+date with its origin/main — the same commit reviewed in runs
+35/36/37/38); its skills folder re-verified IDENTICAL to
+homenest-store-s's (file lists + skills-catalog.md md5-verified),
+and its sitemap/SEO implementation re-compared: homenest's is the
+stricter superset (private surfaces excluded — the reference's own
+sitemap lists login/register/wishlist; single-sourced
+`siteBaseUrl()`; DB-failure tolerance) — no adoption gaps.
+
+**Live-reference parity (verified logged-in): NO finding this cycle.**
+The reference's catalog order is UNCHANGED for the FIFTH consecutive
+cycle from the session-34 pinning: /products "Newest" (All
+Categories, count text "8 products found") renders **Damascus Steel
+Chef Knife Set → Artisan Copper Frying Pan → Artisan Ceramic Dinner
+Set → Enameled Cast Iron Dutch Oven → Walnut Cutting Board
+Collection → Ceramic Mixing Bowl Set → Glass Storage Container Set →
+Professional Stand Mixer**; home "Featured" renders exactly that
+order filtered by the featured flag; home "New Arrivals" renders the
+same 8 in the products order — the clone renders ALL THREE surfaces
+card-for-card in exactly this order (the seeded S34-1 alignment; the
+16-product superset tail follows on /products at "16 products
+found"). Everything else matched too: prices (all 8 re-verified to
+the cent WITH compare-at values and discount badges —
+199.99/279.99 −29% · 89.99/129.99 −31% · 119.99/159.99 −25% ·
+149.99/199.99 −25% · 79.99 · 54.99/69.99 −21% · 42.99 ·
+349.99/429.99 −19%), review counts (the reference shows 412 on
+Damascus = the seed's authored display count; the fresh-clone
+re-seed restores exactly 412), the 8 category tiles (Cookware /
+Bakeware / Kitchen Tools / Storage / Appliances / Dining / Cleaning /
+Decor), the 4 trust badges (Free Shipping / Secure Payment / Easy
+Returns / 24/7 Support), the rotating hero ("Sale Up to 40% Off"
+observed mid-rotation), the mobile-menu anatomy at 390×844 on BOTH
+sides (hamburger → push-down panel with the nav links + the search
+affordance + a close button; navigating closes the panel — verified
+live on the reference AND on the clone, where the Tailwind v4
+conditional-mount contract held: `nav[aria-label="Mobile"]` with
+exactly 7 links (Home / Products / Track Order / About / Contact /
+Sign In / Wishlist), the `aria-label="Close menu"` green circular
+button RENDERED in the panel (rect 44×44), the panel's own
+"Search products..." box RENDERED (rect 209×40 — an unscoped
+document-wide query earlier matched the HEADER's desktop search
+input, `hidden` on mobile, and read `offsetParent === null`; the
+panel-scoped re-check is the correct methodology and the e2e spec's
+`panel.getByRole("searchbox")` pin was green all along), panel
+unmounted after navigation), and the track-order/about surfaces.
+
+The clone's server-side SEO re-verified live on the fresh standalone
+build: sitemap.xml 25 URLs (9 static + 16 products), robots
+disallowing `/admin /account /checkout /api` + the sitemap ref,
+`noindex` on all 8 probed private surfaces (login/register/cart/
+wishlist/track-order/checkout/account/admin), health
+`{"status":"ok","db":"up"}`.
+
+Fresh deep audit (read-only subagent 39-a + operator verification of
+every load-bearing claim, incl. an independent re-run of the 432/432
+unit suite): the session-37 docs-sweep claims **9/9 WIRED** (the
+plan's Session 37 section complete with all boxes ticked; AGENTS
+range 2..37; CLAUDE tail; SKILL v1.34.0 project_state + Appendix B;
+session_66/67 consistent; exactly one well-formed Task-38 worklog
+entry; README/PAD badges; `.env.example` 5/5 env vars verified
+against their read sites; DEPLOYMENT drift-free). Defect-class
+sweeps clean (12/12; the two raw query-param id DELETE handlers —
+cart `?line=` and addresses `?id=` — re-confirmed as the standing
+accepted shape, both ownership-scoped compound filters; the audit
+also empirically verified on a temp-DB copy that concurrent
+interactive Prisma transactions SERIALIZE under the single-client
+SQLite deployment — the "no lost increments" class holds). Static
+counts **10/10 MATCH** (46/432 unit — independently recounted AND
+dynamically re-run green inside the audit, 19.77s · 14/66 e2e · 18
+models · 14 requireAdmin · 14 metered · 3 DSIH sites (the 4th grep
+line is the seo.ts comment) · 127 tracked TS files · 25 screenshots
+· 16 admin-dialog catches / 6 files · the route-handler anchor in
+its precise 15-HTTP-handlers + 1-exported-type form across 11
+files). All 8 carried deferrals standing. **Repo-side findings: 0
+CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW / 0 NIT / 3 Informational**
+(one phrasing gloss — session_66.md's "8 documented deliberate
+swallows + test" vs the ground truth "7 src + 1 test" — same count,
+restated precisely here; one informational — admin page-level gating
+lives in the layout while mutations independently gate (the
+documented e2e-pinned design); one informational — the SQLite
+transaction-serialization guarantee is per-single-process, inherent
+to the documented one-process deployment with the create-first
+gates as belt-and-braces) — all disposed no-change. The audit's
+verdict: the 26th consecutive clean session; this cycle makes the
+remediation surface fully-empty for the eighth time (sessions
+29/30/31/32/35/36/37 were the first seven) and the fourth
+consecutive both-surfaces-clean cycle.
+
+## 2. Findings → work items
+
+### S38-1 (docs sweep) — the standard alignment for an eighth verification-only cycle
+
+- **Evidence:** both audit surfaces came back clean — the repo-side
+  audit found nothing to change in `src/**`, `tests/**`, or
+  `prisma/**`, and the live reference kept its catalog in the pinned
+  order for the fifth consecutive cycle (no S33-1/S34-1-class
+  re-alignment item). The only alignment work is the docs sweep: the
+  plan range, the SKILL version/project_state, the Appendix B record,
+  and the screenshots.
+- **Fix:** SKILL v1.34.0 → v1.35.0 (project_state + the Appendix B
+  session-38 entry), AGENTS.md plan range 2..37 → 2..38, CLAUDE.md
+  tail, README/PAD/DEPLOYMENT.md drift checks, `.env.example`
+  verification (unchanged, git-tracked), the 25 screenshots refresh,
+  `docs/session_68.md`, worklog Task 39, and the execution log below.
+  No code changes — the 432/66 suites carry the no-regression evidence
+  by their green runs on the pulled tree AND on the final tree.
+
+### Dispositions (no change, recorded)
+
+- **The reference's visible catalog stays 8 products:** unchanged
+  since session-33 — the clone keeps all 16 per the superset principle
+  (the reference's deletions never propagate; the S7-3 seed policy
+  never deletes).
+- **Info-1 (phrasing gloss, restated):** the deliberate empty-catch
+  census is precisely **7 src comment-only swallows** (sitemap.ts,
+  admin/orders/page.tsx, db-path.ts, actions/auth.ts ×2, auth.ts,
+  seo.ts) **+ 1 in tests** (seo-platform.spec.ts) — prior narratives'
+  shorthand "8 documented deliberate swallows + test" counted the
+  8th as the test file; recorded here so future audits count one way.
+- **Info-2 (informational — documented design):** admin page-level
+  gating lives in the admin layout; every mutation independently
+  calls `requireAdmin` first (14/14) — the e2e-pinned design.
+- **Info-3 (informational — deployment scope):** the SQLite
+  transaction-serialization guarantee is per-single-client/
+  single-process; the documented one-process standalone deployment
+  plus the create-first/guarded-write gates carry the invariant.
+- **Carried deferrals (unchanged, all verified standing):** S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce (static shell);
+  `__Host-` prefix; shared-store limiter; radiogroup roving focus
+  (WCAG-conformant as-is); address content dedup; the
+  external-service epics (real email delivery, OAuth, real payments —
+  blocked on sandbox-external credentials/SMTP). The route-level 429
+  grid stays complete (14/14).
+
+## 3. Execution log (session 38)
+
+- [x] S38-1 docs sweep + screenshots + worklog + session_68.md
+- [x] Full gate chain re-run green on the final tree (lint · typecheck ·
+      typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
+      the pulled tree before the sweep (the twice-run no-regression
+      evidence)
