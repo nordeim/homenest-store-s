@@ -129,6 +129,12 @@ await shoot(browser, desktop, "11-checkout", "full", async (page) => {
   await page.goto("/products");
   await page.waitForSelector('html[data-hydrated="true"]');
   await page.locator("article").first().getByRole("button", { name: "Add to Cart" }).click();
+  // The add is a fire-and-forget fetch — wait for the badge before the
+  // navigation or the goto aborts it and the shot captures the empty-cart
+  // shell at /checkout (session-35: the run-35 capture lost exactly this
+  // race and shipped the empty state; the run-36 capture won it — the
+  // same fix the 04-cart shot got in session-24).
+  await expectBadgeCount(page, 1);
   await page.goto("/checkout");
   await page.waitForLoadState("networkidle");
 });

@@ -3525,3 +3525,191 @@ finding of this cycle is live-reference-side again.
       CLAUDE tail + pin description, README/PAD authored-order wording,
       SKILL v1.31.0 (project_state + Appendix B session-34 entry), 25
       screenshots refreshed, `docs/session_60.md`, worklog Task 35
+
+# Session 35 (run 36) — 2026-10-16
+
+> The FIFTH fully-empty remediation cycle — and the first since the two
+> reference-parity cycles where BOTH surfaces came back clean: the
+> repo-side audit found zero defects AND the live reference kept its
+> catalog in the session-34-pinned order (no third re-alignment). The
+> plan file names increment by run number; this section is numbered by
+> session — the run/plan numbering drift is documented in
+> `docs/session_52.md`.
+
+## 1. Audit summary (evidence-based)
+
+Pulled tree `98359d0` (= `c55bb28`, the pushed session-34 parity cycle,
++ the operator's session-log commit appending `docs/session_61.md`, the
+raw run-35 log; `git diff c55bb28..98359d0 --stat` = one file, +92
+lines — **zero src/tests/prisma deltas from the last-audited tree**).
+The full gate chain re-validated green on the pulled tree: lint ✓ ·
+typecheck ✓ · typecheck:tests ✓ · **432/432 unit** (46 files, 20.7s) ✓ ·
+build ✓ (standalone, 22/22 static pages) · **66/66 e2e** ✓ (1.9m) — the
+documented session-34 state reproduces exactly. Environment (fresh
+clone — the sandbox was reset): `.env` from the `file:../db/custom.db`
+contract + a dev `AUTH_SECRET`; `npm install`; `db:setup` re-created the
+seeded `db/custom.db` at the repo root (16/8/3/3/13 + admin/demo users
+through the per-command absolute-export convergence — the sandbox shadow
+`DATABASE_URL` points at a non-existent path); the Playwright cache
+re-paired with the lockfile's chromium rev 1248 (the cache held only
+rev 1200 — the documented Task-32 recovery). The `ecommerce-store`
+reference repo re-cloned at `1ffda3d` (the same commit reviewed in
+run 35): its stack patterns still match (Next 16 · React 19 · TS strict
+· Tailwind v4 CSS-first · Prisma/SQLite · Vitest + Playwright); its
+skills folder is IDENTICAL to homenest-store-s's (file lists +
+skills-catalog.md byte-verified) — no adoption gaps. The sitemap/SEO
+surfaces re-compared against the reference repo's implementation:
+homenest's remains the stricter superset (private surfaces excluded
+from sitemap.xml — the reference's own sitemap lists login/register/
+wishlist; single-sourced `siteBaseUrl()`; DB-failure tolerance) — no
+change needed.
+
+**Live-reference parity (verified logged-in): NO finding this cycle.**
+The reference's catalog order is UNCHANGED from the session-34 pinning:
+/products "Newest" (All Categories, count text "8 products found")
+renders **Damascus Steel Chef Knife Set → Artisan Copper Frying Pan →
+Artisan Ceramic Dinner Set → Enameled Cast Iron Dutch Oven → Walnut
+Cutting Board Collection → Ceramic Mixing Bowl Set → Glass Storage
+Container Set → Professional Stand Mixer**; home "Featured" renders
+exactly that order filtered by the featured flag (Damascus → Copper
+Frying → Ceramic Dinner → Dutch Oven → Mixing Bowl → Stand Mixer); home
+"New Arrivals" renders the same 8 in the products order — the clone
+renders ALL THREE surfaces card-for-card in exactly this order (the
+seeded S34-1 alignment; the 16-product superset tail follows on
+/products). Everything else matched too: prices (all 8, compare-at
+included), review counts (the reference shows 412 on Damascus = the
+seed's authored display count; the clone's local DB shows 413 because
+run-36's own e2e review-submission traffic incremented the live
+aggregate — a fresh re-seed restores 412 exactly; the documented ±1
+live-traffic tolerance), the 8 category tiles, the 3-slide rotating
+hero (Elevate Your Kitchen / Sale Up to 40% Off / New Arrivals), the
+section anatomy (Shop by Category → Featured → New Arrivals → Transform
+Your Kitchen Today), the 4 trust badges (Free Shipping $50 / Secure
+Payment / Easy Returns 30-day / 24/7 Support), the mobile-menu anatomy
+at 390×844 (hamburger → push-down panel with nav links + the search box
++ a close button; navigating closes the panel), and the track-order /
+about surfaces (track-order number-only on the reference remains the
+documented anti-enumeration superset divergence). The clone's
+server-side SEO re-verified live: sitemap.xml 25 URLs (9 static + 16
+products), robots disallowing `/admin /account /checkout /api` +
+the sitemap ref, noindex on the private surfaces probed, health
+`{"status":"ok","db":"up"}`.
+
+Fresh deep audit (read-only subagent 36-a + operator verification of
+every load-bearing claim): the session-34 docs-sweep claims **9/9
+WIRED** (the plan's Session 34 section complete with all boxes ticked;
+AGENTS range 2..34; CLAUDE tail; SKILL v1.31.0 project_state + Appendix
+B; session_60/61 consistent; exactly one well-formed Task-35 worklog
+entry; README/PAD badges; `.env.example` 5/5 env vars verified against
+their read sites; DEPLOYMENT drift-free). Defect-class sweeps clean
+(11/11; the two raw query-param id DELETE handlers — cart `?line=` and
+addresses `?id=` — re-confirmed as the standing accepted shape, both
+ownership-scoped compound filters). Static counts **10/10 MATCH**
+(46/432 unit — independently recounted AND dynamically re-run green
+inside the audit · 14/66 e2e · 18 models · 14 requireAdmin · 14
+metered · 3 DSIH · 127 tracked TS files · 25 screenshots · 16
+admin-dialog catches / 6 files · the route-handler anchor in its
+precise 15-HTTP-handlers + 1-exported-type form). All 8 carried
+deferrals standing. **Repo-side findings: 0 CRITICAL / 0 HIGH / 0
+MEDIUM / 0 LOW / 0 NIT / 3 Informational** (two environmental — the
+untracked sandbox-side verify-seed scratch and the parent-sandbox
+worklog stub after the reset, both the documented pattern; one
+docs-precision — the "16 admin-dialog catches / 6 files" anchor's
+file-set convention: the yielding set is the five admin
+`*-dialog.tsx` files plus `settings-form.tsx`, with the account
+`address-dialog.tsx`'s three catches outside the "admin" set — the
+count is correct for the intended set and all 18 dialog-file catches
+are handled uniformly; same class as the recorded route-handler
+count-convention gloss) — all disposed no-change. The audit's verdict:
+the 23rd consecutive clean session. One additional LOW docs-tooling
+item (S35-2, below) surfaced AFTER the subagent audit — during the
+operator's screenshot-verification pass: the 11-checkout capture's
+fire-and-forget add-to-cart race (the documented session-23/run-24
+class, fixed for the 04-cart shot but never for the checkout shot —
+the run-35 capture had silently shipped the empty-cart shell). The
+repo's src/tests/prisma surface stays fully-empty; S35-2 touches only
+`scripts/capture-screenshots.mjs` (the docs tool).
+
+## 2. Findings → work items
+
+### S35-1 (docs sweep) — the standard alignment for a fifth verification-only cycle
+
+- **Evidence:** both audit surfaces came back clean — the repo-side
+  audit found nothing to change in `src/**`, `tests/**`, or
+  `prisma/**`, and the live reference kept its catalog in the pinned
+  order (no S33-1/S34-1-class re-alignment item). The only alignment
+  work is the docs sweep: the plan range, the SKILL
+  version/project_state, the Appendix B record, and the screenshots.
+- **Fix:** SKILL v1.31.0 → v1.32.0 (project_state + the Appendix B
+  session-35 entry), AGENTS.md plan range 2..34 → 2..35, CLAUDE.md
+  tail, README/PAD/DEPLOYMENT.md drift checks, `.env.example`
+  verification (unchanged, git-tracked), the 25 screenshots refresh,
+  `docs/session_62.md`, worklog Task 36, and the execution log below.
+  No code changes — the 432/66 suites carry the no-regression evidence
+  by their green runs on the pulled tree AND on the final tree.
+
+### S35-2 (LOW — docs tooling) — the 11-checkout screenshot capture lost the add-to-cart race; gate it like the 04-cart shot
+
+- **Evidence:** the repo-HEAD `11-checkout.png` (the run-35 capture)
+  documents the EMPTY-CART shell at `/checkout` — the capture's
+  fire-and-forget add-to-cart fetch was aborted by the immediate
+  `page.goto("/checkout")` and the shot captured the redirect state,
+  not the checkout form. The run-36 capture won the same race by
+  timing luck and rendered the real 3-step form + order summary —
+  the 59KB→101KB byte flip between two captures of an UNCHANGED page
+  is the race itself. This is exactly the documented session-23/run-24
+  class ("the script's add-to-cart is a fire-and-forget fetch, so the
+  cart-count badge GATES the navigation") — the 04-cart shot got the
+  `expectBadgeCount` gate in session-24; the 11-checkout shot never
+  did.
+- **Fix:** `scripts/capture-screenshots.mjs`'s 11-checkout capture now
+  awaits `expectBadgeCount(page, 1)` before the navigation (the same
+  gate as 04-cart), with the trap comment extended. Verified
+  deterministic: two consecutive full capture runs produce a
+  byte-identical `11-checkout.png` (the md5 match is the pin), and the
+  shot now stably documents the checkout form with the Damascus line,
+  the order summary, the coupon box, and the free-shipping state.
+- **Environmental note (recorded):** back-to-back FULL capture runs
+  trip the login rate limiter (10/min per-email — the script logs in
+  per admin/account shot, ~9 logins per run): the failed shots keep
+  their previous file and a clean single run after a 60s window
+  recovers all 25. Not a defect — the limiter working as designed.
+
+### Dispositions (no change, recorded)
+
+- **The reference's visible catalog stays 8 products:** unchanged
+  since session-33 — the clone keeps all 16 per the superset principle
+  (the reference's deletions never propagate; the S7-3 seed policy
+  never deletes).
+- **Info-1 (environmental):** the sandbox-side `scripts/verify-seed.ts`
+  scratch (untracked, outside the audited tree) and the parent-worklog
+  stub restored at run start — the documented reset pattern; the repo
+  worklog is authoritative.
+- **Info-2 (docs-precision — the admin-dialog catch-count
+  convention):** the standing "16 admin-dialog catches / 6 files"
+  anchor counts the five admin `*-dialog.tsx` files (product ×3,
+  category ×3, slide ×4, order-manage ×2, coupon ×3 = 15) plus
+  `settings-form.tsx` (×1); the account `address-dialog.tsx`'s three
+  catches sit outside the "admin" set (18 total across dialog-named
+  files, all handled uniformly). The historical claims are correct for
+  the intended set and stay untouched; the anchor is restated in the
+  precise form here and in the SKILL v1.32.0 project_state so future
+  audits count the intended file set.
+- **Carried deferrals (unchanged, all verified standing):** S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce (static shell);
+  `__Host-` prefix; shared-store limiter; radiogroup roving focus
+  (WCAG-conformant as-is); address content dedup; the
+  external-service epics (real email delivery, OAuth, real payments —
+  blocked on sandbox-external credentials/SMTP). The route-level 429
+  grid stays complete (14/14).
+
+## 3. Execution log (session 35)
+
+- [x] S35-1 docs sweep + screenshots + worklog + session_62.md
+- [x] S35-2: the 11-checkout capture gated on the cart badge (the
+      session-24/04-cart precedent applied to the checkout shot; the
+      byte-flip evidence and the deterministic md5 pin recorded above)
+- [x] Full gate chain re-run green on the final tree (lint · typecheck ·
+      typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
+      the pulled tree before the sweep (the twice-run no-regression
+      evidence)
