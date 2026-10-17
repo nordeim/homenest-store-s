@@ -1,77 +1,55 @@
-工作区已重置。我将克隆仓库并开始第一阶段。
-仓库已克隆且为最新状态。注意，此处的 commit logs 提及了 sessions 42-45，但需求文档引用了 `docs/session_82.md` 和 `docs/session_83.md` —— 让我检查一下实际的 docs 结构。
-Session docs 82/83 已存在。现在开始第一阶段文档审查——并行阅读 README.md 和最新的 session 文档。
-Session 82 shows Run 46 completed with all gates green and clean audits. Now reading session_83.md and checking the remediation plan structure.
-Session 83 is the operator's raw log for Run 46. My run will be **Run 47 (session-46 cycle)** → narrative `session_84.md`, worklog Task 47, audit subagent 47-a. Now reviewing AGENTS.md, CLAUDE.md, and the plan's latest section.
-Let me get the section structure of the key docs to read them strategically.
-现在正在检查 worklog tail（任务 46）以及计划中最新的 Session 45 部分。
-已确认 Run 46 的完整状态。我的运行是 **Run 47 (session-46 cycle)**。现在让我检查一下技能目录和环境，然后启动全新克隆恢复（npm install、.env、db:setup）。
-The audit skill `code-review-checklist` is identified (the documented 12-category scan). Now checking the environment state and starting the fresh-clone recovery.
-Environment trap confirmed (DATABASE_URL shadowed to a nonexistent path) and Playwright cache has chromium-1200 (repo pins 1248). Starting the fresh-clone recovery: `.env` creation + `npm install`.
-Dependencies installed. Now setting up the database with the documented absolute DATABASE_URL convergence.
-DB seeded (16 products, Damascus-first pinned order). Now pairing Playwright's chromium.
-chromium-1248 已配对。正在验证 DB 状态和 SSH wrapper 依赖（paramiko）。
-Fresh seed state confirmed — Damascus-first pinned order with authored review counts (412/234/203/367/142/187/156/298). Now checking paramiko for the SSH wrapper.
-SSH wrapper understood (needs paramiko + shim, `--remote` override mandatory). Installing paramiko now, then running the gate chain on the pulled tree.
-paramiko 5.0.0 已安装。现在正在拉取的树上运行门链——首先是 lint 和 typecheck。
-432/432 unit in 20.32s (within documented range). Now the production build with the DATABASE_URL convergence.
-Build clean (zero prisma:error, 22/22 static). Now the 66 e2e tests.
-All gates green on the pulled tree — the session-45 state reproduces exactly. Now Phase 3a: verifying the reference ecommerce-store repo and skills-folder identity.
-Reference repo confirmed at `1ffda3d` (same as runs 35-46, still current). Verifying skills-folder identity.
-Skills folders IDENTICAL (2598=2598 files, catalog md5 match). Re-verifying the sitemap/SEO comparison against the reference implementation.
-Sitemap/SEO re-confirmed: homenest remains the stricter superset (private surfaces excluded, try/catch resilience, single-sourced `siteBaseUrl()`) — no adoption gaps. Now Phase 3b: the live-reference parity check via agent-browser.
-Login succeeded. Verifying the account page (operator identity + order history), then the catalog.
-Account verified (operator identity + order history). Now verifying the /products pinned catalog order with prices.
-Reference /products verified — the session-34-pinned Damascus-first order held with all 8 prices + compare-at + badges + review counts exact. Now the home page Featured/New Arrivals verification.
-Featured (6 cards) + category tiles verified. The h1 "New Arrivals" found is the hero's second slide — let me scroll down for the actual New Arrivals grid.
-New Arrivals (8 cards) verified card-for-card in the pinned order. Now the critical mobile-menu contract at 390×844.
-Header anatomy matches documented pins exactly (3 icon-only buttons 36×36 at x250/x294/x338, y14). Clicking the hamburger at x338.
-Panel mounted with exact geometry (5 links 358×44 from y121). Verifying the panel search button, then navigate-closes with a REAL click.
-Panel search button verified (40×28 @x16,y81 — exact pin). Now the REAL click on Products for navigate-closes.
-The documented toast-overlay interception pattern. Applying the clean-page reset: reload, re-open panel, click again.
-**Navigate-closes VERIFIED** (URL → /products, panel unmounted, 0 links/search buttons). Now toggle-closes.
-**Toggle-closes VERIFIED** (5 links → 0). Quick trust-badges check to complete the reference-side verification.
-**参考端一致性：无发现** —— 固定顺序已保持 13 个连续周期，移动端菜单协议已在两侧验证。现在开始使用已记录的 `process-lifetime` 准则进行克隆端一致性检查（服务器 + 检查在同一次调用中）。
-Now running the standalone server + parity check in ONE invocation (process-lifetime discipline).
-Typo fixed. Re-running the parity grid.
-4 个 grid 检查失败 —— 很可能是 locator 方法论问题（覆盖这些相同表面的 e2e suite 刚好通过了 66/66）。让我检查一下实际组件以修复选择器。
-Found it — the panel uses `data-testid="mobile-menu"` (my script's `[role='dialog']` alternative matched the cart drawer instead). Checking the products page structure for check 6.
-ProductCard 使用 `/product/${id}`（而非 slugs）且每个卡片有 2 个链接 —— 这解释了 12/16 的计数以及顺序不匹配。让我查看完整的卡片结构，并使用正确的方法论进行修复。
-现在正在使用正确的方法论重写一致性脚本（文章卡片、aria-labelledby 部分、mobile-menu testid、pinned NAMES）。
-进展 9/14 —— 剩余的失败属于方法论问题：`name` 解析从 `accessibility text` 中抓取了 `badge`/`category` 前缀，且 `Close-menu` 的 `geometry` 在动画 `settle`（稳定）前进行了测量。正使用结构化 `h3` 提取和先 `settle` 后测量的方法进行修复。
-**Clone parity: 14/14 PASS** — zero parity gaps, exact geometry reproduction. Now dispatching the deep audit subagent (47-a). First checking the parent worklog state.
-Parent worklog created. Now dispatching the deep audit subagent (47-a) with a self-contained brief.
-**Deep audit 47-a: 0 findings at every severity — the FOURTH consecutive fully-NIT-free audit.** Both surfaces clean for the 12th consecutive cycle. Now the S46-1 docs sweep. Reading the plan's Session 45 section for the format.
-已捕获格式。正在写入计划的 Session 46 部分。
-现在正在将 Session 46 部分追加到修复计划中。
-Plan updated. Now the SKILL.md updates — version bump, project_state phrase, and the session-46 narrative tail.
-验证 `session-46` 的尾部是否已正确写入 `SKILL.md`。
-`project_state` 已正确落地。现在正在读取 `Appendix B` 中 `session-45` 的条目格式，以便插入 `session-46` 的条目。
-Inserting the Appendix B session-46 entry before Appendix C.
-SKILL.md complete. Now AGENTS.md plan range and CLAUDE.md session-46 tail.
-现在进行 CLAUDE.md session-46 的末尾处理。正在检查 session-45 的末尾格式。
-CLAUDE.md tail appended. Docs sweep complete. Now the final-tree gate chain re-run (twice-run evidence).
-Final-tree gates ALL GREEN (twice-run evidence complete). Now the screenshots refresh — first restoring the demo stock, then capturing in one invocation.
-Stock restored to the S14-4 healthy state (Damascus 24, French Rolling Pin 44). Now the 25-screenshot capture in one invocation.
-All 25 captured green on the first pass. Analyzing changed vs byte-identical against HEAD and verifying the deterministic pins.
-所有确定性 pin 已完全复现（04b `6ed62e85…` 迎来第十个连续周期，11-checkout，21-mobile-menu-open）。8 个已更改 / 17 个字节完全相同。正在验证用于叙述的 DB 动态。
-Order model uses `placedAt` (the documented run-46 correction class). Re-running with correct fields.
-已记录捕获后状态（10 个订单，ORD-2026-010，FREESHIP×2，大马士革 414/库存 24）。正在写入 session_84.md 说明文档。
-叙述已写完。现在正在将 worklog Task 47 追加到仓库中由 git 追踪的 `worklog.md` 中。
-Worklog appended. Moving the parity scratch out of the repo and preparing the SSH push environment.
-变更集已清理（5 个文档 + 8 张截图 + session_84.md）。正在检查 SSH 环境并部署 shim（如果需要）。
-No system ssh — shim deployed. Verifying the shim extracted completely.
-Shim complete (163 lines, syntax OK). Final verification of the change set — no secrets, docs-only — then commit.
-已清理 —— 仅限文档，无密钥（“sepnetflix2023”的提及是已建立的运维身份约定，已存在于已推送的文档中）。对最终树结构进行最终的 lint 检查，然后提交。
-Committed as `63da8f0`. Now materializing the operator key, fingerprint sanity check, and the dry-run push.
-Dry-run confirms fast-forward `8d1da10..63da8f0` to the correct repo. Executing the real push.
-**Push verified** — remote main @ `63da8f0` == local HEAD. Shredding the operator key and final cleanup.
-Run 47 complete. Updating the parent worklog with the final state.
-**Run 47 complete and pushed ✅** — remote `main @ 63da8f0` (fast-forward from `8d1da10`, main branch only, SSH key shredded after verification).
+工作区已存在。让我刷新它并检查当前状态。
+拉取成功 — `docs/session_85.md` 是新增的。让我来制定任务计划并开始第一阶段。
+Now let me read the latest session documents (session_84.md and session_85.md).
+Now let me check the REMEDIATION_PLAN.md latest sections and worklog.md tail.
+The picture is clear: last run was **Run 47 (session-46 cycle)**, pushed at `63da8f0` + operator's session-log commits. My run is **Run 48 (session-47 cycle)**. Session_85 suggests probing **new audit surfaces** (accessibility tree audits, Lighthouse performance budgets). Let me check the environment state.
+环境完好（如同第 46 次运行 — 无沙盒重置）：`.env` 完整，数据库就绪，node_modules 已安装，chromium-1248 已配对。依然存在 DATABASE_URL 遮蔽 — 将应用逐条命令的绝对导出收敛。让我验证一下 DB 状态和 paramiko。
+DB 状态与文档中 run-47 之后的状态完全一致。让我从战略上审查其余的关键文档。
+文档审查已完成。现在正在检查技能目录（审计阶段第 2 阶段）以及参考仓库的标识。
+Skills catalog confirmed. Now verifying the reference repo and skills-folder identity, then running gates.
+Reference repo confirmed at `1ffda3d` (unchanged since runs 35-47), skills folders identical. Now running the gate chain on the pulled tree.
+432/432 unit green (20.96s — in range). Now the production build.
+Build green (22/22 static, zero prisma errors). Now the 66 e2e tests.
+Sitemap/SEO 已确认为更严格的超集。现在进入阶段 3a —— 通过 agent-browser 进行实时参考对齐。
+Login successful. Verifying the account page first.
+Account verified (operator identity + order history). Now the critical /products pinned order check.
+Reference kept the pinned Damascus-first order (14th consecutive cycle). Verifying review counts + home sections.
+Home sections verified (Featured 6 + New Arrivals 8 in pinned order). Now the critical mobile-menu contract at 390×844.
+Header anatomy exact (3 icon buttons 36×36 at x250/x294/x338, y14). Opening the mobile panel.
+Panel open: 5 links 358×44 from y121 — exact pins. Verifying the panel search button + toggle-closes.
+Toggle-closes VERIFIED (5 links → 0). Now navigate-closes with a REAL click.
+**Navigate-closes VERIFIED** (URL → /products, panel unmounted, 0 links + 0 search buttons). Completing reference-side verification with trust badges + hero rotation.
+Reference-side parity complete: **NO FINDING** (pinned order 14th consecutive cycle, mobile menu verified with real clicks, hero rotating, trust badges present). Now Phase 3b — clone parity grid. Writing the run-48 parity scratch (workspace-side, outside the repo).
+复制运行中的 47 网格作为运行中的 48 暂存区（参考值已在此运行中实时重新验证 —— 完全匹配）。
+The compound command hit a tool error (likely from pkill hitting the process group). Retrying with a safer structure.
+ESM 解析需要该脚本位于代码仓库内（这是有文档记录的暂存类 —— 在提交前会被移出）。正在将其临时放置在代码仓库根目录下。
+**Clone parity: 14/14 PASS — zero parity gaps.** Moving the scratch out of the repo, then probing the NEW audit surfaces (accessibility tree + performance) per session_85's suggestion.
+Lighthouse 13.5.0 is available. Running the new audit surfaces — Lighthouse on the clone's key pages.
+The new a11y surface found 4 candidate findings. Investigating each against the codebase to classify real defects vs methodology false alarms.
+The (auth) layout genuinely lacks `main`/`nav` landmarks. Checking the heading-level skips on products/cart/track-order.
+Checking the reference site's heading structure for comparison — parity determines whether these are defects or reference-matched.
+Key finding: the reference's h1→h3 skip is identical (parity), but the **reference login page HAS a `<main>` landmark while the clone's auth layout has none**. Checking register + cart + track-order on the reference.
+Full comparison: heading skips are reference-matched on all pages (clone cart is actually *better* — h1 vs reference's h2-only). The one genuine gap: **clone auth pages lack `<main>` while reference login has it**. Now running Lighthouse (second new surface).
+Lighthouse 13.5 requires the `CHROME_PATH` env var, not the flag. Fixing.
+The sed broke the multiline command. Rewriting the script properly.
+The Bash tool gateway is failing repeatedly (connection EOF errors). Let me test whether other tools are affected.
+⚠️ **Tool gateway issue detected** — All tool calls (Bash, Glob) are currently failing with connection errors (`EOF` to the tool service). I've retried multiple times without success.
 
-**What happened this run:**
-1. **Fresh-clone recovery** (the sandbox had reset): clone → `.env` + strong `AUTH_SECRET` → `npm install` → `db:setup` → chromium-1248 → paramiko. Gates green **twice**: lint · typechecks · **432/432 unit** · build (zero prisma errors) · **66/66 e2e**.
-2. **Both audit surfaces clean for the 12th consecutive cycle** — the reference kept its pinned Damascus-first order for the **13th** cycle (toggle- AND navigate-closes verified with real clicks); the clone passed **14/14** parity checks; deep audit 47-a: **0 findings at every severity — the 4th fully-NIT-free audit**.
-3. **Docs-only sweep (S46-1)**: SKILL v1.43.0, plan Session 46, AGENTS/CLAUDE aligned, `session_84.md` + worklog Task 47, 25 screenshots refreshed (8 traffic-owned changes, deterministic pins intact).
+**Please click the restart button in the top right corner to restart the session and try again.**
 
-**Suggested next:** verify the push on GitHub. The remediation surface has now been fully-empty for 16 cycles — a future run could probe new audit surfaces (accessibility tree audits, Lighthouse performance budgets) rather than re-walking the same grid.
+---
+
+### Progress saved before the interruption (so the next session can resume efficiently):
+
+**Run 48 (session-47 cycle) — status when interrupted:**
+
+1. ✅ **Phase 1 complete**: `git pull` → `49bba68` (+`docs/session_85.md`). All docs reviewed. Environment survived (no sandbox reset): `.env` intact, DB at post-run-47 state (16 products / 10 orders / Damascus-first pinned order, reviewCount 414, stock 24).
+2. ✅ **Gates green on pulled tree**: lint ✓ · typecheck ✓ · typecheck:tests ✓ · **432/432 unit** (20.96s) · build ✓ (22/22 static, zero prisma:error) · **66/66 e2e** (1.8m).
+3. ✅ **Reference repo verified**: `ecommerce-store` still at `1ffda3d`; skills folders IDENTICAL (md5 `f69408bf…`).
+4. ✅ **Live-reference parity: NO FINDING** — pinned Damascus-first order held for the **14th consecutive cycle**; all 8 prices + compare-at exact; mobile-menu contract verified with REAL clicks (toggle-closes + navigate-closes); hero rotating; trust badges present.
+5. ✅ **Clone parity: 14/14 PASS** (zero gaps) — geometry reproduces exactly (Close-menu 44×44 @330,78; panel search 209×40 @16,80).
+6. 🆕 **NEW audit surfaces probed (per session_85's suggestion)**:
+   - **A11y tree audit (8 pages × 8 checks)**: 60/64 pass. **One genuine finding**: the clone's `(auth)` layout lacks the `<main>` landmark — the reference's login page HAS one (clone login/register: main=0; reference login: main=1). The other 3 "failures" are reference-matched heading skips (h1→h3 on both sides) or clone-better (cart h1 vs reference's h2-only) — not defects.
+   - **Lighthouse probes**: interrupted mid-run (scripts saved at `/home/z/my-project/scratch/lighthouse-run48.sh` + `a11y-tree-audit-run48.mjs` + `parity-check-run48.mjs`).
+
+**Remaining work**: Lighthouse run → deep audit 48-a subagent → S47-1 fix (auth `<main>` landmark, TDD) → docs sweep → screenshots → commit + SSH push.
