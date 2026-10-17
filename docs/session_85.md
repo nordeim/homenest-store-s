@@ -1,88 +1,77 @@
-I'll continue from where the previous session left off. Let me start by checking the current state of the local workspace and recovering the context.
-The repo exists and is clean. Let me pull the latest changes and review the current state of the documentation.
-新的提交增加了 `docs/session_52.md`。现在让我来阅读关键的上下文文档 —— session_51、session_52、 remediation plan 的末尾以及 worklog。
-Now let me review the worklog and remediation plan tail to determine the current task state and what this round should be.
-Current state is clear: Task 33 (session-45 record, 23rd sweep) is complete and pushed; the owner added `session_52.md` (commit 2242e69). This round is **Task 34 — the 24th bidirectional sweep (session-46 record)**. Let me set up the round plan and verify the environment contracts.
-All contracts hold. Now let me check the remediation plan §34 structure and README rows to know the documentation pattern for this round, plus verify tooling.
-The documentation pattern is clear. Let me verify tooling and check README rows + screenshots structure.
-The round pattern is clear. This is **Task 34 — the session-46 record, the 24th bidirectional sweep** (third consecutive full-surface drift re-check). Let me check the current session_46.md content and its git history (the overwrite-preserve convention).
-The current session_46.md is the owner-added transcript of the Task 30 round (a62fc85) — per convention, this round's execution record will overwrite it with prior content preserved in git. Let me verify the preserve-hash convention, then start the baseline gate.
-Conventions confirmed. The SSH shim is in place. Now let me start the baseline gate — fast stages first (typecheck, lint, unit tests).
-Typecheck ✓, lint ✓, 104/104 unit ✓. Now the build:
-Build reads 530.57 KB — matching the s45 ledger read exactly. Let me verify determinism and check the Playwright chromium cache state before E2E.
-构建是确定性的（md5 相同 `72be036…`），大小为 530.57 KB —— 完全符合 s45 账本。Chromium 1248 缓存已存在，因此这次应该能顺利运行 E2E gate。正在运行完整的 312 次测试套件（约 6 分钟）：
-**Baseline gate fully green: typecheck ✓ lint ✓ 104/104 unit ✓ 530.57 KB deterministic build ✓ 312/312 E2E (5.6 min) ✓** — no chromium cache quirk this round. Now starting the 24th bidirectional sweep. Let me launch the clone preview server and open the reference site:
-已登录参考站点的主页。现在开始执行 `standing-pin` 电池测量。首先是 `pointer-away` 和菜单触发器 BARE 测量（这是第 16 次测量）：
-**触发器 BARE 状态 — 测量值 16，无第 16 次翻转**（自 s30 以来连续 14 次为 bare）。现在处理账户/购物车图标、header 玻璃效果、品牌和 body：
-The first button read is a muted pill (not the account glyph) — the locator may have caught a different element. Let me inspect the nav structure more carefully:
-The nav has 4 buttons including a "Search products..." control — that suggests the viewport may have dropped to desktop (the known quirk). Let me verify:
-Viewport is mobile 390×844 — so there IS a "Search products..." button rendered in the reference mobile nav. Let me check its visibility and geometry, since prior sweeps didn't record a search control in the mobile header:
-The search control is zero-rect (0×0) — desktop-only, hidden at mobile. **No drift.** Account/cart/trigger glyphs all read exact pins. Now header glass, brand, and body:
-Header glass and brand pins hold. The borderTop read 0px — let me check the hairline is on the bottom border as in prior rounds:
-Hairline confirmed on bottom border (1px rgba(229,224,220,0.5)) ✓. All chrome pins hold. Now robots/sitemap and the mobile menu (standing emphasis):
-The mobile menu opened — 5 links inline in the nav. Measuring the link rows:
-Mobile menu pins hold exactly — 5 links 14px/500, Home white-on-orange, 44px rows first-row y=121 (byte-for-byte the s45 pin). Closing the menu and measuring home page surfaces:
-The hero carousel rotated to a different slide ("Sale Up to 40% Off"). The hero is a rotating carousel — let me find the hero container geometry and wait for/navigate to the "Elevate Your Kitchen" slide:
-Carousel rotated back — h1 "Elevate Your Kitchen", hero 358×500 r-24px exactly pinned (the "Sale Up to 40% Off" read was a mid-rotation slide). Now product card chrome and Featured badges:
-The h1 typography pin holds across slides (36px/700 Playfair white). The card locator caught a carousel card but shadow read transparent and no badges found — let me measure the actual card chrome structure and badges more precisely:
-Card chrome and badges hold exactly (16px/1px hairline/white; badges 12px/600 orange pill 73×22, count 12). The shadow reads transparent — let me check what the E2E spec pins for card shadow to confirm this is the expected value:
-The spec pins radius/border on cards. Let me check the live reference card shadow carefully — both the home carousel card and then compare on /products:
-The full shadow string confirms shadow-sm holds (`rgba(0,0,0,0.05) 0px 1px 2px 0px` layer present — my earlier read was truncated). **Home: ZERO drift.** Now → /products:
-/products h1 and count pins hold. The article locator missed — reference cards are link-wrapped divs. Measuring the grid geometry:
-/products grid pins hold byte-for-byte (x=16/x=205, w=169, y=361, 16px/hairline/shadow-sm cards, 8 found). Now search + category filter pills:
-/products filter pins hold (36px pills, 1px hairline, custom button). **/products: ZERO drift.** Now → PDP via the first product:
-PDP pins all hold exactly. **PDP: ZERO drift.** Adding the item to cart and checking /cart:
-/cart pins hold; the COD locator missed (known — must locate by bg per prior rounds). Locating the amber COD box by background color:
-Compact amber COD holds exactly. **/cart: ZERO drift.** Now → /checkout:
-**/checkout: ZERO drift.** Now → /account:
-/account pins hold — but the account now carries 4 orders (was 3 in s45). Let me check the order numbers to identify the new one:
-4 orders, newest-first: ORD-MVA3M5YT (s45's), MV96YYQU (s44's), MV8ZOL1T, MV530OZN (oldest, pre-existing). Per the D2 precedent, account order growth is owner activity — evidence, not parity debt. Let me verify the per-order card shape holds, then move to /track-order:
-Per-order cards hold the s42 shape. **/account: ZERO drift.** Now → /track-order:
-Entry pins hold. Now tracking an existing order for the result surface:
-**/track-order: ZERO drift** (entry + result). Now placing a FRESH order for the /order-success evidence:
-Fresh order **ORD-MVA85CBJ** placed. Measuring /order-success pins:
-**/order-success: ZERO drift** (h1 30px, pill 38px/9999px, COD h-128 r-16, CTAs 36px). Now /about and /contact:
-**Reference side: ZERO DRIFT on every pinned surface.** Now capturing the 2 reference evidence images (mobile menu + fresh order success):
-Reference captures done. Validating them and switching to the clone side:
-Now the clone side. Opening the production preview at :4173 (the same 530.57 KB build that passed the gate):
-Login didn't navigate — let me check the demo user credentials in the seed:
-Test credentials found: `john@example.com` / `Demo1234!`. Logging in:
-Still on /login. Let me check the field state and any error message:
-Credentials rejected. Let me check the store's seeded user records:
-Digest matches — the credentials are correct. The failure is likely a stale localStorage user record overriding the seed. Checking:
-localStorage is correct — the issue is React controlled-input desync from my earlier eval value-reset. Let me reload cleanly and re-login:
-Logged in — landed on /account. Now the **mobile menu live check (Tailwind v4 trap #5 mandate)**. Opening via the trigger:
-Mobile menu structure verified: portalized to BODY, full-width panel at y=64, white bg, 6 rows × 44px, aria-modal. Now the **focus trap** — pressing Tab repeatedly:
-**Focus trap verified: 13 Tabs stay inside, cycling to the Account link** (s45 exact). Now Escape + focus-restore:
-**Trap #5 fully verified: Escape closes + focus restored to trigger.** Now the cart drawer — adding an item from /products:
-Drawer pins mostly hold; the stepper/card locators missed. Measuring those precisely:
-Stepper pill (rgb(242,240,237), 24×24 buttons) and trash hold. The item-card locator missed — inspecting the structure:
-**Cart drawer mobile pins: all exact.** Now the desktop geometry check (x=992/w=448/h=900 expected):
-**Desktop drawer geometry x=992/w=448/h=900 — byte-for-byte the ledger.** Now header glass and SEO artifacts:
-静态 shell 正常。正在通过 live browser 验证单页路由标题（由 router 客户端渲染写入）：
-SEO superset fully live. **Clone side: ZERO DRIFT.** Now capturing the 7 clone verification images:
-The captures used relative paths — they may have landed in agent-browser's own CWD. Let me locate them:
-All 9 images validated at correct viewport dimensions. **Sweep conclusion: ZERO DRIFT both sides — a clean validation round.** Now the documentation phase. Let me check the session_45.md record structure as the template:
-The record template is clear. Let me check the workspace worklog convention first, then write all the documentation:
-Now writing the documentation. First, remediation plan §35:
-§35 appended. Now the session_46.md execution record:
-Now updating the README session rows:
-README rows updated. Now appending Task 34 to the repo worklog:
-Now the workspace worklog entry, then final pre-commit verification:
-Final pre-commit verification — checking the change set matches the plan (4 docs + 9 screenshots, zero source files):
-Change set matches the plan exactly (4 docs + 9 screenshots, zero source files). Verifying .env sync, then committing:
-Committed `2e8d6ec`. Now the SSH wrapper push — materializing the key outside the repo and verifying the fingerprint:
-Paramiko ready. Running the dry-run push first:
-Dry-run green (fast-forward 2242e69..2e8d6ec). Executing the real push:
-**Push verified: remote main @ 2e8d6ec == local HEAD, key shredded.** Now the follow-up transcript commit — writing this round's raw transcript as `docs/session_53.md` (odd-transcript convention):
-**Push verified: remote main @ a127bdc == local HEAD.** Final independent remote verification and cleanup:
-Let me do the final verification more directly:
-The shim needs the key via `-i`. Let me do the final independent verification properly:
-**Independent verification confirmed: remote main @ a127bdc == local HEAD.** Final cleanup — stopping the preview server and closing the browser:
-**Task 34 (Session 46) — the 24th bidirectional sweep: complete and pushed to main** ✅
+工作区已重置。我将克隆仓库并开始第一阶段。
+仓库已克隆且为最新状态。注意，此处的 commit logs 提及了 sessions 42-45，但需求文档引用了 `docs/session_82.md` 和 `docs/session_83.md` —— 让我检查一下实际的 docs 结构。
+Session docs 82/83 已存在。现在开始第一阶段文档审查——并行阅读 README.md 和最新的 session 文档。
+Session 82 shows Run 46 completed with all gates green and clean audits. Now reading session_83.md and checking the remediation plan structure.
+Session 83 is the operator's raw log for Run 46. My run will be **Run 47 (session-46 cycle)** → narrative `session_84.md`, worklog Task 47, audit subagent 47-a. Now reviewing AGENTS.md, CLAUDE.md, and the plan's latest section.
+Let me get the section structure of the key docs to read them strategically.
+现在正在检查 worklog tail（任务 46）以及计划中最新的 Session 45 部分。
+已确认 Run 46 的完整状态。我的运行是 **Run 47 (session-46 cycle)**。现在让我检查一下技能目录和环境，然后启动全新克隆恢复（npm install、.env、db:setup）。
+The audit skill `code-review-checklist` is identified (the documented 12-category scan). Now checking the environment state and starting the fresh-clone recovery.
+Environment trap confirmed (DATABASE_URL shadowed to a nonexistent path) and Playwright cache has chromium-1200 (repo pins 1248). Starting the fresh-clone recovery: `.env` creation + `npm install`.
+Dependencies installed. Now setting up the database with the documented absolute DATABASE_URL convergence.
+DB seeded (16 products, Damascus-first pinned order). Now pairing Playwright's chromium.
+chromium-1248 已配对。正在验证 DB 状态和 SSH wrapper 依赖（paramiko）。
+Fresh seed state confirmed — Damascus-first pinned order with authored review counts (412/234/203/367/142/187/156/298). Now checking paramiko for the SSH wrapper.
+SSH wrapper understood (needs paramiko + shim, `--remote` override mandatory). Installing paramiko now, then running the gate chain on the pulled tree.
+paramiko 5.0.0 已安装。现在正在拉取的树上运行门链——首先是 lint 和 typecheck。
+432/432 unit in 20.32s (within documented range). Now the production build with the DATABASE_URL convergence.
+Build clean (zero prisma:error, 22/22 static). Now the 66 e2e tests.
+All gates green on the pulled tree — the session-45 state reproduces exactly. Now Phase 3a: verifying the reference ecommerce-store repo and skills-folder identity.
+Reference repo confirmed at `1ffda3d` (same as runs 35-46, still current). Verifying skills-folder identity.
+Skills folders IDENTICAL (2598=2598 files, catalog md5 match). Re-verifying the sitemap/SEO comparison against the reference implementation.
+Sitemap/SEO re-confirmed: homenest remains the stricter superset (private surfaces excluded, try/catch resilience, single-sourced `siteBaseUrl()`) — no adoption gaps. Now Phase 3b: the live-reference parity check via agent-browser.
+Login succeeded. Verifying the account page (operator identity + order history), then the catalog.
+Account verified (operator identity + order history). Now verifying the /products pinned catalog order with prices.
+Reference /products verified — the session-34-pinned Damascus-first order held with all 8 prices + compare-at + badges + review counts exact. Now the home page Featured/New Arrivals verification.
+Featured (6 cards) + category tiles verified. The h1 "New Arrivals" found is the hero's second slide — let me scroll down for the actual New Arrivals grid.
+New Arrivals (8 cards) verified card-for-card in the pinned order. Now the critical mobile-menu contract at 390×844.
+Header anatomy matches documented pins exactly (3 icon-only buttons 36×36 at x250/x294/x338, y14). Clicking the hamburger at x338.
+Panel mounted with exact geometry (5 links 358×44 from y121). Verifying the panel search button, then navigate-closes with a REAL click.
+Panel search button verified (40×28 @x16,y81 — exact pin). Now the REAL click on Products for navigate-closes.
+The documented toast-overlay interception pattern. Applying the clean-page reset: reload, re-open panel, click again.
+**Navigate-closes VERIFIED** (URL → /products, panel unmounted, 0 links/search buttons). Now toggle-closes.
+**Toggle-closes VERIFIED** (5 links → 0). Quick trust-badges check to complete the reference-side verification.
+**参考端一致性：无发现** —— 固定顺序已保持 13 个连续周期，移动端菜单协议已在两侧验证。现在开始使用已记录的 `process-lifetime` 准则进行克隆端一致性检查（服务器 + 检查在同一次调用中）。
+Now running the standalone server + parity check in ONE invocation (process-lifetime discipline).
+Typo fixed. Re-running the parity grid.
+4 个 grid 检查失败 —— 很可能是 locator 方法论问题（覆盖这些相同表面的 e2e suite 刚好通过了 66/66）。让我检查一下实际组件以修复选择器。
+Found it — the panel uses `data-testid="mobile-menu"` (my script's `[role='dialog']` alternative matched the cart drawer instead). Checking the products page structure for check 6.
+ProductCard 使用 `/product/${id}`（而非 slugs）且每个卡片有 2 个链接 —— 这解释了 12/16 的计数以及顺序不匹配。让我查看完整的卡片结构，并使用正确的方法论进行修复。
+现在正在使用正确的方法论重写一致性脚本（文章卡片、aria-labelledby 部分、mobile-menu testid、pinned NAMES）。
+进展 9/14 —— 剩余的失败属于方法论问题：`name` 解析从 `accessibility text` 中抓取了 `badge`/`category` 前缀，且 `Close-menu` 的 `geometry` 在动画 `settle`（稳定）前进行了测量。正使用结构化 `h3` 提取和先 `settle` 后测量的方法进行修复。
+**Clone parity: 14/14 PASS** — zero parity gaps, exact geometry reproduction. Now dispatching the deep audit subagent (47-a). First checking the parent worklog state.
+Parent worklog created. Now dispatching the deep audit subagent (47-a) with a self-contained brief.
+**Deep audit 47-a: 0 findings at every severity — the FOURTH consecutive fully-NIT-free audit.** Both surfaces clean for the 12th consecutive cycle. Now the S46-1 docs sweep. Reading the plan's Session 45 section for the format.
+已捕获格式。正在写入计划的 Session 46 部分。
+现在正在将 Session 46 部分追加到修复计划中。
+Plan updated. Now the SKILL.md updates — version bump, project_state phrase, and the session-46 narrative tail.
+验证 `session-46` 的尾部是否已正确写入 `SKILL.md`。
+`project_state` 已正确落地。现在正在读取 `Appendix B` 中 `session-45` 的条目格式，以便插入 `session-46` 的条目。
+Inserting the Appendix B session-46 entry before Appendix C.
+SKILL.md complete. Now AGENTS.md plan range and CLAUDE.md session-46 tail.
+现在进行 CLAUDE.md session-46 的末尾处理。正在检查 session-45 的末尾格式。
+CLAUDE.md tail appended. Docs sweep complete. Now the final-tree gate chain re-run (twice-run evidence).
+Final-tree gates ALL GREEN (twice-run evidence complete). Now the screenshots refresh — first restoring the demo stock, then capturing in one invocation.
+Stock restored to the S14-4 healthy state (Damascus 24, French Rolling Pin 44). Now the 25-screenshot capture in one invocation.
+All 25 captured green on the first pass. Analyzing changed vs byte-identical against HEAD and verifying the deterministic pins.
+所有确定性 pin 已完全复现（04b `6ed62e85…` 迎来第十个连续周期，11-checkout，21-mobile-menu-open）。8 个已更改 / 17 个字节完全相同。正在验证用于叙述的 DB 动态。
+Order model uses `placedAt` (the documented run-46 correction class). Re-running with correct fields.
+已记录捕获后状态（10 个订单，ORD-2026-010，FREESHIP×2，大马士革 414/库存 24）。正在写入 session_84.md 说明文档。
+叙述已写完。现在正在将 worklog Task 47 追加到仓库中由 git 追踪的 `worklog.md` 中。
+Worklog appended. Moving the parity scratch out of the repo and preparing the SSH push environment.
+变更集已清理（5 个文档 + 8 张截图 + session_84.md）。正在检查 SSH 环境并部署 shim（如果需要）。
+No system ssh — shim deployed. Verifying the shim extracted completely.
+Shim complete (163 lines, syntax OK). Final verification of the change set — no secrets, docs-only — then commit.
+已清理 —— 仅限文档，无密钥（“sepnetflix2023”的提及是已建立的运维身份约定，已存在于已推送的文档中）。对最终树结构进行最终的 lint 检查，然后提交。
+Committed as `63da8f0`. Now materializing the operator key, fingerprint sanity check, and the dry-run push.
+Dry-run confirms fast-forward `8d1da10..63da8f0` to the correct repo. Executing the real push.
+**Push verified** — remote main @ `63da8f0` == local HEAD. Shredding the operator key and final cleanup.
+Run 47 complete. Updating the parent worklog with the final state.
+**Run 47 complete and pushed ✅** — remote `main @ 63da8f0` (fast-forward from `8d1da10`, main branch only, SSH key shredded after verification).
 
-- **Baseline gate, all first-attempt green**: typecheck ✓ lint ✓ 104/104 unit ✓ 530.57 KB deterministic build (md5 identical to s45 — the +77 B environmental read did not compound) ✓ **312/312 E2E** ✓
-- **Zero drift both sides**: reference re-measured live on every pinned surface (fresh order ORD-MVA85CBJ as success evidence, trigger bare at measurement 16); clone exact — mobile menu portal + 13-Tab focus trap + Escape focus-restore clean, cart drawer byte-for-byte (desktop x=992/w=448/h=900), SEO superset live
-- **Delivered**: commits `2e8d6ec` + transcript follow-up `a127bdc` (remediation §35, session_46/53 records, 9 captures) — remote verified == HEAD, keys shredded
+**What happened this run:**
+1. **Fresh-clone recovery** (the sandbox had reset): clone → `.env` + strong `AUTH_SECRET` → `npm install` → `db:setup` → chromium-1248 → paramiko. Gates green **twice**: lint · typechecks · **432/432 unit** · build (zero prisma errors) · **66/66 e2e**.
+2. **Both audit surfaces clean for the 12th consecutive cycle** — the reference kept its pinned Damascus-first order for the **13th** cycle (toggle- AND navigate-closes verified with real clicks); the clone passed **14/14** parity checks; deep audit 47-a: **0 findings at every severity — the 4th fully-NIT-free audit**.
+3. **Docs-only sweep (S46-1)**: SKILL v1.43.0, plan Session 46, AGENTS/CLAUDE aligned, `session_84.md` + worklog Task 47, 25 screenshots refreshed (8 traffic-owned changes, deterministic pins intact).
 
-**Next steps**: the watch list is unchanged — you can approve **ADR-001 (server-side authentication)**, the only remaining open owner decision, or request the next drift-monitoring sweep.
+**Suggested next:** verify the push on GitHub. The remediation surface has now been fully-empty for 16 cycles — a future run could probe new audit surfaces (accessibility tree audits, Lighthouse performance budgets) rather than re-walking the same grid.
