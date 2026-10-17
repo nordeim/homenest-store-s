@@ -23,12 +23,23 @@ export function ProductCard({
   inWishlist?: boolean;
 }) {
   const discount = discountPercent(product.price, product.compareAtPrice);
+  // Session-47 S47-3 (WCAG 2.5.3 Label in Name): the media link's accessible
+  // name must CONTAIN its visible text — the stacked "-N%" and badge pills.
+  // Voice-control users speak the visible badge text ("click minus twenty-
+  // nine percent"), which cannot match a link named only by the product
+  // name. The visible strings are folded in verbatim (the discount pill
+  // renders `discount + "%"` = "-29%"); the name stays non-rendered so the
+  // card's visual anatomy is untouched.
+  const visibleBadges = [discount !== null ? `${discount}%` : null, product.badge]
+    .filter((part): part is string => part !== null)
+    .join(", ");
+  const mediaLabel = visibleBadges ? `${product.name}, ${visibleBadges}` : product.name;
   return (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-lg">
       <Link
         href={`/product/${product.id}`}
         className="relative block aspect-square overflow-hidden bg-secondary"
-        aria-label={product.name}
+        aria-label={mediaLabel}
       >
         <Image
           src={product.image}

@@ -5938,3 +5938,256 @@ both-surfaces-clean cycle; the repo-side audit is fully NIT-free
       typecheck:tests · 432/432 unit · build · 66/66 e2e) — and green on
       the pulled tree before the sweep (the twice-run no-regression
       evidence)
+
+---
+
+# Session 47 (run 48) — 2026-10-17
+
+> The FIRST findings-bearing cycle since session-34: the two NEW audit
+> surfaces first suggested for probing in `docs/session_85.md` (the
+> accessibility tree audit + Lighthouse) found THREE genuine, clone-specific
+> semantic-a11y gaps — all fixed TDD with zero visual delta. The live
+> reference kept its catalog in the session-34-pinned order (the
+> FOURTEENTH consecutive cycle at this run's pre-reset verification, and
+> the FIFTEENTH at the post-recovery re-verification).
+
+## 1. Audit summary (evidence-based)
+
+Pulled tree `c0c9dbf` (= `49bba68`, the pushed session-46 cycle HEAD the
+interrupted run-48 had already pulled, + the operator's session-log commit
+replacing `docs/session_85.md` with that interrupted run's raw log — **zero
+src/tests/prisma deltas from the last-audited tree**). The sandbox workspace
+was RESET between runs (the second consecutive reset); the documented
+fresh-clone recovery pattern applied in full: `git clone` (the HTTPS
+remote), `.env` rewritten from `.env.example` + a strong random
+`AUTH_SECRET`, `npm install` green, `db:setup` re-seeded the catalog (16
+products / 8 categories / 3 carousel slides / 13 settings / 3 coupons — the
+fresh seed's Damascus-first pinned order verified newest-first with the
+authored review counts), the Playwright chromium-1248 cache re-paired, and
+paramiko 5.0.0 installed (the venv python AND /usr/bin/python3 both
+import-clean). The sandbox still shadows `DATABASE_URL` at the process
+level, so every DB-touching command exported the absolute
+`file:/home/z/my-project/homenest-store-s/db/custom.db` value — including
+both `next build` runs (zero `prisma:error` lines each, count-verified).
+`skills/` excluded from all checking, testing and compilation per the
+operator contract. Gates on the pulled tree: lint ✓ · typecheck ✓ ·
+typecheck:tests ✓ · **432/432 unit** ✓ (19.72s) · build ✓ (standalone,
+22/22 static pages) · **66/66 e2e** ✓ (2.0m).
+
+**Reference-tech-stack alignment:** the `ecommerce-store` repo re-cloned at
+`1ffda3d` (still up to date with its origin/main — the same commit reviewed
+in runs 35–47); its `skills/` folder re-verified IDENTICAL to
+homenest-store-s's (file-list diff = 0 lines, 2598 = 2598 files, plus
+skills-catalog.md md5 `f69408bf…`); sitemap/SEO re-compared — homenest's
+remains the stricter superset. No adoption gaps.
+
+**Live-reference parity (agent-browser): NO FINDING — the pinned order
+holds (verified twice this cycle: pre-interruption with the full
+mobile-menu contract at 390×844 — toggle-closes AND navigate-closes
+verified with REAL clicks, the rotating hero, the trust badges, the
+operator account page; post-recovery compact re-verification on
+/products — "8 products found", the Damascus-first pinned order, all 8
+prices + compare-at present).** The pre-interruption pass marked the
+fourteenth consecutive stable cycle; the post-recovery pass the fifteenth.
+
+**Clone parity — 16/16 PASS (zero parity gaps).** The run-47 grid
+reproduced as the run-48 scratch `parity-check-run48.mjs` with the
+clone-correct selector methodology (article-scoped h3 name extraction,
+aria-labelledby section targeting, data-testid=mobile-menu panel scoping,
+settle-BEFORE-measure) plus the sitemap split into two checks: health
+`{"status":"ok","db":"up"}` · sitemap.xml 25 URLs with private surfaces
+excluded · robots disallow set · `noindex` on all 8 probed private
+surfaces · /products count "16 products found" with the first 8 exactly
+the pinned order AND all 8 prices + compare-at + discount badges present ·
+home Featured (6 cards) + New Arrivals (8 cards) · the mobile-menu
+contract: panel mounted via `data-testid="mobile-menu-button"` → exactly 7
+guest links (Home / Products / Track Order / About / Contact / Sign In /
+Wishlist) → the `aria-label="Close menu"` button 44×44 at x330,y78
+(panel-scoped, post-settle) → the panel's "Search products..." box 209×40
+at x16,y80 → navigate → panel unmounted · home h1 renders · mobile
+/products first 8 pinned. **The run-39/40/41/42/43/45/46/47 geometry
+reproduces EXACTLY — the three semantic fixes carry zero parity impact.**
+
+**The NEW audit surfaces (per session_85's suggestion) — the a11y tree
+audit (8 pages × 8 checks: main landmark, nav landmarks, heading-level
+skips, single h1, html lang, img alt coverage, button accessible names,
+link accessible names): 62/64 clean pre-fix.** The heading-level skips on
+products/cart/track-order (h1→h3) are reference-matched (the reference
+fails `heading-order` identically) and the clone's cart heading is BETTER
+than the reference's h2-only cart — parity, not defects. The genuine gap:
+**the clone's (auth) layout carried ZERO `<main>` landmarks while the
+reference's login page HAS one (verified live: main=1, nav=0, headings=H1)
+— confirmed by a second independent tool (Lighthouse `landmark-one-main`
+fails the clone's login).**
+
+**Lighthouse 13.5.0 (the second new surface — performance/accessibility/
+best-practices/SEO on home/products/login/product-detail, run against the
+standalone server with CHROME_PATH pointing at the Playwright
+chromium-1248 binary): pre-fix a11y scores 89/91/94/93.** The rigorous
+classification ran Lighthouse against the REFERENCE too: reference-home
+a11y **79** (button-name, color-contrast, heading-order, link-name
+failures), reference-products **86** (the same set), reference-login
+**100**. Cross-referencing the failure sets classified every finding:
+reference-matched (color-contrast — the reference fails the SAME classes
+on its own home: its "Shop Now" button, its "Featured" badges, its
+category labels, 27 items; the clone's palette failures are the identical
+element classes, 56 on home with more products visible — the documented
+accepted shape, fixing would break visual parity with the reference's own
+failing design); clone-better (target-size on the carousel dots — the
+clone's dots are 8px WITH aria-labels + aria-current while the reference's
+are 6px and UNNAMED, failing button-name instead; button-name + link-name
+— the reference fails both, the clone passes); and THREE genuine
+clone-specific gaps (below). The perf scores (home 70→59 load-variance
+band, login 94→96, product-detail 86→82) are informational baselines for
+a dynamic-SSR app — no budgets set, no action.
+
+**Post-fix verification: the a11y tree audit 64/64 main-landmark clean
+(login/register main=1) and Lighthouse a11y scores home 93 / products 95 /
+login 96 / product-detail 96 with `landmark-one-main`,
+`aria-prohibited-attr` and `label-content-name-mismatch` ALL resolved.**
+The remaining Lighthouse failures are exactly the documented
+reference-matched constraints (color-contrast, heading-order, target-size
+— see the dispositions below).
+
+**Deep audit 48-a (read-only subagent): 8/9 checks PASS** — the three
+code fixes verified in source (the auth layout's outermost `<main>` with
+`await connection()` intact; the rating span's role="img" + aria-label
+with aria-hidden Stars; the card media link's composed label matching the
+visible pill rendering verbatim, discountPercent(19999, 27999) = -29
+cross-checked), the new test files verified (typed, cleanup'd, mocked at
+the right boundaries), the dynamic unit re-run **438/438 across 48 test
+files** inside the audit, the static e2e count verified **67 = 61 desktop
++ 6 mobile-navigation across 14 specs**, the scratch cleanliness verified
+(no .mjs/.sh at the repo root), `.env.example` verified against the five
+`process.env` read sites, the doc structure verified (session_86.md, the
+plan's Session 47 section, worklog Task 48, session_85.md untouched), and
+the security spot-checks clean (no secrets/any/eval/innerHTML — the
+aria-label is a React attribute, safe by construction). **The one FAIL
+(the audit's own finding, fixed immediately as a docs-only follow-up):**
+three current-state count anchors had been missed by the S47-4 sweep —
+README's `test:e2e` comment line, PAD §1.2's E2E row, and PAD §8.2's
+header (which also carried a stale "60 desktop" — the actual split is
+61 desktop + 6 mobile). All three bumped to 67 (and 60 → 61) in the same
+session; the docs now carry zero stale current-state count anchors.
+
+## 2. Findings → work items
+
+### S47-1 (MEDIUM): the (auth) layout lacks the `<main>` landmark
+
+- **Evidence:** a11y tree audit login/register mainCount=0 (8 pages × 8
+  checks, 62/64 pre-fix); Lighthouse `landmark-one-main` fails the clone's
+  login; the reference's login page HAS `<main>` (verified live, main=1)
+  wrapping its full-page card container — the clone's auth layout wrapped
+  the split-screen card in plain divs while its storefront layout already
+  follows the exactly-one-main pattern.
+- **Fix (TDD):** the red e2e pin first (`tests/e2e/auth.spec.ts` —
+  "auth pages render their card inside a main landmark": main count 1 on
+  both /login and /register AND the Sign in / Create account controls
+  live inside it), then the (auth) layout's outermost wrapper div →
+  `<main>` (the reference's own placement — its main IS the full-page
+  flex container). Zero visual delta (div → main renders identically;
+  both block-level flex) — proven at raster level by the byte-identical
+  05-login screenshot across the fix.
+
+### S47-2 (LOW): the star-rating announcement carried a prohibited aria-label
+
+- **Evidence:** Lighthouse `aria-prohibited-attr` on every product card +
+  product detail + home — `aria-label="Rated 4.9 out of 5"` on a
+  role-less `<span>` (prohibited by the ARIA in HTML spec). The reference
+  carries NO rating labels at all (0 elements with Rated aria-labels —
+  screen-reader silence), so the clone's intent is better but its
+  implementation was illegal ARIA.
+- **Fix (TDD):** the red unit pins first
+  (`tests/unit/star-rating.test.tsx` — 3 tests: the announcement resolves
+  as role="img" by name, non-round ratings announce, showValue renders
+  the visible value alongside), then `role="img"` on the rating span —
+  the canonical pattern for visual-only star ratings. The label becomes
+  the image's legal accessible name ("Rated 4.9 out of 5, image");
+  the Stars stay aria-hidden decorations. Zero visual delta.
+
+### S47-3 (LOW): the card media link's accessible name omitted its visible text
+
+- **Evidence:** Lighthouse `label-content-name-mismatch` on the home /
+  products / product-detail card grids — the media link's
+  `aria-label={product.name}` while its VISIBLE content includes the
+  stacked "-29%" + "Featured" pills (WCAG 2.5.3 Label in Name: voice
+  control users speak the visible badge text, which cannot match a name
+  that omits it). The reference's links carry no aria-label at all (name
+  from visible content — no mismatch, but no product name either).
+- **Fix (TDD):** the red unit pins first
+  (`tests/unit/product-card.test.tsx` — 3 tests: the media link's name
+  contains product name AND the visible discount + badge text verbatim;
+  absent badges leave the plain name with no padding separators; the
+  title link keeps the plain product name), then the media link's label
+  composes `${product.name}, ${visibleBadges}` where visibleBadges folds
+  the rendered badge strings verbatim (`${discount}%` = "-29%", the
+  badge). The name stays non-rendered — the card's visual anatomy is
+  untouched (the 01-home / 02-products screenshots byte-identical across
+  the fix).
+
+### Dispositions (no change, recorded)
+
+- **color-contrast (all pages):** reference-matched — the reference fails
+  the SAME element classes on its own home ("Shop Now" hero button,
+  "Featured" badges, category labels — 27 items; a11y 79 vs the clone's
+  89 pre-fix). The clone's brand palette (primary hsl(24 70% 50%) +
+  white text ≈ 3.4:1 on the "Sign in" button; primary-colored links) is
+  parity-anchored to the reference's own failing palette; re-theming
+  would break visual parity on every shopping surface, and darkening only
+  the login button would fork the design system's button color from every
+  other primary button. Disposed no-change as the documented accepted
+  shape (the login page's own design is the established clone-side
+  split-screen brand card — already a superset of the reference's
+  slate-gradient card).
+- **target-size (home carousel dots):** clone-better — the clone's dots
+  are 8px (`h-2`) WITH aria-labels + aria-current while the reference's
+  are 6px (`h-1.5`) and UNNAMED (the reference fails `button-name`
+  instead). Enlarging to 24px would break visual parity with the
+  reference's 6px dots. The audit trigger is the spacing-heuristic
+  sampling, not a real regression. Disposed no-change.
+- **heading-order (products h1→h3):** reference-matched — the reference
+  fails `heading-order` identically (both sides render the card grid's
+  h3s under an h1 page title with no h2 between). Parity, not a defect.
+  Disposed no-change.
+- **Lighthouse perf scores:** informational baselines only (home 70 on
+  the first clean run, 59 on the loaded-sandbox re-run; login 96;
+  product-detail 86→82) — no budgets are set and the reference is a
+  client-rendered SPA whose own perf is not the parity target. Recorded
+  for future budget-setting if the operator wants one.
+- **Carried deferrals (unchanged, all verified standing):** S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce (static shell);
+  `__Host-` prefix; shared-store limiter; radiogroup roving focus
+  (WCAG-conformant as-is); address content dedup; the
+  external-service epics (real email delivery, OAuth, real payments —
+  blocked on sandbox-external credentials/SMTP). The route-level 429
+  grid stays complete (14/14).
+
+## 3. Execution log (session 47)
+
+- [x] S47-1 (auth `<main>`) — red e2e pin → layout fix → green
+- [x] S47-2 (rating role="img") — red unit pins → component fix → green
+- [x] S47-3 (media link label-in-name) — red unit pins → component fix →
+      green
+- [x] Post-fix audit-surface re-verification (a11y tree 64/64 on the main
+      landmark; Lighthouse a11y 93/95/96/96 with all three finding audits
+      resolved)
+- [x] Clone parity grid 16/16 PASS (zero gaps — the geometry reproduces
+      exactly)
+- [x] Full gate chain re-run green on the final tree (lint · typecheck ·
+      typecheck:tests · **438/438 unit** (23.97s — the +6 new pins; the
+      duration range widens to 19.77–23.97s for sandbox load variance) ·
+      build (22/22 static, zero prisma:error) · **67/67 e2e** (2.0m — the
+      +1 S47-1 pin)) — and green on the pulled tree before the fixes (the
+      twice-run no-regression evidence: 432/432 · 66/66)
+- [x] Deep audit 48-a (read-only subagent): 8/9 PASS — its one finding
+      (three missed current-state count anchors: README's test:e2e
+      comment, PAD §1.2's E2E row, PAD §8.2's header with the stale
+      "60 desktop") fixed as a docs-only follow-up (66→67, 60→61)
+- [x] S47-4 docs sweep: this plan section, SKILL v1.43.0 → v1.44.0
+      (project_state sessions 2-47 + the Appendix B session-47 entry +
+      the 438/67 count anchors), AGENTS plan range 2..46 → 2..47, CLAUDE
+      unit-bullet session-47 tail, README/PAD count anchors (432→438 ·
+      66→67, plus the audit-found stragglers), `.env.example` re-verified
+      (all 5 env vars — unchanged, no new env surface),
+      `docs/session_86.md`, worklog Task 48, the 25 screenshots refresh,
+      and the execution log above

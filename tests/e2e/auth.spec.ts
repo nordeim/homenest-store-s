@@ -194,6 +194,28 @@ test.describe("auth", () => {
     }
   });
 
+  test("auth pages render their card inside a main landmark (S47-1)", async ({ page }) => {
+    // Session-47 S47-1: the (auth) layout wraps its split-screen card in
+    // plain divs — the clone's login/register carried ZERO <main> landmarks
+    // while the reference's login page HAS one (verified live), and
+    // Lighthouse flags landmark-one-main. The fix mirrors the storefront
+    // layout's pattern: exactly ONE main landmark wrapping the page's
+    // content, with the auth card inside it.
+    await gotoHydrated(page, "/login");
+    await expect(page.locator("main")).toHaveCount(1);
+    const signInInMain = await page
+      .getByRole("button", { name: "Sign in" })
+      .evaluate((el) => el.closest("main") !== null);
+    expect(signInInMain).toBe(true);
+
+    await gotoHydrated(page, "/register");
+    await expect(page.locator("main")).toHaveCount(1);
+    const registerInMain = await page
+      .getByRole("button", { name: /Create account/i })
+      .evaluate((el) => el.closest("main") !== null);
+    expect(registerInMain).toBe(true);
+  });
+
   test("profile edits persist through updateProfileAction and Sign Out ends the session (S14-3)", async ({
     page,
   }) => {

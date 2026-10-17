@@ -52,8 +52,8 @@ The starting point of this remediation was a client-only Vite SPA that kept the 
 | UI primitives | Radix UI (dialog, select, sheet, label, tabs, radio) + CVA + lucide-react | latest | Accessible primitives; the shadcn pattern without the CLI |
 | Charts | Recharts | ^3 | Admin revenue + analytics surfaces |
 | Validation | Zod | ^3.25 | Single validation boundary (ADR-005) |
-| Unit tests | Vitest | ^3.2 | Node-env suite (432 tests; grew with every remediation session — see §8.1) |
-| E2E tests | Playwright | ^1.64 | 66 tests incl. the Tailwind v4 mobile-nav regression guard |
+| Unit tests | Vitest | ^3.2 | Node-env suite (438 tests; grew with every remediation session — see §8.1) |
+| E2E tests | Playwright | ^1.64 | 67 tests incl. the Tailwind v4 mobile-nav regression guard |
 | Fonts | next/font (Playfair Display + Inter) | — | Self-hosted at build, no runtime font requests |
 
 ### 1.3 Architecture Decision Records
@@ -290,7 +290,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 **Two suites, one gate:** `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e` — all must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 432 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 438 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
@@ -345,7 +345,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 | `validation.test.ts` (S17-2 addendum) | `MAX_CART_QUANTITY` is 99 and the cart schemas interpolate the shared constant |
 | `api-boundaries.test.ts` (C7 addendum) | Cart DELETE `?all=1`: no cart → `{itemCount:0}` with `deleteMany` never called; guest cart → cartId-scoped `deleteMany` + the fresh summary's `itemCount` |
 
-### 8.2 E2E (Playwright — 66 tests: 60 desktop + 6 mobile-navigation, `tests/e2e/`)
+### 8.2 E2E (Playwright — 67 tests: 61 desktop + 6 mobile-navigation, `tests/e2e/`)
 
 Two projects: `mobile-navigation` (iPhone-13 device emulation on Chromium — WebKit is not installable in the target sandbox) and `desktop-chromium` (1440×900). The config first runs `scripts/restore-demo-stock.ts` (S14-4 — e2e checkouts permanently drain the traffic-owned demo stock) and then boots the standalone production build on :3100 with `/api/health` as the readiness probe (reusing an existing healthy server, whose state is already restored).
 
@@ -533,7 +533,7 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | `src/components/store/store-chrome.tsx` | Sticky header + mobile panel + cart drawer |
 | `src/app/(storefront)/admin/coupons/` | The S19-5 coupon-management surface (page + dialog island) |
 | `prisma/schema.prisma` / `seed.ts` | 18 models / idempotent seed |
-| `tests/unit/*` · `tests/e2e/*` | 432 unit · 66 e2e (incl. the v4 guard + tracking access contract + the session-11..27 hardening/wiring pins) |
+| `tests/unit/*` · `tests/e2e/*` | 438 unit · 67 e2e (incl. the v4 guard + tracking access contract + the session-11..27 hardening/wiring pins) |
 | `playwright.config.ts` / `vitest.config.ts` | Suite wiring (standalone webServer; iPhone-13-on-Chromium project) |
 
 ---

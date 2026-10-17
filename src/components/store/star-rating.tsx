@@ -14,8 +14,16 @@ export function StarRating({
   showValue?: boolean;
 }) {
   const rounded = Math.round(rating);
+  // Session-47 S47-2: role="img" makes the aria-label LEGAL (aria-label on a
+  // role-less span is prohibited by the ARIA spec — Lighthouse
+  // aria-prohibited-attr) and announces "Rated X out of 5, image" to screen
+  // readers. Zero visual delta; the Stars stay aria-hidden decorations.
   return (
-    <span className={cn("inline-flex items-center gap-0.5", className)} aria-label={`Rated ${rating} out of 5`}>
+    <span
+      role="img"
+      className={cn("inline-flex items-center gap-0.5", className)}
+      aria-label={`Rated ${rating} out of 5`}
+    >
       {Array.from({ length: 5 }).map((_, i) => (
         <Star
           key={i}

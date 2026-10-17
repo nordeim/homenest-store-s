@@ -7,6 +7,12 @@ import { connection } from "next/server";
  * Left (desktop only): rounded-3xl image panel with an overlay quote set in
  * the serif display face. Right: the auth card itself (page children).
  *
+ * Session-47 S47-1: the outermost wrapper is a <main> landmark — the
+ * reference's login page carries one (verified live) and Lighthouse flags
+ * landmark-one-main without it. It mirrors the storefront layout's
+ * exactly-one-main pattern; div → main is zero visual delta (both are
+ * block-level flex containers rendering identically).
+ *
  * `await connection()` is REQUIRED here: the CSP proxy (src/proxy.ts) stamps
  * a per-request nonce into every response, while a prerendered shell bakes
  * either the build-time nonce or NO nonce into its script tags — the browser
@@ -18,7 +24,7 @@ import { connection } from "next/server";
 export default async function AuthLayout({ children }: { children: ReactNode }) {
   await connection();
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10 sm:px-6">
+    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10 sm:px-6">
       <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-border bg-card shadow-sm lg:grid-cols-[1.1fr_1fr]">
         {/* Left brand panel — hidden on small screens to keep auth front and center */}
         <div className="relative hidden lg:block">
@@ -48,6 +54,6 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
         {/* Right auth card */}
         <div className="flex flex-col justify-center p-6 sm:p-10">{children}</div>
       </div>
-    </div>
+    </main>
   );
 }
