@@ -6959,3 +6959,191 @@ documented traffic-owned Date.now() e2e-review rows).
       FREESHIP-first raster (the S51-1 fix verified at the byte
       level); **1 changed** — 03-product-detail (this run's
       Date.now() e2e-review rows, the documented traffic-owned class)
+
+---
+
+# Session 52 (run 53) — 2026-10-18
+
+> The twenty-first remediation cycle — the FIFTH fully-empty cycle on
+> the expanded audit surface (zero repo-side findings at every
+> severity; zero changes in src/tests/prisma).
+
+## 1. Audit summary (run 53)
+
+- **Workspace refresh**: fresh-clone recovery after sandbox reset #6
+  (the documented pattern): git clone of the HTTPS remote advancing to
+  `bd6a284` (= `046fe13`, the pushed run-52 S51-1 fix cycle, + the
+  operator's `docs/session_95.md` raw-log commit; zero
+  src/tests/prisma deltas — `git show bd6a284 --stat` verified as
+  session_95.md only). Environment rebuilt in full: `npm install`
+  (429 packages), `.env` rewritten from `.env.example` with the
+  `DATABASE_URL="file:../db/custom.db"` contract + a fresh random
+  `AUTH_SECRET`, `db:setup` re-seeded (16 products / 8 categories / 13
+  settings / 3 coupons — the coupon desc order FREESHIP → SAVE20 →
+  WELCOME10 with 60s-spaced timestamps verifying S51-1 at the DB
+  level on the fresh seed), Playwright chromium-1248 re-paired,
+  paramiko 5.1.0 installed.
+- **DATABASE_URL shadow confirmed** (the parent process env carries
+  `file:/home/z/my-project/db/custom.db` — nonexistent) → the
+  per-command absolute-export convergence applied to every DB-touching
+  command, the build, the e2e run and every capture run.
+- **Gate chain on the pulled tree**: lint ✓ · typecheck ✓ ·
+  typecheck:tests ✓ · **444/444 unit** (49 files, 22.05s — within the
+  documented 19.77–23.97s range) · build (22/22 static, **zero
+  prisma:error**) · **67/67 e2e** (1.9m) — the documented session-51
+  state reproduces exactly on the fresh clone.
+- **Reference repo** re-verified at `1ffda3d` (git-fetch confirms in
+  sync with its origin/main — the same commit reviewed in runs 35–52):
+  skills folders IDENTICAL (2598 = 2598 files, skills-catalog.md md5
+  `f69408bf…`), sitemap/SEO re-compared — the reference's own sitemap
+  still lists login/register/wishlist while **homenest remains the
+  stricter superset** (every private surface excluded + the 5 legal
+  routes + about + contact). **No adoption gaps.**
+- **Live-reference parity (agent-browser, logged in with the
+  operator's credentials): NO FINDING — the pinned order holds for
+  the TWENTIETH consecutive cycle.** `/products` renders "8 products
+  found" in the exact session-34-pinned Damascus-first order with all
+  8 prices + compare-at + all 6 discount badges + review counts
+  re-verified to the cent (412/234/203/367/142/187/156/298); home
+  **Featured 6** + **New Arrivals 8** verified card-for-card; the
+  rotating hero observed mid-rotation; the **mobile-menu contract at
+  390×844 verified with REAL clicks**: the 3 icon-only header buttons
+  36×36 at x250/x294/x338 y14, the 5 panel links 358×44 stacked from
+  y121 (y121/169/217/265/313), the panel search button 40×28 @16,81,
+  and both close behaviors — toggle-closes AND navigate-closes (the
+  Products link navigates to /products and the panel unmounts); login
+  verified.
+- **Clone parity grid: 16/16 PASS** — the run-53 scratch (workspace
+  side of the repo, `research/` gitignored; server + script inside
+  ONE bash invocation per the session-44 process-lifetime
+  discipline): health ok/db-up · sitemap 25 URLs with every private
+  surface excluded · robots disallow set · noindex on all 8 probed
+  private surfaces · `/products` "16 products found" with the first 8
+  exactly the pinned order AND all 8 prices + compare-at + badges
+  exact (the leaf-node price walk) · home Featured 6 + New Arrivals 8
+  card-for-card · the mobile-menu contract: 7 guest links,
+  Close-menu 44×44 @330,78, panel search INPUT 209×40 @16,80,
+  navigate unmounts the panel · home h1 renders · mobile /products
+  first 8 pinned · the review-count digits display DB truth (the
+  traffic-owned baseline: db 413 = the seed's 412 + this run's one
+  e2e review, matching the reference's 412 at its own baseline).
+- **a11y tree audit: 58/64 on the run-53 full-DOM walk** with
+  mains=1 on ALL 8 pages — the S47-1 fix verified standing; the
+  non-passing checks all in the documented reference-matched class
+  (see Dispositions). **Zero genuine findings.**
+- **Lighthouse 13.5.0** (home/products/login/product-detail):
+  **a11y 93/95/96/96 — the session-47..52 post-fix baselines
+  reproducing EXACTLY**; login seo 63 = the intentional noindex
+  (is-crawlable on the S8-9 private-surface design); perf
+  73/75/93/93 informational (sandbox-load variance). **Zero genuine
+  findings.**
+- **Deep audit 53-a (read-only subagent): 10/10 PASS — fully NIT-free
+  (the EIGHTH after session-42, -44, -45, -46, -49, -50 and -51).**
+  Tree identity verified (HEAD `bd6a284`, working tree clean,
+  research/db gitignored); the S51-1 fix verified standing in source
+  (`couponSeedCreatedAt` + the exported COUPONS in display order +
+  the 6 pins); the static 67 = 61 desktop + 6 mobile-navigation
+  across 14 specs with zero test.only/skip/fixme/todo; the dynamic
+  **444/444 re-run at 23.44s** inside the audit; count anchors
+  consistent (zero stale current-state anchors); `.env.example`
+  matching all 5 app env-read sites (+ NODE_ENV/CI
+  framework-standard, Informational); the security spot-checks clean
+  (0 eval/new Function; the 3 dangerouslySetInnerHTML sites all
+  through jsonLdScript; 0 @ts-ignore / as any / : any in src/;
+  httpOnly+samesite-lax+secure-in-prod cookies; the target=_blank
+  site hardened with rel="noopener noreferrer"; length-guarded
+  timingSafeEqual in auth.ts AND order-access.ts; 0 Math.random;
+  .gitignore covering .env/db/*.db/*.key); package.json deps exactly
+  matching the documented stack; the server-only module graph clean
+  (validation/money/format carry no db edges); skills/ excluded from
+  tsc AND eslint. 4 Informational disposed no-change.
+
+## 2. Dispositions (no change, recorded)
+
+- **The a11y tree audit's sixth non-passing check (audit-tooling
+  variance, disposed no-change):** the run-53 scratch walked FULL-DOM
+  heading sequences (footer included), flagging a wishlist-page
+  h1→h3 skip the documented baseline (59/64) did not carry. The
+  classification: the wishlist skip is the SAME structural class as
+  the documented, reference-matched cart/track-order dispositions —
+  an h1-only page body followed by the footer's h3 logo. Verified
+  against the live reference this cycle: the reference's own cart
+  renders NO h1 at all (h2 "Your cart is empty" → h4 footer = a
+  worse skip), its track-order renders h1 → h4 (a worse skip than
+  the clone's h1 → h3), and its /wishlist 404s entirely (no
+  reference structure exists to match — the clone's wishlist is
+  de-facto superset surface). A main-scoped heading walk reproduces
+  the documented 59/64 exactly (only the in-main products h1→h3
+  skip remains, plus the auth nav-landmark pair). Disposed no-change
+  with the recipe recorded in SKILL Appendix B.
+- **All other a11y tree non-passing checks:** reference-matched (the
+  documented session-47..51 dispositions standing — the
+  products/cart/track-order heading skips; the login/register
+  nav-landmark, the reference's own split-screen auth design).
+  Disposed no-change.
+- **Lighthouse remaining failures:** reference-matched constraints
+  (color-contrast, target-size, heading-order); login
+  `is-crawlable` = the intentional noindex; perf scores
+  informational. Disposed no-change.
+- **Carried deferrals (unchanged, all verified standing):** S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce; `__Host-`
+  prefix; shared-store limiter; radiogroup roving focus; address
+  content dedup; the external-service epics (real email delivery,
+  OAuth, real payments — blocked on sandbox-external
+  credentials/SMTP); the WCAG-AA re-theming / perf-budget options —
+  deliberate parity-breaking decisions, the operator's call. The
+  route-level 429 grid stays complete (14/14).
+- **Deep-audit Informationals (4, all no-action):** the historical
+  "438" strings in the session-history docs (accurate history, not
+  stale anchors); NODE_ENV reads being framework-standard;
+  playwright.config.ts reading CI (test tooling convention); the
+  csp.ts doc-comment mentioning eval() (not executable code).
+
+## 3. Execution log (session 52)
+
+- [x] Workspace refresh: fresh clone advancing to `bd6a284`
+      (= session_95.md only on top of the run-52 fix); environment
+      rebuilt (node_modules/.env/db/chromium-1248/paramiko);
+      DATABASE_URL shadow convergence applied per-command throughout
+- [x] Gate chain green on the pulled tree: lint · typecheck ·
+      typecheck:tests · 444/444 unit (22.05s) · build 22/22 zero
+      prisma:error · 67/67 e2e (1.9m — the run on the fresh DB
+      doubling as the documented traffic generator: 5 orders / 17
+      reviews / Damascus 413 / FREESHIP 1)
+- [x] Reference repo verified at `1ffda3d`; skills parity
+      (2598 = 2598, catalog md5 identical); sitemap
+      stricter-superset check — no adoption gaps
+- [x] Live-reference parity: NO FINDING (the twentieth consecutive
+      pinned cycle; the mobile-menu contract verified with REAL
+      clicks; hero rotation observed; login verified)
+- [x] Clone parity grid 16/16 PASS (zero gaps — the geometry
+      reproducing exactly)
+- [x] The expanded audit surfaces re-run: a11y tree mains=1 on all
+      8 pages with the non-passing checks reference-matched (the
+      full-DOM walk variance dispositioned above); Lighthouse a11y
+      93/95/96/96 reproducing the post-fix baselines EXACTLY
+- [x] Deep audit 53-a (read-only subagent): 10/10 PASS — fully
+      NIT-free, zero findings at every severity (the dynamic 444/444
+      re-run at 23.44s as the second run)
+- [x] Screenshots refreshed on the final single clean run (AFTER the
+      final-tree e2e AND after restore-demo-stock re-topped Damascus
+      21→24 + French Rolling Pin 43→44): **25/25 green, 24
+      byte-identical** including the deterministic pins
+      04b-cart-coupon-hint (`6ed62e85…` — the SIXTEENTH consecutive
+      byte-identical cycle), 11-checkout (`b71a8e74…`),
+      21-mobile-menu-open (`5e59d090…`), 05-login (`75de876a…`),
+      10-register, the S50-1-settled 12/17 (`99dc1d33…`/
+      `e45615d6…`), AND 15b-admin-coupons (`f073d7b0…` — the S51-1
+      fix verified at the byte level for a second consecutive
+      cycle); **1 changed** — 03-product-detail (this run's
+      Date.now() e2e-review rows — a single 11px band at y1168-1178,
+      the documented traffic-owned class, classified by pixel-diff)
+- [x] S52-1 docs sweep: this plan section, SKILL v1.48.0 → v1.49.0
+      (project_state sessions 2-51 → 2-52 + the Appendix B
+      session-52 entry incl. the full-DOM-walk classification
+      lesson), AGENTS plan range 2..51 → 2..52, CLAUDE.md
+      session-52 tail, README/PAD/DEPLOYMENT drift-checked (all
+      verified accurate — unchanged; the 444/67 anchors stay
+      accurate), `docs/session_96.md`, worklog Task 53
+- [x] Commit + push to main through the SSH wrapper (fast-forward,
+      no new branches)
