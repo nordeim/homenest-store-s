@@ -156,6 +156,13 @@ await shoot(browser, desktop, "19-account", "full", async (page) => {
 await shoot(browser, desktop, "12-admin-dashboard", "full", async (page) => {
   await login(page, "admin@homenestkitchen.com", "Admin123!");
   await page.waitForLoadState("networkidle");
+  // S50-1: the dashboard's recharts RevenueChart animates its area draw on a
+  // local ~1500ms timer after mount — `networkidle` fires while the animation
+  // is still running, so the screenshot catches a variable frame and the shot
+  // flips between rasters run-to-run against an UNCHANGED database (three
+  // md5s across two consecutive capture runs in run 51; the S37-2/S42-2
+  // animation-frame class). The 2000ms settle outlasts the animation.
+  await page.waitForTimeout(2000);
 });
 for (const [name, path] of [
   ["13-admin-products", "/admin/products"],
@@ -170,6 +177,12 @@ for (const [name, path] of [
     await login(page, "admin@homenestkitchen.com", "Admin123!");
     await page.goto(path);
     await page.waitForLoadState("networkidle");
+    // S50-1: the analytics page renders recharts Bar/Pie charts with the
+    // same ~1500ms mount animations as the dashboard's RevenueChart — its
+    // shot flipped rasters run-to-run against an UNCHANGED database in run
+    // 51 too. The 2000ms settle outlasts the animations; the other admin
+    // pages carry no charts and stay on the plain networkidle gate.
+    if (name === "17-admin-analytics") await page.waitForTimeout(2000);
   });
 }
 

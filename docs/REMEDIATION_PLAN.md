@@ -6607,3 +6607,160 @@ range.
       anchors stay accurate), `.env.example` verified by the audit
       (unchanged, git-tracked), `docs/session_90.md`, worklog Task 50,
       the 25 screenshots refresh, and the execution log above
+
+# Session 50 (run 51) — 2026-10-18
+
+> The NINETEENTH near-fully-empty remediation cycle — the THIRD on the
+> EXPANDED audit surface: both session-47 surfaces re-ran and produced
+> ZERO genuine findings, the repo-side deep audit came back 9/9 PASS
+> fully NIT-free (the SIXTH fully-NIT-free audit), and the live
+> reference kept its catalog in the session-34-pinned order for the
+> EIGHTEENTH consecutive cycle. ONE repo-side finding this cycle —
+> **S50-1, a LOW docs-tooling capture-determinism fix** (the S37-2/
+> S42-2 class): the two chart-bearing screenshots (12-admin-dashboard,
+> 17-admin-analytics) captured mid-recharts-animation flipped rasters
+> run-to-run against an UNCHANGED database. File names increment by
+> run number; `docs/session_92.md` holds this run's narrative and
+> `docs/session_91.md` the operator's raw log of the prior run.
+
+## 1. Audit summary (run 51)
+
+- **Gate chain on the pulled tree** (`36f1128` = run-50's `2bdc9f5` +
+  the operator's `docs/session_91.md` raw-log commit; zero
+  src/tests/prisma deltas): lint ✓ · typecheck ✓ · typecheck:tests ✓
+  · **438/438 unit** (48 files, 21.94s — within the documented
+  19.77–23.97s range) · build (22/22 static, **zero prisma:error**)
+  · **67/67 e2e** (1.9m) — the documented session-49 state reproduces
+  exactly on the fifth fresh-clone recovery.
+- **Reference repo** re-verified at `1ffda3d` (in sync with its
+  origin/main): skills folders IDENTICAL (2598 = 2598 files,
+  skills-catalog.md md5 `f69408bf…`), sitemap/SEO re-compared —
+  homenest remains the stricter superset. **No adoption gaps.**
+- **Live-reference parity (agent-browser, logged in): NO FINDING —
+  the pinned order holds for the EIGHTEENTH consecutive cycle.**
+  All 8 prices + compare-at + badges + review counts re-verified to
+  the cent; Featured 6 + New Arrivals 8 card-for-card; hero rotation
+  observed (Sale Up to 40% Off → Elevate Your Kitchen); the
+  mobile-menu contract verified with REAL clicks (5 links 358×44
+  from y121, search button 40×28 @16,81, toggle-closes AND
+  navigate-closes); login verified (operator identity + order
+  history).
+- **Clone parity grid: 16/16 PASS** — the run-39..50 geometry
+  reproducing EXACTLY (Close-menu 44×44 @330,78, panel search INPUT
+  209×40 @16,80, 7 guest links, unmount-on-navigate).
+- **a11y tree audit: 59/64** with mains=1 on ALL 8 pages — the
+  documented baseline reproduces EXACTLY; the 5 non-passing checks
+  all reference-matched (products/cart/track-order heading skips;
+  login/register nav-landmark). **Zero genuine findings.**
+- **Lighthouse 13.5.0: a11y 93/95/96/96** — reproducing the
+  session-47..50 post-fix baselines EXACTLY; login seo 63 = the
+  intentional noindex; perf 50/51/91/67 informational (sandbox-load
+  variance). **Zero genuine findings.**
+- **Deep audit 51-a (read-only subagent): 9/9 PASS — fully NIT-free
+  (the SIXTH after session-42, -44, -45, -46 and -49).** Tree
+  identity verified (`git diff 2bdc9f5..36f1128` = session_91.md
+  only); the three session-47 fixes verified standing; the static
+  67 = 61 desktop + 6 mobile-navigation across 14 specs with zero
+  test.only/skip/fixme/todo; the dynamic **438/438 re-run at 22.80s**
+  inside the audit; count anchors consistent; `.env.example`
+  matching all 5 read sites; security spot-checks clean; package.json
+  deps matching the documented stack. 4 Informational disposed
+  no-change (the gitignored server.log; the pre-flagged db.ts
+  singleton cast; the unit duration in range; gitignored run
+  artifacts).
+
+## 2. S50-1 — the chart-settle capture fix (LOW, docs-tooling)
+
+**Finding:** the two chart-bearing screenshots are run-to-run
+byte-non-deterministic against an UNCHANGED database. Evidence from
+run 51's refresh: 12-admin-dashboard rendered THREE distinct md5s
+(`d65af93b` committed · `571775dc` capture-run A · `6c6963b1`
+capture-run B) and 17-admin-analytics flipped (byte-identical in run
+A, changed in run B) — with the DB verified unchanged across both
+runs (5 orders / 17 reviews / FREESHIP 1 before and after).
+
+**Root cause:** both pages render recharts charts (the dashboard's
+`RevenueChart` AreaChart; the analytics page's TopProducts/
+CategoryMix Bar+Pie charts) with recharts' default ~1500ms mount
+animations running on local timers — `waitForLoadState("networkidle")`
+fires while the animation is still drawing, so the screenshot catches
+a variable animation frame. The S37-2 (toast) / S42-2 (panel-mount)
+class, on a new surface.
+
+**Fix (TDD-style verification per the S37-2/S42-2 precedent):** the
+capture script now waits 2000ms past `networkidle` for the two
+chart-bearing shots (`scripts/capture-screenshots.mjs`, with the race
+documented in the comment). Verified deterministic: **two consecutive
+full capture runs produced 25/25 byte-identical shots**, and the
+settled 12/17 rasters reproduced the same md5s again on the final
+clean run after a DB wipe + reseed + e2e cycle — four capture runs,
+one raster state.
+
+## 3. Dispositions (no change, recorded)
+
+- **All five a11y tree non-passing checks:** reference-matched (the
+  documented session-47/48/49 dispositions standing). Disposed
+  no-change.
+- **Lighthouse remaining failures:** reference-matched constraints
+  (color-contrast, target-size, heading-order); login `is-crawlable`
+  = the intentional noindex; perf scores informational. Disposed
+  no-change.
+- **05-login transient raster variant** (`c1d75e8e…`, 45 pixels of
+  ±1-LSB text anti-aliasing vs the committed `75de876a…`): appeared
+  once in the first capture of the run, never reproduced in 9
+  subsequent attempts (6/6 in the bistability probe + run B + the
+  final clean run all reproduce the committed raster exactly);
+  content-identical, DOM pinned by e2e. Classified environmental
+  first-render raster noise of the fresh sandbox generation —
+  disposed no-change.
+- **Carried deferrals (unchanged, all verified standing):** S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce; `__Host-`
+  prefix; shared-store limiter; radiogroup roving focus; address
+  content dedup; the external-service epics; the WCAG-AA re-theming /
+  perf-budget options — deliberate parity-breaking decisions, the
+  operator's call. The route-level 429 grid stays complete (14/14).
+
+## 4. Execution log (session 50)
+
+- [x] Fresh-clone recovery (sandbox reset #5): clone at `36f1128`,
+      env + DB + chromium-1248 + paramiko 5.0.0 rebuilt, all gates
+      green on the pulled tree
+- [x] Live-reference parity: NO FINDING (the eighteenth consecutive
+      pinned cycle; the mobile-menu contract verified with REAL
+      clicks — toggle-closes AND navigate-closes; hero rotation
+      observed)
+- [x] Clone parity grid 16/16 PASS (zero gaps — the geometry
+      reproduces exactly; the leaf-node price walk + cuid URL
+      methodology applied)
+- [x] The expanded audit surfaces re-run: a11y tree 59/64 zero
+      genuine findings; Lighthouse a11y 93/95/96/96 reproducing the
+      post-fix baselines EXACTLY
+- [x] Deep audit 51-a (read-only subagent): 9/9 PASS — fully
+      NIT-free, zero findings at every severity (the dynamic 438/438
+      re-run at 22.80s as the second run)
+- [x] S50-1 fixed (chart-settle waits on the 12/17 captures) and
+      verified deterministic (25/25 byte-identical across consecutive
+      capture runs; zero src/tests/prisma changes)
+- [x] Full gate chain green on the FINAL tree too (lint · typecheck ·
+      typecheck:tests · **438/438 unit** (22.09s) · build (22/22
+      static, zero prisma:error) · **67/67 e2e** (2.0m)) — plus a
+      post-fix re-run of 67/67 e2e (1.9m) after the DB wipe/reseed
+- [x] S50-1 docs sweep: this plan section, SKILL v1.46.0 → v1.47.0
+      (project_state sessions 2-49 → 2-50 + the Appendix B
+      session-50 entry incl. the chart-settle lesson + the ±1-LSB
+      login-raster noise lesson), AGENTS plan range 2..49 → 2..50 +
+      the S50-1 capture-gate note, CLAUDE.md session-50 tail,
+      README/PAD/DEPLOYMENT drift-checked, `docs/session_92.md`,
+      worklog Task 51, and the 25 screenshots refresh (below)
+- [x] Screenshots refreshed on the final single clean run (AFTER the
+      final-tree e2e AND after restore-demo-stock): **25/25 green on
+      the first pass**, **21 byte-identical** including the
+      deterministic pins 04b-cart-coupon-hint (`6ed62e85…` reproduced
+      EXACTLY for the FOURTEENTH consecutive byte-identical cycle),
+      11-checkout (`b71a8e74…`), 21-mobile-menu-open (`5e59d090…`),
+      05-login (`75de876a…`) and 10-register; **4 changed** —
+      03-product-detail (this run's Date.now() e2e-review rows),
+      14-admin-orders (the fresh-DB 5-order rows), and 12/17 in
+      their new S50-1 animation-SETTLED rasters (the determinism fix
+      changing the shipped raster from "a random animation frame" to
+      "the settled chart state")
