@@ -6764,3 +6764,198 @@ one raster state.
       their new S50-1 animation-SETTLED rasters (the determinism fix
       changing the shipped raster from "a random animation frame" to
       "the settled chart state")
+
+---
+
+# Session 51 (run 52) — 2026-10-18
+
+> The TWENTIETH near-fully-empty remediation cycle — the FOURTH on the
+> EXPANDED audit surface: both session-47 surfaces re-ran and produced
+> ZERO genuine findings, the repo-side deep audit came back 10/10 PASS
+> fully NIT-free (the SEVENTH fully-NIT-free audit), and the live
+> reference kept its catalog in the session-34-pinned order for the
+> NINETEENTH consecutive cycle. ONE repo-side finding this cycle —
+> **S51-1, a LOW seed-determinism fix**: the seeded coupons' createdAt
+> timestamps could tie at SQLite's millisecond precision, flipping the
+> /admin/coupons card order (and the 15b screenshot) run-to-run against
+> an otherwise identical database. File names increment by run number;
+> `docs/session_94.md` holds this run's narrative and
+> `docs/session_93.md` the operator's raw log of the prior run.
+
+## 1. Audit summary (run 52)
+
+- **Gate chain on the pulled tree** (`4d8b096` = run-51's `e90352c` +
+  the operator's `docs/session_93.md` raw-log commit; zero
+  src/tests/prisma deltas): lint ✓ · typecheck ✓ · typecheck:tests ✓
+  · **438/438 unit** (48 files, 21.94s — within the documented
+  19.77–23.97s range) · build (22/22 static, **zero prisma:error**)
+  · **67/67 e2e** (1.9m, re-verified with a clean captured terminal
+  log) — the documented session-50 state reproduces exactly on the
+  surviving workspace (NO sandbox reset this cycle — the documented
+  recovery pattern was not needed; env/DB/chromium/paramiko all
+  survived from run 51).
+- **Reference repo** re-verified at `1ffda3d` (in sync with its
+  origin/main): skills folders IDENTICAL (2598 = 2598 files,
+  skills-catalog.md md5 `f69408bf…`), sitemap/SEO re-compared — the
+  reference's own sitemap still lists login/register/wishlist while
+  homenest remains the stricter superset. **No adoption gaps.**
+- **Live-reference parity (agent-browser, logged in): NO FINDING —
+  the pinned order holds for the NINETEENTH consecutive cycle.**
+  All 8 prices + compare-at + all 6 discount badges + review counts
+  re-verified to the cent (412/234/203/367/142/187/156/298);
+  Featured 6 + New Arrivals 8 card-for-card; hero rotation observed
+  (Sale Up to 40% Off → Elevate Your Kitchen); the mobile-menu
+  contract at 390×844 verified with REAL clicks (3 icon-only header
+  buttons 36×36 at x250/x294/x338 y14; 5 panel links 358×44 from
+  y121; search button 40×28 @16,81; toggle-closes AND
+  navigate-closes — URL → /products, panel unmounted); login verified
+  (the operator identity + order history).
+- **Clone parity grid: 16/16 PASS** — the run-39..51 geometry
+  reproducing EXACTLY (Close-menu 44×44 @330,78, panel search INPUT
+  209×40 @16,80, 7 guest links, unmount-on-navigate).
+- **a11y tree audit: 59/64** with mains=1 on ALL 8 pages — the
+  documented baseline reproducing EXACTLY; the 5 non-passing checks
+  all reference-matched (products/cart/track-order heading skips;
+  login/register nav-landmark). **Zero genuine findings.**
+- **Lighthouse 13.5.0: a11y 93/95/96/96** — reproducing the
+  session-47..50 post-fix baselines EXACTLY; login seo 63 = the
+  intentional noindex; perf 60/51/78/69 informational (sandbox-load
+  variance). **Zero genuine findings.**
+- **Deep audit 52-a (read-only subagent): 10/10 PASS — fully NIT-free
+  (the SEVENTH after session-42, -44, -45, -46, -49 and -50).** Tree
+  identity verified (`git diff e90352c..4d8b096` = session_93.md
+  only); the S50-1 chart-settle waits verified standing in the capture
+  script; the static 67 = 61 desktop + 6 mobile-navigation across 14
+  specs with zero test.only/skip/fixme/todo; the dynamic **438/438
+  re-run at 22.10s** inside the audit; count anchors consistent;
+  `.env.example` matching all 5 read sites; security spot-checks clean
+  (0 eval/new Function, 3 jsonLdScript-gated dangerouslySetInnerHTML,
+  0 @ts-ignore/as any/: any, httpOnly cookies, hardened target=_blank,
+  length-guarded timingSafeEqual in auth.ts AND order-access.ts, 0
+  Math.random, .gitignore covers .env/db/*.db/*.key); package.json
+  deps matching the documented stack; the server-only module graph
+  clean (validation/money/format carry no db edges). 3 Informational
+  disposed no-change (the README-only count-anchor set; the
+  NODE_ENV reads being framework-standard; the static-count
+  methodology).
+
+## 2. S51-1 — the seeded coupons' deterministic display order (LOW, seed determinism)
+
+**Finding:** run 52's screenshot refresh produced a 15b-admin-coupons
+raster that differed from the committed run-51 raster by 11,876
+pixels (0.63%) in the card-grid region — with the DB verified in the
+documented final-capture state (5 orders / 17 reviews / FREESHIP 1)
+before and after. A VLM read of both crops isolated the delta: the
+**SAVE20 and FREESHIP cards had swapped grid positions**; every
+card's content was otherwise identical.
+
+**Root cause:** the seed's coupon loop created its three rows within
+~1ms of each other (this run: WELCOME10 .090Z, SAVE20 .091Z,
+FREESHIP .091Z — a genuine tie), and `/admin/coupons` lists coupons
+`orderBy: { createdAt: "desc" }` on SQLite's millisecond-precision
+DateTime strings. A same-millisecond tie has no deterministic
+tie-break, so the card order flipped run-to-run depending on where
+the insert loop's clock ticks landed. The product catalog has been
+immune to this class since session-12 (`productSeedCreatedAt`'s
+60-second backdated spacing); the coupons never got the same
+treatment.
+
+**Fix (TDD — `tests/unit/session51-hardening.test.ts` written RED
+first, 6/6 failing before the implementation):**
+1. New pure helper `couponSeedCreatedAt(index, now)` in
+   `src/lib/seed-policy.ts` — the coupon twin of
+   `productSeedCreatedAt`: the first-listed row is the newest, each
+   successor backdated a full 60 seconds (no tie possible at SQLite's
+   ms precision), non-negative-integer index guard.
+2. `prisma/seed.ts`: the COUPONS array reordered into the admin
+   DISPLAY order (FREESHIP → SAVE20 → WELCOME10 — the card order the
+   page has shipped since session-19 and that the 15b screenshot
+   pins) and now EXPORTED (the PRODUCTS precedent); the coupon
+   upsert's create branch carries
+   `createdAt: couponSeedCreatedAt(index)` while `update: {}` stays
+   create-only — existing databases keep their own timestamps and
+   redemption bookkeeping untouched (the S4-8/S7-3 policy), and
+   admin-created coupons still sort as the newest via their real
+   `now()`.
+3. The unit pins: the helper's strictly-descending/60s-gap contract
+   AND the COUPONS array order + the three seeded lifecycle shapes.
+
+**Verified end-to-end:** fresh wipe → db:setup → the DB's
+`createdAt desc` order reads FREESHIP → SAVE20 → WELCOME10 with
+distinct 60s-spaced timestamps (.912/.913/.913 across three different
+minutes); the full capture sequence (wipe → seed → ONE e2e run →
+restore-demo-stock → capture) then reproduced **24/25 byte-identical
+screenshots** — 15b back at the committed FREESHIP-first raster
+EXACTLY, the only changed shot being 03-product-detail (the
+documented traffic-owned Date.now() e2e-review rows).
+
+## 3. Dispositions (no change, recorded)
+
+- **All five a11y tree non-passing checks:** reference-matched (the
+  documented session-47..50 dispositions standing). Disposed
+  no-change.
+- **Lighthouse remaining failures:** reference-matched constraints
+  (color-contrast, target-size, heading-order); login
+  `is-crawlable` = the intentional noindex; perf scores
+  informational. Disposed no-change.
+- **Carried deferrals (unchanged, all verified standing):** S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce; `__Host-`
+  prefix; shared-store limiter; radiogroup roving focus; address
+  content dedup; the external-service epics; the WCAG-AA re-theming /
+  perf-budget options — deliberate parity-breaking decisions, the
+  operator's call. The route-level 429 grid stays complete (14/14).
+- **Seed-side same-ms race audit (adjacent to S51-1):** the other
+  seed-inserted rows checked for the same class — products carry the
+  60s productSeedCreatedAt spacing (immune), carousel slides order by
+  an explicit `sortOrder` column (immune), settings are keyed rows
+  (no order), and categories render in natural/index order with no
+  createdAt-desc consumer (immune). The coupons were the only
+  unpinned `createdAt: desc` consumer. Disposed no-change.
+
+## 4. Execution log (session 51)
+
+- [x] Workspace refresh: `git pull` fast-forward `e90352c → 4d8b096`
+      (= session_93.md only); NO sandbox reset — env, DB, chromium
+      pairing and paramiko all survived; DATABASE_URL shadow
+      convergence applied per-command throughout
+- [x] Gate chain green on the pulled tree: lint · typecheck ·
+      typecheck:tests · 438/438 unit (21.94s) · build 22/22 zero
+      prisma:error · 67/67 e2e (1.9m)
+- [x] Reference repo verified at `1ffda3d`; skills parity; sitemap
+      stricter-superset check — no adoption gaps
+- [x] Live-reference parity: NO FINDING (the nineteenth consecutive
+      pinned cycle; the mobile-menu contract verified with REAL
+      clicks; hero rotation observed; login verified)
+- [x] Clone parity grid 16/16 PASS (zero gaps — the geometry
+      reproducing exactly)
+- [x] The expanded audit surfaces re-run: a11y tree 59/64 zero
+      genuine findings; Lighthouse a11y 93/95/96/96 reproducing the
+      post-fix baselines EXACTLY
+- [x] Deep audit 52-a (read-only subagent): 10/10 PASS — fully
+      NIT-free, zero findings at every severity (the dynamic 438/438
+      re-run at 22.10s as the second run)
+- [x] S51-1 found (the 15b raster flip → the VLM crop read → the
+      coupon createdAt tie diagnosed) and fixed TDD (6/6 RED → 6/6
+      GREEN → the DB-level and raster-level verifications)
+- [x] Full gate chain green on the FINAL tree: lint · typecheck ·
+      typecheck:tests · **444/444 unit** (49 files, 22.42s — the 6
+      new S51-1 pins) · build (22/22 static, zero prisma:error) ·
+      **67/67 e2e** (1.9m) — the e2e run on the fresh DB doubling as
+      the documented traffic generator
+- [x] S51-1 docs sweep: this plan section, SKILL v1.47.0 → v1.48.0
+      (project_state sessions 2-50 → 2-51 + the Appendix B
+      session-51 entry incl. the coupon-tie lesson), AGENTS plan range
+      2..50 → 2..51, CLAUDE.md session-51 tail, the README/PAD
+      438→444 count anchors, DEPLOYMENT drift-checked,
+      `docs/session_94.md`, worklog Task 52
+- [x] Screenshots refreshed on the final single clean run (AFTER the
+      final-tree e2e AND after restore-demo-stock): **25/25 green,
+      24 byte-identical** including the deterministic pins
+      04b-cart-coupon-hint (`6ed62e85…` — the FIFTEENTH consecutive
+      byte-identical cycle), 11-checkout (`b71a8e74…`),
+      21-mobile-menu-open (`5e59d090…`), 05-login (`75de876a…`),
+      10-register, the S50-1-settled 12/17 (`99dc1d33…`/
+      `e45615d6…`), AND 15b-admin-coupons back at the committed
+      FREESHIP-first raster (the S51-1 fix verified at the byte
+      level); **1 changed** — 03-product-detail (this run's
+      Date.now() e2e-review rows, the documented traffic-owned class)

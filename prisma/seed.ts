@@ -11,7 +11,7 @@
 import { pathToFileURL } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import { scryptHash } from "../src/lib/password";
-import { productSeedCreatedAt, productSeedUpdate } from "../src/lib/seed-policy";
+import { couponSeedCreatedAt, productSeedCreatedAt, productSeedUpdate } from "../src/lib/seed-policy";
 
 const prisma = new PrismaClient();
 
@@ -532,15 +532,21 @@ const SETTINGS: Record<string, string> = {
   socialTikTok: "https://tiktok.com",
 };
 
-const COUPONS = [
-  // Lifecycle fields (expiresAt / maxRedemptions) are enforced by
-  // isCouponRedeemable at coupon-lookup and inside the checkout transaction.
-  { code: "WELCOME10", type: "percent", value: 10, description: "10% off your first order", minSubtotal: 0, expiresAt: null, maxRedemptions: null },
-  { code: "SAVE20", type: "percent", value: 20, description: "20% off orders over $100", minSubtotal: 10000, expiresAt: null, maxRedemptions: 500 },
+// S51-1: the array is authored in the ADMIN DISPLAY order (FREESHIP →
+// SAVE20 → WELCOME10 — the card order the /admin/coupons grid has shipped
+// since session-19); couponSeedCreatedAt makes the first-listed row the
+// newest so the page's `orderBy: { createdAt: "desc" }` renders exactly
+// this order deterministically (the seed loop's ~1ms insert spacing could
+// tie two rows at SQLite's ms precision and flip the grid run-to-run).
+export const COUPONS = [
   // Session-20 S20-6: a first-class free_shipping coupon — zeroes shipping
   // outright. (Fresh databases get this row; an EXISTING database keeps its
   // earlier fixed-type FREESHIP — the seed is create-only, both work.)
   { code: "FREESHIP", type: "free_shipping", value: 0, description: "Free standard shipping on orders over $30", minSubtotal: 3000, expiresAt: null, maxRedemptions: null },
+  { code: "SAVE20", type: "percent", value: 20, description: "20% off orders over $100", minSubtotal: 10000, expiresAt: null, maxRedemptions: 500 },
+  // Lifecycle fields (expiresAt / maxRedemptions) are enforced by
+  // isCouponRedeemable at coupon-lookup and inside the checkout transaction.
+  { code: "WELCOME10", type: "percent", value: 10, description: "10% off your first order", minSubtotal: 0, expiresAt: null, maxRedemptions: null },
 ];
 
 const REVIEW_TEMPLATES = [
@@ -697,15 +703,18 @@ async function main() {
   console.log(`Settings: ${Object.keys(SETTINGS).length}`);
 
   // ---- Coupons ----
-  for (const coupon of COUPONS) {
+  for (const [index, coupon] of COUPONS.entries()) {
     await prisma.coupon.upsert({
       where: { code: coupon.code },
       // Create-only: a reseed must never reset live redemption bookkeeping
       // (timesUsed / expiresAt / maxRedemptions) — that state is admin- and
       // traffic-owned once the coupon exists (the admin coupon UI manages
-      // it; reseeds only top up missing codes).
+      // it; reseeds only top up missing codes). S51-1: the deterministic
+      // backdated createdAt lives on the CREATE branch only — existing
+      // rows keep their own timestamps (admin-created coupons still sort
+      // as the newest via their real `now()`).
       update: {},
-      create: coupon,
+      create: { ...coupon, createdAt: couponSeedCreatedAt(index) },
     });
   }
   console.log(`Coupons: ${COUPONS.length}`);

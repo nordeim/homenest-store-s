@@ -64,6 +64,32 @@ export function productSeedCreatedAt(index: number, now: Date = new Date()): Dat
   return new Date(now.getTime() - index * 60_000);
 }
 
+/**
+ * Seed creation timestamps for the demo coupons (session-51 S51-1) — the
+ * coupon twin of productSeedCreatedAt. The seed loop created its three
+ * coupon rows within ~1ms of each other, and /admin/coupons lists them
+ * `orderBy: { createdAt: "desc" }` on SQLite's millisecond-precision
+ * DateTime strings — a same-millisecond tie has no deterministic
+ * tie-break, so the admin card grid flipped order run-to-run against an
+ * otherwise identical database (run 52's 15b screenshot caught it live:
+ * SAVE20-first vs the committed FREESHIP-first raster).
+ *
+ * The COUPONS array is authored in the DISPLAY order the admin surface has
+ * shipped since session-19 (FREESHIP → SAVE20 → WELCOME10); this helper
+ * makes the first-listed row the newest and backdates each successor a
+ * full minute, so the `createdAt: desc` consumer renders exactly that
+ * order on every fresh seed regardless of machine speed. Create-only: the
+ * coupon upsert's update branch never touches `createdAt`, so reseeds
+ * cannot rewrite the order of existing rows (the S4-8/S7-3 policy).
+ * Pure and unit-pinned in tests/unit/session51-hardening.test.ts.
+ */
+export function couponSeedCreatedAt(index: number, now: Date = new Date()): Date {
+  if (!Number.isInteger(index) || index < 0) {
+    throw new Error(`couponSeedCreatedAt: index must be a non-negative integer, got ${index}`);
+  }
+  return new Date(now.getTime() - index * 60_000);
+}
+
 /** Settings rows are admin-owned: reseed creates missing keys only. */
 export const SETTINGS_CREATE_ONLY = true;
 

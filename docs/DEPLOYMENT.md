@@ -96,7 +96,9 @@ specs) — price, compare-at price, stock, rating, reviewCount, sku, badge,
 featured/new-arrival flags and active state are admin- or traffic-owned and a
 reseed never resets them; settings and carousel slides are create-only (missing
 keys/slides are created, existing values survive), exactly like the coupon
-bookkeeping. Re-running the seed after real traffic is therefore safe — it
+bookkeeping (fresh databases additionally get deterministic, minute-spaced
+coupon `createdAt` values — session-51 S51-1 — so the admin coupons grid's
+newest-first order is stable; existing rows keep their own timestamps). Re-running the seed after real traffic is therefore safe — it
 cannot corrupt the stock ledger, collapse customer-grown review aggregates, or
 revert admin edits.
 

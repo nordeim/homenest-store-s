@@ -52,7 +52,7 @@ The starting point of this remediation was a client-only Vite SPA that kept the 
 | UI primitives | Radix UI (dialog, select, sheet, label, tabs, radio) + CVA + lucide-react | latest | Accessible primitives; the shadcn pattern without the CLI |
 | Charts | Recharts | ^3 | Admin revenue + analytics surfaces |
 | Validation | Zod | ^3.25 | Single validation boundary (ADR-005) |
-| Unit tests | Vitest | ^3.2 | Node-env suite (438 tests; grew with every remediation session — see §8.1) |
+| Unit tests | Vitest | ^3.2 | Node-env suite (444 tests; grew with every remediation session — see §8.1) |
 | E2E tests | Playwright | ^1.64 | 67 tests incl. the Tailwind v4 mobile-nav regression guard |
 | Fonts | next/font (Playfair Display + Inter) | — | Self-hosted at build, no runtime font requests |
 
@@ -290,7 +290,7 @@ None. There are no queues, cron jobs, or background workers. Long-running concer
 
 **Two suites, one gate:** `npm run lint && npm run typecheck && npm run typecheck:tests && npm run test && npm run build && npm run test:e2e` — all must be green; there is no hosted CI, so this local gate is the only gate.
 
-### 8.1 Unit (Vitest, node env — 438 tests, `tests/unit/`)
+### 8.1 Unit (Vitest, node env — 444 tests, `tests/unit/`)
 
 | File | Pins |
 |---|---|
@@ -533,7 +533,7 @@ See the table in `AGENTS.md` (authoritative). Clean-check order: `lint → typec
 | `src/components/store/store-chrome.tsx` | Sticky header + mobile panel + cart drawer |
 | `src/app/(storefront)/admin/coupons/` | The S19-5 coupon-management surface (page + dialog island) |
 | `prisma/schema.prisma` / `seed.ts` | 18 models / idempotent seed |
-| `tests/unit/*` · `tests/e2e/*` | 438 unit · 67 e2e (incl. the v4 guard + tracking access contract + the session-11..27 hardening/wiring pins) |
+| `tests/unit/*` · `tests/e2e/*` | 444 unit · 67 e2e (incl. the v4 guard + tracking access contract + the session-11..27 hardening/wiring pins) |
 | `playwright.config.ts` / `vitest.config.ts` | Suite wiring (standalone webServer; iPhone-13-on-Chromium project) |
 
 ---
