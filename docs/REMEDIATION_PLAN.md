@@ -7147,3 +7147,223 @@ documented traffic-owned Date.now() e2e-review rows).
       accurate), `docs/session_96.md`, worklog Task 53
 - [x] Commit + push to main through the SSH wrapper (fast-forward,
       no new branches)
+
+---
+
+# Session 53 (run 54) — 2026-10-19 — the twenty-second remediation cycle: the S53-1 lazy-image capture-gate fix + the first reference-unavailable cycle (environmental)
+
+## 1. Audit summary (evidence-based)
+
+- **Workspace refresh**: the sandbox reset again (reset #7 — the
+  documented fresh-clone recovery pattern): `git clone` of the HTTPS
+  remote advancing to `a811c8f` (= `5e699ca`, the pushed run-53
+  fully-empty cycle, + the operator's `docs/session_97.md` raw-log
+  commit; `git show a811c8f --stat` verified as session_97.md only;
+  working tree clean). Environment rebuilt in full: `npm install` (429
+  packages), `.env` rewritten from `.env.example` with the
+  `DATABASE_URL="file:../db/custom.db"` contract + a fresh random
+  `AUTH_SECRET`, `npm run db:setup` re-seeded (16 products / 8
+  categories / 13 settings / 3 coupons — the coupon desc order
+  FREESHIP → SAVE20 → WELCOME10 at 60s-spaced timestamps verifying
+  S51-1 at the DB level again), Playwright chromium-1248 re-paired,
+  and paramiko 5.1.0 installed for the SSH-wrapper push. The
+  documented DATABASE_URL shadow confirmed and the per-command
+  absolute-export convergence applied throughout.
+- **Gate chain on the pulled tree — ALL GREEN**: lint ✓ · typecheck ✓
+  · typecheck:tests ✓ · **444/444 unit** (49 files, 22.82s — within
+  the documented 19.77–23.97s range) · build (22/22 static, **zero
+  prisma:error** lines) · **67/67 e2e** (1.9m — the run on the fresh
+  DB doubling as the documented traffic generator: 5 orders / 17
+  reviews / Damascus 413 / FREESHIP 1 / latest ORD-2026-005,
+  DB-verified).
+- **Reference repo re-verified at `1ffda3d`** (git-fetch confirms in
+  sync with its origin/main — the same commit reviewed in runs 35–53):
+  skills folders IDENTICAL (2598 = 2598 files, `skills-catalog.md`
+  md5 `f69408bf…`), and the sitemap/SEO comparison re-confirmed —
+  the reference's own sitemap still lists login/register/wishlist
+  while homenest remains the stricter superset. **No adoption gaps.**
+- **THE LIVE REFERENCE WAS UNAVAILABLE THIS CYCLE (environmental
+  finding, first time in 21+ cycles)**: `https://nest-culinary-hub.base44.app/`
+  answers **HTTP 503** with the Base44 "This app isn't available yet …
+  publish the app in Builder" shell on `/`, `/products` and `/login`,
+  verified via browser AND curl across ~3 minutes with waits and
+  retries — the reference app appears to have been UNPUBLISHED from
+  the Base44 builder (not a transient outage). Disposition: the
+  run-53 live verification (the same day, all 8 prices + compare-at +
+  6 badges + review counts to the cent, mobile-menu contract with
+  real clicks) remains the standing baseline; the pinned order and
+  every parity expectation ran this cycle against the clone + the
+  documented pins (which the seed embodies — DB-verified). The
+  clone-side grid and all other surfaces are unaffected. No repo-side
+  action.
+- **Clone parity grid: 16/16 documented checks PASS** (health
+  ok/db-up · sitemap 25 URLs private-excluded · robots disallow ·
+  noindex on all 8 private surfaces · `/products` 16 found with the
+  first 8 exactly the pinned Damascus-first order AND all 8 prices +
+  compare-at + badges exact via the leaf-node walk · review counts
+  displaying DB truth 413 · home Featured 6 + New Arrivals 8
+  card-for-card · home h1 · 7 guest links in the mobile panel ·
+  Close-menu 44×44 @330,78 · panel search INPUT 209×40 @16,80 ·
+  navigate-closes AND toggle-closes · mobile /products first 8
+  pinned). The run-39..53 geometry reproducing EXACTLY. One
+  script-side methodology note recorded: the scratch's first pass
+  conflated two REFERENCE-side pins (the 3 icon-only header buttons
+  36×36 @x250/x294/x338 y14 — reference geometry) with the
+  CLONE-side grid and checked the desktop header where the documented
+  "7 guest links" is the mobile-PANEL count — corrected in the
+  scratch, zero repo impact.
+- **a11y tree audit (8 pages × 8 checks)**: mains=1 on ALL 8 pages
+  (the S47-1 fix verified standing). The main-scoped walk flags
+  exactly the run-53 decomposition (only the in-main products h1→h3
+  skip plus the auth nav-landmark pair = 61/64 by this scratch's
+  check set); the full-DOM walk reproduces run-53's 58/64 EXACTLY
+  (the wishlist/cart/track-order h1→footer-h3 class included). All
+  non-passing checks in the documented reference-matched class.
+  **Zero genuine findings.**
+- **Lighthouse 13.5.0** (home/products/login/product-detail):
+  **a11y 93/95/96/96 — the post-fix baselines reproducing EXACTLY**;
+  login seo 63 = the intentional noindex; perf 72/67/98/63
+  informational (sandbox-load variance). **Zero genuine findings.**
+- **Deep audit 54-a (read-only subagent): 10/10 PASS — fully
+  NIT-free (the NINTH after session-42, -44, -45, -46, -49, -50,
+  -51 and -52).** Tree identity verified; the S51-1 fix verified
+  standing in source; the static 67 = 61 desktop + 6
+  mobile-navigation across 14 specs with zero
+  test.only/skip/fixme/todo; the 444 unit declarations across 49
+  files counted statically; count anchors consistent (zero stale
+  current-state anchors); `.env.example` matching all 5 app-config
+  env-read sites; the security spot-checks clean (0 executable
+  eval/new Function; the 3 dangerouslySetInnerHTML sites all through
+  jsonLdScript; 0 @ts-ignore / as any / : any in src/; httpOnly +
+  samesite-lax + secure-in-prod cookies; the target=_blank site
+  hardened; length-guarded timingSafeEqual in auth.ts AND
+  order-access.ts; 0 Math.random; .gitignore covering
+  .env/db/*.db/*.key); package.json deps exactly matching the
+  documented stack; the server-only module graph clean; skills/
+  excluded from tsc AND eslint. 5 Informational disposed no-change.
+
+## 2. Findings → work items
+
+### S53-1 (LOW, capture-tooling) — the full-page screenshot raster can outrun below-fold lazy images
+
+**Evidence**: the first screenshot refresh of the run produced a
+`02-products.png` 660,937 pixels (21.1%) different from the committed
+run-53 raster against the documented final-capture DB state — two
+290px content bands (y736-1025, y1230-1519 = grid rows 2 and 3).
+A pure-Node pixel-diff classified both bands CONTENT-level (not the
+±1-LSB noise class); VLM reads of both band crops isolated the
+semantic delta: **the product photos are present in the committed
+raster and BLANK in the new capture, with every text/price/badge/
+layout element identical**. All 25 standalone `public/images/` files
+exist on disk; the DB image refs are unchanged; the parity grid had
+just verified all card content on the live server.
+
+**Root cause**: the `02-products` shot waited only for
+`html[data-hydrated="true"]` — NO image gate. The products grid
+renders 16 `loading="lazy"` cards; a Playwright `fullPage` screenshot
+expands the viewport past every lazy image at once and can rasterize
+before the below-fold decodes finish. Run 53 produced a byte-identical
+02 only because its images won the race; this run (cold standalone
+server, cold OS page cache) lost it on rows 2-3 while rows 1+4 still
+won — the exact probabilistic signature of a capture-gate race (the
+S35-2 badge race, S37-2 toast race, S42-2 panel-raster race and
+S50-1 chart-animation race family, now on the lazy-image surface).
+
+**Fix (TDD-shaped, the RED is the captured failing raster)**:
+`scripts/capture-screenshots.mjs` gains `waitForImages(page)` —
+promote every `<img>` to `loading="eager"` (per spec, flipping a
+not-yet-loaded lazy image to eager starts its load) and gate on
+`document.images` being complete with `naturalWidth > 0` (15s
+timeout — a genuinely broken image fails the capture loudly instead
+of shipping a blank docs raster), plus a 120ms decode-to-raster
+settle. Applied inside `shoot()` for `mode === "full"` — ONE
+insertion point covering every structurally-exposed full-page shot
+(the class lives in fullPage stitching; viewport shots load eagerly).
+
+**Verified end-to-end**: re-ran the full capture after the fix (the
+documented 60s login-limiter window respected) — **25/25 green,
+`02-products` back at ZERO changed pixels (byte-identical to the
+committed raster), and the sole remaining delta `03-product-detail`
+at 664 pixels in a single 11px band at y1168-1178 — exactly the
+documented traffic-owned Date.now() e2e-review-row class.** RED →
+GREEN.
+
+### Environmental (no repo action) — the live reference site is down
+
+Recorded above: HTTP 503 + "publish the app in Builder" on every
+probed path, stable across ~3 minutes. The reference parity protocol
+ran on the documented pins + the run-53 standing live baseline. If
+the reference returns in a future cycle, re-verify live; if it stays
+down, the session-34 pin + seed embodiment remain the canonical
+expectations (DB-verified each cycle).
+
+## 3. Dispositions (no change, recorded)
+
+- **All a11y tree non-passing checks**: reference-matched (the
+  documented session-47..52 dispositions standing — the products
+  heading skip; the cart/track-order/wishlist h1→footer-h3 class; the
+  login/register nav-landmark, the reference's own split-screen auth
+  design). Disposed no-change.
+- **Lighthouse remaining failures**: reference-matched constraints
+  (color-contrast, target-size, heading-order); login `is-crawlable`
+  = the intentional noindex; perf scores informational. Disposed
+  no-change.
+- **Carried deferrals (unchanged, all verified standing)**: S8-8
+  login-limiter lockout tradeoff; 404-shell CSP nonce; `__Host-`
+  prefix; shared-store limiter; radiogroup roving focus; address
+  content dedup; the external-service epics (real email delivery,
+  OAuth, real payments — blocked on sandbox-external
+  credentials/SMTP); the WCAG-AA re-theming / perf-budget options —
+  deliberate parity-breaking decisions, the operator's call. The
+  route-level 429 grid stays complete (14/14).
+- **Deep-audit Informationals (5, all no-action)**: the lone `: any`
+  regex hit is comment prose; the lone `eval(` hit is the csp.ts doc
+  comment; `prisma` in dependencies is the documented deploy-time
+  db:setup choice; the docs/ operator artifacts are committed and
+  excluded from tsc+eslint; the historical 432/438/66 strings are
+  accurate history.
+
+## 4. Execution log (session 53)
+
+- [x] Workspace refresh: fresh clone advancing to `a811c8f`
+      (= session_97.md only on top of the run-53 cycle); environment
+      rebuilt (node_modules/.env/db/chromium-1248/paramiko);
+      DATABASE_URL shadow convergence applied per-command throughout
+- [x] Gate chain green on the pulled tree: lint · typecheck ·
+      typecheck:tests · 444/444 unit (22.82s) · build 22/22 zero
+      prisma:error · 67/67 e2e (1.9m — the documented traffic
+      generator: 5 orders / 17 reviews / Damascus 413 / FREESHIP 1)
+- [x] Reference repo verified at `1ffda3d`; skills parity
+      (2598 = 2598, catalog md5 identical); sitemap
+      stricter-superset check — no adoption gaps
+- [x] Live-reference parity: **UNAVAILABLE THIS CYCLE** (HTTP 503,
+      unpublished-from-builder, stable across retries —
+      environmental, recorded); the documented pins + the run-53
+      standing live baseline carried the expectations (DB-verified)
+- [x] Clone parity grid 16/16 documented checks PASS (zero gaps —
+      the geometry reproducing exactly; one scratch-side scoping
+      correction, zero repo impact)
+- [x] The expanded audit surfaces re-run: a11y tree mains=1 on all
+      8 pages with the non-passing checks reference-matched (both
+      walk scopes reconciled against run-53's results — full-DOM
+      58/64 exact, main-scoped decomposition exact); Lighthouse a11y
+      93/95/96/96 reproducing the post-fix baselines EXACTLY
+- [x] Deep audit 54-a (read-only subagent): 10/10 PASS — fully
+      NIT-free, zero findings at every severity (the ninth)
+- [x] S53-1 found + fixed (LOW, capture-tooling): the first
+      screenshot pass caught the products-grid rows 2-3 blank
+      (660,937-pixel content diff, VLM-classified as missing photos
+      with all text identical); the `waitForImages` full-page gate
+      added to `shoot()`; the re-capture verified 25/25 green with
+      02 back at ZERO changed pixels and the sole delta the
+      documented traffic-owned 03 band — RED → GREEN
+- [x] S53-1 docs sweep: this plan section, SKILL v1.49.0 → v1.50.0
+      (project_state sessions 2-52 → 2-53 + the Appendix B
+      session-53 entry incl. the lazy-image capture-gate lesson +
+      the reference-unavailable note), AGENTS plan range 2..52 →
+      2..53 + the capture-script S53-1 clause, CLAUDE.md session-53
+      tail, README/PAD/DEPLOYMENT drift-checked (all verified
+      accurate — unchanged; the 444/67 anchors stay accurate),
+      `docs/session_98.md`, worklog Task 54
+- [x] Commit + push to main through the SSH wrapper (fast-forward,
+      no new branches)

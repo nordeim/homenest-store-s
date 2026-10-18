@@ -24,6 +24,7 @@ async function shoot(browser, device, name, mode, fn) {
   const page = await context.newPage();
   try {
     await fn(page, context);
+    if (mode === "full") await waitForImages(page); // S53-1 lazy-image settle
     await page.screenshot({ path: `${OUT}${name}.png`, fullPage: mode === "full" });
     console.log(`✓ ${name}`);
   } catch (error) {
@@ -50,6 +51,28 @@ async function expectBadgeCount(page, count) {
   if (text !== String(count)) {
     throw new Error(`cart-count badge shows "${text}", expected "${count}"`);
   }
+}
+
+/**
+ * S53-1: full-page rasters can fire before below-fold lazy images decode.
+ * The fullPage capture expands the viewport past every loading="lazy"
+ * image at once, and the screenshot can outrun the loads — run 54 caught
+ * rows 2-3 of the products grid blank on a cold server while rows 1+4 won
+ * the race (the S35-2/S37-2/S42-2/S50-1 capture-gate family, on the
+ * lazy-image surface). Promote every img to eager (starts any not-yet-
+ * loaded lazy image) and gate on full decode; a genuinely broken image
+ * fails the capture loudly instead of shipping a blank docs raster.
+ */
+async function waitForImages(page) {
+  await page.$$eval("img", (imgs) => {
+    for (const img of imgs) img.loading = "eager";
+  });
+  await page.waitForFunction(
+    () =>
+      Array.from(document.images).every((img) => img.complete && img.naturalWidth > 0),
+    { timeout: 15_000 }
+  );
+  await page.waitForTimeout(120); // decode-to-raster settle
 }
 
 const browser = await chromium.launch();
