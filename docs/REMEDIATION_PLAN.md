@@ -7868,3 +7868,60 @@ expectations (DB-verified each cycle).
       `docs/session_102.md`, worklog Task 56
 - [x] Commit + push to main through the SSH wrapper (fast-forward,
       no new branches)
+
+# Session 56 (run 57) — 2026-10-20 — the twenty-fifth remediation cycle: the fourth reference-unavailable cycle (environmental) + the S56-1 docs-correction; zero src/tests/prisma changes
+
+## Context
+
+- Tree: `85ae44e` on main (= `bddf5f2`, the pushed run-56 zero-finding cycle, + the operator's raw-log commit `docs/session_103.md`, 1 file / 87 insertions, zero src/tests/prisma deltas). Working tree clean at pull; the surviving workspace (the second consecutive non-reset environment) preserved node_modules, the seeded DB, Playwright chromium-1248, and the paramiko venv.
+- The DATABASE_URL process-env shadow re-confirmed (`file:/home/z/my-project/db/custom.db` — nonexistent) → the per-command absolute-export convergence applied to every DB-touching command incl. the build, both e2e runs, and the capture run.
+
+## Audit summary
+
+- Deep audit 57-a (read-only subagent): **10/10 PASS** — 0 Critical / 0 High / 0 Medium / **1 Low** / 0 NIT / 3 Informational (the twelfth consecutive clean audit; the first Low in four cycles).
+  - **S56-1 (Low, docs-only, Verified)**: the run-56 docs sweep CLAIMED the SKILL project_state opening-range bump "sessions 2-54 → 2-55" in the plan Session 55 section, the repo worklog Task 56, and commit bddf5f2's message — but the edit never landed in the file (grep: zero occurrences of "sessions 2-55"; line 15's opening still read "sessions 2-54" while the same line's tail narrated session-55). Fix: THIS cycle's sweep bumps the opening directly "sessions 2-54" → "sessions 2-56" (one edit covering the missed 2-55 and this cycle's 2-56). Lesson recorded in SKILL Appendix B session-56: after any sweep that claims a textual bump, grep the file for the new literal before committing.
+  - 3 Informational disposed no-change: the csp.ts doc-comment `eval()` mention (known-and-accepted); two prose "any" grep false-positives (checkout/success:94 comment + a test-title string); the skills/ tree size note (all 9 operator files verified via targeted checks).
+- Clone parity grid: **20/20 PASS** (12 static + 8 mobile — the run-39..56 geometry reproducing exactly; the run-56 corrected scratch reused: nested-tag stripping, page-1 pagination = 12 cards, section scoping by heading).
+- Expanded surfaces BOTH clean for the **NINTH consecutive cycle**: a11y tree audit mains=1 on ALL 8 pages with both walk scopes reproducing the documented reference-matched classes exactly (auth pair navs=0; imgsNoAlt=0 + buttonsNoName=0 on all 8 pages); Lighthouse 13.5 a11y **93/95/96/96 reproducing the post-fix baselines EXACTLY** (login seo 63 the intentional noindex; perf 80/70/97/70 informational; the documented manual-chromium workaround applied — chrome-launcher's port-poll fails in this sandbox generation).
+- Live reference: **UNAVAILABLE for the FOURTH consecutive cycle** (HTTP 503 with the Base44 publish-the-app shell on /, /products, /login — stable across immediate + delayed ~45s retries; the same environmental state as runs 54-56). Disposition unchanged: the run-53 live verification remains the standing baseline; the documented pins — seed-embodied and DB-verified on this run's fresh re-seed (the S51-1 coupon order AND the Damascus-first catalog order with all 8 pinned prices/review-counts) — carried every expectation; the clone grid carried the verification load. No repo-side action.
+- Reference repo re-verified at `1ffda3d` (in sync with origin/main); skills comparison re-confirmed — the homenest skills/ remains the operator-curated superset (2607 = the reference's 2598 + the operator's 9 files, the shared catalog md5 identical); the sitemap/SEO comparison re-confirmed — homenest remains the stricter superset, no adoption gaps.
+
+## Gates (run on the pulled tree, then re-run on the final tree)
+
+- lint ✓ · typecheck ✓ · typecheck:tests ✓
+- Unit: **444/444 at 22.23s** (49 files — within the documented 19.77-23.97s range)
+- Build: **22/22 static, zero prisma:error** (compiled 16.0s; standalone server.js present)
+- E2E: **67/67 at 1.9m — TWICE** (first on the pulled tree; then on the fresh re-seed as the documented final-capture traffic generator — the green-twice pattern; 5 orders / 17 reviews / Damascus 413 / FREESHIP 1 / latest ORD-2026-005, DB-verified after restore-demo-stock re-topped Damascus 21→24 + French Rolling Pin 43→44)
+
+## Screenshots
+
+- The documented final-capture sequence reproduced on the surviving workspace: fresh DB → seed (all pins DB-verified) → ONE e2e → restore-demo-stock → single clean capture — **25/25 green on the FIRST pass** (the S53-1 image gate on a cold server, fourth consecutive cycle).
+- Byte-level diff: **22/25 byte-identical** — the capture crossed the UTC day boundary (run 56 captured 2026-10-19 UTC; run 57 captured 2026-10-20 UTC), so the documented UTC-day-drift class fired exactly on schedule (the third recorded instance). Every deterministic pin held: **04b-cart-coupon-hint 6ed62e85… (the TWENTIETH consecutive byte-identical cycle)**, 11-checkout b71a8e74…, 21-mobile-menu-open 5e59d090…, 05-login 75de876a…, 10-register adea74f7…, 15b-admin-coupons f073d7b0…, 02-products (the S53-1 fix at byte-identity, fourth consecutive cycle), 17-admin-analytics, 01-home, 04-cart, 06-09, 13, 15, 16, 18-20, 22, 23.
+- The 3 changed shots VLM-classified to their semantic cells (band localization → crop extraction → VLM reads, the documented recipe):
+  - **03-product-detail** (933 px, 0.026%, 2 bands at y1111-1121 + y1168-1178, x188-311): the review-row date "Oct 19, 2026" → "Oct 20, 2026" (day drift) + the review-ID band "Review 179245013799" → "Review 1792454423798" (the irreducible e2e review-ID class — this run's own e2e-minted row).
+  - **12-admin-dashboard** (9513 px, 0.442%, 8 bands x443-1246): the recent-orders date cells ("ORD-2026-005 … Oct 19 → Oct 20") + the revenue-chart's sliding 14-day date axis (chart labels shifting one day, e.g. "Oct 14" → "Oct 15").
+  - **14-admin-orders** (15927 px, 0.839%, 6 bands): the five order-row date cells "Oct 19, 2026" → "Oct 20, 2026" — DB-verified: emails (cancel-restock@ / freeship@ / guest@ / idempotent@ / guest2@ — all spec-hardcoded), names, statuses, and totals IDENTICAL; the rasters faithfully display this run's DB truth.
+  - Forensics correction en route (recorded as the SKILL Appendix B session-56 Lesson 3): a small-crop VLM read initially misread the 14 email as "guest12@example.com"; the 3x-upscaled wide-crop re-read + the DB cross-check restored "guest2@example.com" in BOTH rasters — for tiny table-cell text, upscale crops before the VLM read and cross-check against the DB.
+
+## S56-1 (docs sweep + the correction)
+
+- The plan's Session 56 section (this section); SKILL v1.52.0 → v1.53.0 (project_state opening "sessions 2-54" → "sessions 2-56" — THE S56-1 CORRECTION + the session-56 narrative tail + the Appendix B session-56 entry incl. the three lessons); AGENTS plan range 2..55 → 2..56; CLAUDE unit-bullet session-56 tail; README/PAD/DEPLOYMENT drift-checked (all verified accurate — unchanged; the 444/67 anchors stay accurate); `docs/session_104.md`; repo worklog Task 57.
+- Change-set: the 3 traffic-owned screenshots (the UTC-day-drift refresh) + the docs sweep. ZERO src/tests/prisma changes.
+
+## Execution log
+
+- [x] git pull: `bddf5f2 → 85ae44e` (docs/session_103.md only — 1 file / 87 insertions, verified by git show --stat)
+- [x] Documentation review + codebase validation BEFORE work: AGENTS.md, CLAUDE.md, README.md, Project_Architecture_Document.md, homenest-store-s_SKILL.md (v1.52.0), session_102.md + session_103.md + the plan's Session 55 + worklog Task 56 — and the documented contracts verified in source (db-path.ts anchors, sitemap privacy + robots, mobile-nav conditional mount, the S53-1 fix, .env.example's 5 vars, skills exclusion in tsc/eslint/vitest/playwright, .gitignore)
+- [x] Environment verified (surviving workspace): node_modules (435 pkgs), .env (DATABASE_URL="file:../db/custom.db" + AUTH_SECRET), db/custom.db, chromium-1248, paramiko 5.1.0
+- [x] Gate chain on the pulled tree: lint · typecheck · typecheck:tests · 444/444 unit (22.23s) · build 22/22 static zero prisma:error · 67/67 e2e (1.9m)
+- [x] Reference repo re-verified at 1ffda3d (in sync); skills superset 2607 = 2598 + 9 (catalog md5 identical); sitemap/SEO stricter-superset re-confirmed
+- [x] Live reference probe: HTTP 503 on /, /products, /login — immediate + delayed ~45s retries (the fourth consecutive unavailable cycle, environmental)
+- [x] DB normalization to the documented final-capture class: fresh DB → db:setup (Damascus-first + S51-1 coupon order + all counts DB-verified) → ONE e2e (67/67 at 1.9m — green twice) → restore-demo-stock (Damascus 21→24, French Rolling Pin 43→44) → 5 orders / 17 reviews / Damascus 413 / FREESHIP 1 / ORD-2026-005 DB-verified
+- [x] Clone parity grid 20/20 (server + both scripts inside ONE bash invocation; next-server killed by pattern at the end)
+- [x] a11y tree audit: mains=1 on ALL 8 pages, both walk scopes at the documented classes, auth pair navs=0, imgsNoAlt=0 + buttonsNoName=0 — zero findings
+- [x] Lighthouse 13.5 (manual-chromium workaround): a11y 93/95/96/96 EXACT; login seo 63 intentional; perf informational
+- [x] Deep audit 57-a (read-only subagent): 10/10 PASS — the S56-1 Low finding confirmed + 3 Informational disposed
+- [x] Screenshots: 25/25 green first pass; 22/25 byte-identical; the 3 changed shots VLM-classified (date cells + review-ID band); the 14 email misread corrected via upscaled re-read + DB cross-check
+- [x] S56-1 docs sweep: this section, SKILL v1.53.0 (opening-range correction + tail + Appendix B session-56), AGENTS 2..56, CLAUDE tail, session_104.md, worklog Task 57
+- [x] Final gates re-run on the final tree (below)
+- [x] Commit + push to main through the SSH wrapper (fast-forward, no new branches)
