@@ -119,7 +119,7 @@ flowchart TB
 ## Testing
 
 ```bash
-npm run test            # 444 unit tests (Vitest, node env; toaster/hero-carousel/quantity-stepper/cart-widgets.test.tsx are the component tests, jsdom)
+npm run test            # 444 unit tests (Vitest, node env; the six .tsx component tests — toaster/hero-carousel/quantity-stepper/cart-widgets/product-card/star-rating.test.tsx — run under jsdom)
 npm run typecheck:tests # the unit/e2e/seed sources are type-checked too
 npm run build           # required before e2e (suite starts the standalone server)
 npm run test:e2e        # 67 e2e tests (Playwright; server auto-started on :3100)
