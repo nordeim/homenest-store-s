@@ -8654,3 +8654,167 @@ accurate).
 - [x] S65-1 docs sweep: this section, SKILL v1.62.0 (opening bump + Session 65 Appendix B entry), AGENTS 2..65, CLAUDE tail, session_122.md, worklog Task 66
 - [x] Final gates re-run green on the final tree
 - [x] Commit + push to main through the SSH wrapper (fast-forward, no new branches)
+
+## Session 66 — Run 67 (the thirty-fourth remediation cycle: the fresh-clone recovery after sandbox reset #16 + the rebuilt-grid verifier-hardening cycle)
+
+> Zero changes in src/tests/prisma. The change-set is the 1 traffic-owned
+> screenshot (03-product-detail's irreducible review-ID band
+> 1792583457693 → 1792623854083, this run's e2e-minted row, DB-exact,
+> confined to the single documented 11-row band y1168-1178 — 550 px,
+> 0.0154%) + the docs sweep (this section; SKILL v1.62.0 → v1.63.0 with
+> the project_state opening sessions 2-65 → 2-66 + the Session 66
+> Appendix B entry with the four lessons [the strict-mode multi-match
+> phantom-fail class; the rotating-hero-h1 brand-anchor + implicit-region
+> CSS-attribute trap; the db:setup never-resets-baseline class; the
+> thirteenth consecutive dark-cycle disposition]; AGENTS plan range
+> 2..65 → 2..66; the CLAUDE unit-bullet session-66 tail;
+> docs/session_124.md; the repo worklog Task 67).
+
+### The recovery and the review
+
+The sandbox reset wiped everything (reset #16). The environment was
+rebuilt from the documented runbook: `git clone` to `38bccea` on main
+(the operator's session_123.md raw-log commit over run-66's `a997080`),
+npm install (Next 16.4.0 / Prisma 6.19.3), `.env` with the DATABASE_URL
+contract + a fresh AUTH_SECRET, `db:setup` with every seed pin
+DB-verified (Damascus-first 19999/27999/412/24; coupons
+FREESHIP→SAVE20→WELCOME10 all 0-used; the 0 orders / 16 template
+reviews / 2 users baseline), and chromium-1248 reinstalled.
+
+The docs review covered AGENTS.md, CLAUDE.md, README.md, PAD, the SKILL
+at v1.62.0, session_122.md + session_123.md, the plan's Session 65
+section, and the worklog Task 66. The documented contracts were
+verified in source before any work: the db-path resolution anchors, the
+sitemap privacy + STATIC_ROUTES, the robots disallow set, the
+mobile-nav conditional mount, the .env.example env surface, the skills
+exclusion from every gate's scope, and .gitignore.
+
+The DATABASE_URL process-env shadow re-confirmed
+(`file:/home/z/my-project/db/custom.db`, sourced from the sandbox-remnant
+`/home/z/my-project/.env`) and converged via the documented SYMLINK
+disposition (`ln -sfn <repo>/db /home/z/my-project/db`).
+
+### The gate chain (all green on the pulled tree)
+
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · **496/496 unit at 22.88s**
+(52 files) · **build green, zero prisma:error** (grep-verified; the
+standalone server.js present; 22/22 static pages) · **67/67 e2e at
+1.9m** — the run doubling as the documented traffic generator: 5 orders
+(ORD-2026-001…005) / 17 reviews / Damascus 413 / FREESHIP 1, all
+DB-verified, then restore-demo-stock re-topped Damascus 21→24 + French
+Rolling Pin 43→44.
+
+### The verification surfaces
+
+- **Reference repo** re-verified at `1ffda3d` — `git fetch` +
+  `rev-parse`: local HEAD == origin/main (in sync, cloned OUTSIDE the
+  repo tree).
+- **Skills comparison**: the operator-curated superset re-confirmed —
+  2607 files = the reference's 2598 + the operator's 9 (find-based
+  count; rg's ignore-file filtering undercounts by 39 on both sides —
+  the counting-method gloss this cycle records); the shared
+  skills-catalog.md md5 IDENTICAL (f69408bf…); zero reference skill
+  files missing from homenest.
+- **Sitemap/SEO comparison**: the stricter superset re-confirmed by
+  source read — the reference lists login/register/wishlist in its
+  sitemap and has no DB-failure guard; the clone excludes every private
+  surface, adds about/contact + the 5 legal routes, is DB-failure-safe,
+  and uses the cuid `/product/[id]` route. No adoption gaps.
+- **Live reference**: HTTP 503 with the Base44 publish-the-app shell
+  (10709 bytes) on / and /products — stable across immediate + delayed
+  ~45s retries. The THIRTEENTH consecutive unavailable cycle
+  (environmental); the documented parity baseline carried every
+  expectation.
+- **Clone parity grid**: REBUILT from scratch (the git-ignored
+  research/ verifiers died with the reset) — **64/64 discrete checks
+  PASS (43 static + 21 mobile)** with FOUR script-side corrections en
+  route (all zero repo impact, all new verifier-expectation classes
+  this cycle's lessons encode): the strict-mode multi-match on "New
+  Arrivals" (the rotating hero-slide h1 AND the grid h2 both match);
+  the home h1 being the ROTATING hero slide title while the brand lives
+  in the header link; the implicit-region CSS-attribute trap (an
+  aria-labelled section never carries a literal role="region"
+  attribute); and the flat /images/ product-image path (the gallery
+  alt=name selector). The mobile grid encodes the full Tailwind v4
+  contract — conditional mount, toggle-closes, scroll lock, the
+  bg-primary active pill, the panel search flow, no horizontal overflow
+  at 390px.
+- **agent-browser cross-check** (the operator-requested supplementary
+  surface): the mobile-nav open/close cycle via the interactive a11y
+  tree (the hamburger toggles its own aria-label Open → Close menu; the
+  panel mounts with the searchbox + the "Mobile" navigation landmark +
+  the 5 nav links + Sign In + Wishlist; the route change closes the
+  panel; the body scroll lock engages); the panel search flow
+  (`q=mixer` → Professional Stand Mixer); the desktop search flow; the
+  product-detail anatomy (In Stock / Add to Cart / Buy Now / Customer
+  Reviews); ZERO console or page errors; supplementary rasters parked
+  in git-ignored `research/agent-browser/` via absolute paths. One
+  agent-browser CLI lesson: the semantic-locator positional-arg
+  concatenation (`find role searchbox fill "Search products" "mixer"`
+  fills BOTH strings — use snapshot refs for multi-arg actions).
+- **a11y tree audit**: 48/48 CLEAN (8 pages × 6 checks, the hidden
+  Server Action inputs excluded, decorative `alt=""` counted CORRECT).
+- **Deep audit 67-a** (read-only subagent): **9/9 code anchors PASS,
+  zero actionable findings** — the twentieth consecutive clean audit,
+  verified anchor-by-anchor with file:line evidence.
+- **Standing conflict-marker grep gate**: CLEAN (fifth consecutive
+  cycle — zero matches repo-wide on this verification, stronger than
+  the documented "all matches inside skills/" baseline).
+
+### The screenshots
+
+The documented final-capture sequence on the normalized DB — fresh
+reseed (the rm-before-reseed lesson: db:setup alone NEVER resets live
+data — the first "reseed" still carried 5 orders / 17 reviews / 7
+users / FREESHIP 1; only `rm db/custom.db` + db:setup restored the
+0/16/2 baseline with every pin DB-verified) → ONE e2e as the traffic
+generator (the exact class above; the e2e-minted review "E2E review
+1792623854083" @ 23:04:14.597Z, DB-exact) → restore-demo-stock
+(Damascus 21→24 + French Rolling Pin 43→44) → the single clean capture
+on a COLD server (the kill-by-port-owner discipline applied
+preventively at EVERY server transition — zero orphaned-server
+incidents; the 60s login-limiter window respected before the capture):
+**25/25 green, zero failures** (the single-shot S53-1 gate).
+
+Byte-level diff vs `git show HEAD:` ground truth: **24/25
+byte-identical** — every deterministic pin held (04b-cart-coupon-hint,
+21-mobile-menu-open, 10-register, all nine admin shots, 05-login,
+15b-admin-coupons, 02-products, 01-home, 04-cart, 06–09, 11-checkout,
+13, 15–20, 22, 23). The single changed shot, the documented class:
+
+- **03-product-detail**: 550 px (0.0154%) confined to the single
+  documented 11-row band y1168-1178 — the irreducible review-ID band,
+  exactly this run's e2e-minted row (DB-exact).
+
+The pixel-diff scratch (pngjs installed `--no-save`; the band classifier
+parked in git-ignored `research/`) left the package manifests untouched
+— verified by git status.
+
+### S66-1 (docs sweep)
+
+This section; SKILL v1.62.0 → v1.63.0 (project_state opening "sessions
+2-65" → "sessions 2-66" + the Session 66 Appendix B entry with the four
+lessons: the strict-mode multi-match phantom-fail class; the
+rotating-hero-h1 brand-anchor + implicit-region CSS-attribute trap; the
+db:setup never-resets-baseline class; the thirteenth consecutive
+dark-cycle disposition); AGENTS plan range 2..65 → 2..66; the CLAUDE
+unit-bullet session-66 tail; `docs/session_124.md` (this run's
+narrative); the repo worklog Task 67. README/PAD/DEPLOYMENT
+drift-checked accurate — unchanged (the 496/67/8-env-var anchors stay
+accurate).
+
+### Execution log
+
+- [x] git clone (sandbox reset #16): 38bccea on main (the operator's session_123.md raw log over run-66's a997080); working tree clean
+- [x] Documentation review + codebase validation BEFORE work: AGENTS.md, CLAUDE.md, README.md, PAD, SKILL v1.62.0, session_122.md + session_123.md + the plan's Session 65 + worklog Task 66
+- [x] Environment rebuilt: npm install (Next 16.4.0 / Prisma 6.19.3) · .env (DATABASE_URL contract + fresh AUTH_SECRET) · db:setup with all seed pins DB-verified · chromium-1248 reinstalled · the symlink env-shadow convergence applied
+- [x] Gate chain on the pulled tree: lint · typecheck · typecheck:tests · 496/496 unit at 22.88s · build green zero prisma:error · 67/67 e2e at 1.9m
+- [x] Reference repo re-verified at 1ffda3d (in sync, cloned OUTSIDE the repo tree); skills superset 2607 = 2598 + 9 (catalog md5 identical, zero missing; the find-vs-rg counting-method gloss recorded); sitemap/SEO stricter superset re-confirmed
+- [x] Live-reference probe: HTTP 503 stable across immediate + delayed ~45s retries (13th cycle, environmental)
+- [x] Clone parity grid REBUILT: 64/64 (43 static + 21 mobile) with FOUR script-side corrections (zero repo impact); a11y tree audit 48/48 CLEAN; agent-browser cross-check clean (mobile-nav cycle, search flows, product anatomy, zero console errors)
+- [x] Deep audit 67-a (read-only subagent): 9/9 code anchors PASS, zero actionable findings (twentieth consecutive clean audit)
+- [x] Standing conflict-marker grep gate: CLEAN (fifth consecutive cycle)
+- [x] Screenshots: the normalized final-capture sequence (rm-before-reseed) — 25/25 green on the single cold pass; 24/25 byte-identical; 03's single-band change classified + DB-cross-checked
+- [x] S66-1 docs sweep: this section, SKILL v1.63.0 (opening bump + Session 66 Appendix B entry), AGENTS 2..66, CLAUDE tail, session_124.md, worklog Task 67
+- [x] Final gates re-run green on the final tree
+- [x] Commit + push to main through the SSH wrapper (fast-forward, no new branches)
