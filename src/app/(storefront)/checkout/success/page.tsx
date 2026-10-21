@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { CheckCircle2, Package, PackageSearch, RefreshCcw } from "lucide-react";
+import { Banknote, CheckCircle2, Package, PackageSearch, RefreshCcw } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 
@@ -59,6 +59,13 @@ function parseAddressSnapshot(json: string): AddressSnapshot | null {
 }
 
 function paymentLabel(order: OrderWithDetails): string {
+  // The Stripe path (PAY-STRIPE-1): a captured intent renders its paid
+  // state; a full refund renders the refunded state (the webhook's
+  // charge.refunded reflection is the single writer of that column).
+  if (order.stripePaymentIntentId) {
+    if (order.paymentStatus === "refunded") return "Card — refunded";
+    if (order.paymentStatus === "paid") return `Card — paid${order.cardLast4 ? ` (ending in ${order.cardLast4})` : ""}`;
+  }
   if (order.paymentMethod === "card") return `Card ending in ${order.cardLast4 ?? "0000"}`;
   if (order.paymentMethod === "paypal") return "PayPal";
   if (order.paymentMethod === "cod") return "Cash on Delivery";
@@ -69,6 +76,7 @@ const EVENT_ICONS: Record<string, LucideIcon> = {
   placed: CheckCircle2,
   status_changed: RefreshCcw,
   tracking_added: Package,
+  payment_refunded: Banknote,
 };
 
 function eventLabel(type: string, status: string | null, note: string | null): string {

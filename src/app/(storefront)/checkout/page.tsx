@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { findCartId, getCartSummary } from "@/lib/cart";
 import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
+import { resolveStripeConfig } from "@/lib/stripe-payment";
 
 import { CheckoutClient, type CheckoutAddress } from "./checkout-client";
 
@@ -45,6 +46,13 @@ export default async function CheckoutPage() {
       }
     : null;
 
+  // The Stripe retrofit (PAY-STRIPE-1): the server-side config resolution —
+  // with no keys (the default) the wizard renders the exact demo flow; with
+  // real keys the combined Payment & Review island takes over for the card
+  // method (the superset activation). Resolved ONCE here; the client mirror
+  // (isPublishableKeyConfigured) keeps the two sides in agreement.
+  const stripe = resolveStripeConfig(process.env);
+
   return (
     <CheckoutClient
       lines={summary.lines}
@@ -57,6 +65,8 @@ export default async function CheckoutPage() {
         freeThresholdCents: settings.freeShippingThresholdCents,
         taxRatePercent: settings.taxRatePercent,
       }}
+      stripeEnabled={stripe.serverConfigured}
+      publishableKey={stripe.publishableKey}
     />
   );
 }

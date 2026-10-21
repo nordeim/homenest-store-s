@@ -55,6 +55,8 @@ const ORDER = {
   carrier: null,
   trackingNumber: null,
   cardLast4: null,
+  stripePaymentIntentId: null,
+  paymentStatus: null,
   userId: null,
   idempotencyKey: null,
   cartToken: null,

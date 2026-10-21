@@ -9,6 +9,7 @@ import {
   isCouponRedeemable,
 } from "@/lib/coupons";
 import { computeOrderMoney } from "@/lib/order-money";
+import { StripeAmountMismatchError } from "@/lib/stripe-payment";
 import { checkoutSchema } from "@/lib/validation";
 
 /** Error carrying an HTTP status through the order transaction. */
@@ -53,6 +54,25 @@ export type PlaceOrderArgs = {
     expressShippingCents: number;
     taxRatePercent: number;
   };
+  // ---- The Stripe path (PAY-STRIPE-1 retrofit) ------------------------------
+  /** The CONFIRMED PaymentIntent id anchoring this placement (null = the
+   *  demo/manual paths). UNIQUE on Order — the placement idempotency anchor. */
+  stripePaymentIntentId: string | null;
+  /** The verified intent amount (integer cents). The in-tx money authority
+   *  re-derives the total; a mismatch throws StripeAmountMismatchError (the
+   *  residual TOCTOU guard — the pre-tx verification already caught most
+   *  drift; this closes the sub-second window). */
+  paidTotalCents: number | null;
+  /** The webhook's dedup row — when present it commits INSIDE this
+   *  transaction (the H4d/L9 rule: a transient failure rolls the placement
+   *  AND the dedup row back together, so Stripe's retry re-attempts both;
+   *  a row committed before a failed placement would orphan the delivery). */
+  stripeEvent?: {
+    eventId: string;
+    type: string;
+    paymentIntentId: string;
+    amount: number | null;
+  } | null;
 };
 
 /**
@@ -64,7 +84,7 @@ export type PlaceOrderArgs = {
  */
 export type OrderTxClient = Pick<
   Prisma.TransactionClient,
-  "product" | "coupon" | "order" | "cartItem" | "address"
+  "product" | "coupon" | "order" | "cartItem" | "address" | "stripeEvent"
 >;
 
 export type OrderDbClient = {
@@ -79,6 +99,19 @@ export async function placeOrderTx(
   // NOTE: cookies() can never be touched inside this transaction — the cart
   // ROW is intentionally left in place (harmless); only its items are cleared.
   return db.$transaction(async (tx) => {
+    // The webhook's dedup row commits WITH the placement (the H4d/L9 rule) —
+    // first statement, so a P2002 on eventId fires before any side effect.
+    if (args.stripeEvent) {
+      await tx.stripeEvent.create({
+        data: {
+          eventId: args.stripeEvent.eventId,
+          type: args.stripeEvent.type,
+          paymentIntentId: args.stripeEvent.paymentIntentId,
+          amount: args.stripeEvent.amount,
+        },
+      });
+    }
+
     // Snapshot the products inside the transaction — these reads are the
     // source of truth for both the line items and ALL money math below.
     const orderItems: OrderItemCreate[] = [];
@@ -156,6 +189,18 @@ export async function placeOrderTx(
       couponFreeShipping,
     });
 
+    // The Stripe path's in-tx amount guard (PAY-STRIPE-1): the intent was
+    // verified pre-tx against the estimate; THIS total is the authority. A
+    // mismatch (price/coupon/settings drift in the sub-second window) must
+    // never write an order whose total differs from the captured charge.
+    if (
+      args.stripePaymentIntentId !== null &&
+      args.paidTotalCents !== null &&
+      money.total !== args.paidTotalCents
+    ) {
+      throw new StripeAmountMismatchError();
+    }
+
     const order = await tx.order.create({
       data: {
         number: orderNumber,
@@ -173,11 +218,21 @@ export async function placeOrderTx(
         shippingAddress: args.shippingAddressJson,
         paymentMethod: args.paymentMethod,
         cardLast4: args.cardLast4,
+        // The Stripe paid-payment columns: the UNIQUE intent id is the
+        // placement idempotency anchor (a retried submit of the same
+        // confirmed intent resolves to the already-placed order); a captured
+        // intent places as paymentStatus "paid".
+        stripePaymentIntentId: args.stripePaymentIntentId,
+        paymentStatus: args.stripePaymentIntentId ? "paid" : null,
         idempotencyKey: args.idempotencyKey,
         cartToken: args.cartToken,
         items: { create: orderItems },
         events: {
-          create: { type: "placed", status: "pending", note: "Order placed" },
+          create: {
+            type: "placed",
+            status: "pending",
+            note: args.stripePaymentIntentId ? "Order placed via card (Stripe)" : "Order placed",
+          },
         },
       },
     });

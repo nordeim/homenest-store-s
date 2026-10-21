@@ -5,20 +5,34 @@ import { getCurrentUser } from "@/lib/auth";
 import { findCartId, getCartSummary, readCartToken } from "@/lib/cart";
 import { applyCouponCode } from "@/lib/coupons";
 import { db } from "@/lib/db";
+import { computeOrderMoney } from "@/lib/order-money";
 import { orderAccessToken, replayAuthorized, resolveReplay, ReplayDeniedError } from "@/lib/order-access";
 import { CheckoutError, placeOrderTx, type PlaceOrderArgs } from "@/lib/order-placement";
 import { isUniqueViolation, uniqueTargetField } from "@/lib/prisma-errors";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
+import { getStripe } from "@/lib/stripe";
+import {
+  paymentIntentLast4,
+  verifyPaymentIntentForPlacement,
+} from "@/lib/stripe-payment";
 import { checkoutSchema, firstError } from "@/lib/validation";
 
 // checkoutSchema + the last-4 card digits (the client never sends full card
-// numbers to the server — only the final four for the receipt).
+// numbers to the server — only the final four for the receipt) + the Stripe
+// path's CONFIRMED PaymentIntent id (card data never touches this app: the
+// Payment Element owns it; the id is the only thing that crosses).
 const checkoutBodySchema = checkoutSchema.extend({
   cardLast4: z
     .string()
     .trim()
     .regex(/^\d{4}$/, "Card number must end in 4 digits")
+    .optional()
+    .or(z.literal("")),
+  stripePaymentIntentId: z
+    .string()
+    .trim()
+    .regex(/^pi_[A-Za-z0-9]{6,}$/, "Invalid payment reference")
     .optional()
     .or(z.literal("")),
 });
@@ -41,6 +55,17 @@ function respond(orderNumber: string): NextResponse {
  * Idempotency: the body may carry a client-generated `idempotencyKey`. A retry
  * (lost response, double click) with the same key returns the ALREADY-placed
  * order's `{ orderNumber, token }` instead of double-ordering.
+ *
+ * The Stripe path (PAY-STRIPE-1 retrofit): the body may carry a
+ * `stripePaymentIntentId` (the client island's CONFIRMED intent — card data
+ * itself never crosses). The server retrieves the intent from Stripe and
+ * verifies status/amount/currency OUTSIDE the transaction (an external call
+ * must never hold the SQLite write lock), then places the order with the
+ * paid-payment columns. The `Order.stripePaymentIntentId` UNIQUE constraint
+ * is the placement idempotency anchor: a retried submit after a successful
+ * placement maps to the ALREADY-PLACED order number (never a second order,
+ * never a second charge). The in-tx money authority re-derives the total and
+ * rejects a drift with StripeAmountMismatchError (the residual TOCTOU guard).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -56,8 +81,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: firstError(parsed.error) }, { status: 400 });
     }
     const data = parsed.data;
+    const stripeIntentId = data.stripePaymentIntentId || null;
 
-    if (data.paymentMethod === "card" && !/^\d{4}$/.test(data.cardLast4 ?? "")) {
+    // The demo card path requires the last-4 receipt digits; the Stripe path
+    // reads them from the VERIFIED intent below (the client's copy is never
+    // trusted for anything money-shaped).
+    if (data.paymentMethod === "card" && !stripeIntentId && !/^\d{4}$/.test(data.cardLast4 ?? "")) {
       return NextResponse.json({ error: "Card details are required for card payment." }, { status: 400 });
     }
 
@@ -104,11 +133,15 @@ export async function POST(request: NextRequest) {
 
     // Fast-fail coupon check for good UX only — the AUTHORITATIVE validation
     // and discount derivation happen inside the transaction below.
+    let couponDiscountCents = 0;
+    let couponFreeShipping = false;
     if (data.couponCode) {
       const applied = await applyCouponCode(data.couponCode, summary.subtotal);
       if (!applied.ok) {
         return NextResponse.json({ error: applied.error }, { status: 409 });
       }
+      couponDiscountCents = applied.discount;
+      couponFreeShipping = applied.freeShipping === true;
     }
 
     const settings = await getSettings();
@@ -123,6 +156,55 @@ export async function POST(request: NextRequest) {
       country: data.address.country,
     });
 
+    // ---- The Stripe verification (outside the transaction — no external
+    // call may hold the SQLite write lock). The intent id is NEVER trusted:
+    // the server re-retrieves it and gates on status + amount + currency.
+    // The amount gate runs against the SAME server-derived estimate the
+    // mint used (live cart + coupon + settings through computeOrderMoney);
+    // the in-tx authority re-checks the final total (StripeAmountMismatch).
+    let stripeLast4: string | null = null;
+    let paidTotalCents: number | null = null;
+    if (stripeIntentId) {
+      const stripe = getStripe();
+      if (!stripe) {
+        return NextResponse.json(
+          { error: "Card payments are unavailable right now. Please try again later." },
+          { status: 503 },
+        );
+      }
+      // The estimate the mint computed (the authoritative derivation reruns
+      // inside the transaction below).
+      const estimate = computeOrderMoney({
+        subtotal: summary.subtotal,
+        discount: couponDiscountCents,
+        shippingMethod: data.shippingMethod,
+        freeShippingThresholdCents: settings.freeShippingThresholdCents,
+        standardShippingCents: settings.standardShippingCents,
+        expressShippingCents: settings.expressShippingCents,
+        taxRatePercent: settings.taxRatePercent,
+        couponFreeShipping,
+      });
+      try {
+        const intent = await stripe.paymentIntents.retrieve(stripeIntentId, {
+          expand: ["payment_method", "latest_charge"],
+        });
+        const verification = verifyPaymentIntentForPlacement(intent, estimate.total);
+        if (!verification.ok) {
+          // The amount branch is the island's re-mint signal (its session
+          // resets and a fresh intent is minted at the fresh total).
+          return NextResponse.json({ error: verification.message }, { status: 409 });
+        }
+        stripeLast4 = paymentIntentLast4(intent);
+        paidTotalCents = intent.amount;
+      } catch {
+        console.error("[api/checkout] stripe retrieve failed", stripeIntentId);
+        return NextResponse.json(
+          { error: "We could not verify your payment. Please try again." },
+          { status: 502 },
+        );
+      }
+    }
+
     const args: PlaceOrderArgs = {
       cartId,
       userId: user?.id ?? null,
@@ -132,7 +214,7 @@ export async function POST(request: NextRequest) {
       couponCode: data.couponCode ? data.couponCode.trim().toUpperCase() : null,
       shippingMethod: data.shippingMethod,
       paymentMethod: data.paymentMethod,
-      cardLast4: data.paymentMethod === "card" ? (data.cardLast4 ?? null) : null,
+      cardLast4: stripeIntentId ? stripeLast4 : data.paymentMethod === "card" ? (data.cardLast4 ?? null) : null,
       shippingAddressJson,
       saveAddress: Boolean(user) && data.saveAddress === true,
       address: data.address,
@@ -144,6 +226,8 @@ export async function POST(request: NextRequest) {
         expressShippingCents: settings.expressShippingCents,
         taxRatePercent: settings.taxRatePercent,
       },
+      stripePaymentIntentId: stripeIntentId,
+      paidTotalCents,
     };
 
     const orderNumber = await placeOrderWithRetry(args);
@@ -160,8 +244,11 @@ export async function POST(request: NextRequest) {
  * ORD-YYYY-NNN allocation. The counter is derived from existing rows; a unique
  * violation on the NUMBER (concurrent order) retries with the next suffix. A
  * unique violation on the IDEMPOTENCY KEY (two racing first-attempts with the
- * same key) resolves to the winning order instead. The whole transaction
- * retries, so a failed attempt never leaves partial writes.
+ * same key) resolves to the winning order instead. A unique violation on the
+ * STRIPE INTENT ANCHOR (a retried submit whose intent already placed — the
+ * PAY-STRIPE-1 anchor) resolves to the already-placed order: the customer
+ * sees their confirmation, not an error, on a double-click/race. The whole
+ * transaction retries, so a failed attempt never leaves partial writes.
  */
 async function placeOrderWithRetry(args: PlaceOrderArgs): Promise<string> {
   const year = new Date().getFullYear();
@@ -172,6 +259,16 @@ async function placeOrderWithRetry(args: PlaceOrderArgs): Promise<string> {
     try {
       return await placeOrderTx(db, candidate, args);
     } catch (error) {
+      // The placement idempotency anchor (PAY-STRIPE-1): a P2002 on
+      // stripePaymentIntentId means this confirmed intent already placed an
+      // order (a retried submit or a race against the webhook backstop) —
+      // resolve to that order's receipt.
+      if (args.stripePaymentIntentId && uniqueTargetField(error, "stripePaymentIntentId")) {
+        const existing = await db.order.findUnique({
+          where: { stripePaymentIntentId: args.stripePaymentIntentId },
+        });
+        if (existing) return existing.number;
+      }
       // Session-8 S8-3: tolerant matching — the engine may report the P2002
       // target as a field array (today's SQLite shape) or as the constraint
       // NAME string ("Order_idempotencyKey_key"); matching only the field

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { db } from "@/lib/db";
+import { refundEligibility } from "@/lib/admin-payments";
 import { ORDER_STATUSES, clampSearchTerm } from "@/lib/validation";
 import { formatDate, orderStatusBadgeClass } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
@@ -60,10 +61,14 @@ function parseAddressSnapshot(json: string): string[] {
   return [json];
 }
 
-function paymentLabel(method: string, cardLast4: string | null): string {
+function paymentLabel(method: string, cardLast4: string | null, paymentStatus: string | null): string {
+  // The Stripe path (PAY-STRIPE-1): a captured intent renders its paid
+  // state beside the method.
+  const status =
+    paymentStatus === "paid" ? " — paid" : paymentStatus === "refunded" ? " — refunded" : "";
   switch (method) {
     case "card":
-      return cardLast4 ? `Card ending in ${cardLast4}` : "Card";
+      return `${cardLast4 ? `Card ending in ${cardLast4}` : "Card"}${status}`;
     case "paypal":
       return "PayPal";
     case "cod":
@@ -122,7 +127,9 @@ export default async function AdminOrdersPage({
       customerName: order.customerName,
       email: order.email,
       addressLines: parseAddressSnapshot(order.shippingAddress),
-      paymentLabel: paymentLabel(order.paymentMethod, order.cardLast4),
+      paymentLabel: paymentLabel(order.paymentMethod, order.cardLast4, order.paymentStatus),
+      paymentStatus: order.paymentStatus,
+      refundEligible: refundEligibility(order).eligible,
       couponCode: order.couponCode,
       subtotal: order.subtotal,
       shipping: order.shipping,

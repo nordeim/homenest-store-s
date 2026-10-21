@@ -45,6 +45,21 @@ Any `DATABASE_URL` already present in the process environment (shell export, CI 
 
 The proxy stamps a **per-request nonce** CSP on every response; Next applies the request-header nonce to the scripts it renders. A **prerendered/static page bakes no (or build-time) nonces** → the browser silently refuses its scripts → hydration never happens, with zero console errors. Symptom: a page that loads, paints, but never hydrates. Fix: make the route render per-request (`await connection()` in the layout — `force-dynamic` alone did NOT de-prerender in Next 16.4). The `(auth)` layout carries this fix with a comment; don't remove it. Pinned by the auth e2e specs.
 
+## Stripe payments (the session-61 retrofit — OFF by default)
+
+Three env vars activate real card payments: `STRIPE_SECRET_KEY`,
+`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` (the endpoint
+is `POST /api/stripe/webhook` — see `docs/DEPLOYMENT.md` §4). **Unconfigured
+= the demo checkout path, byte-identical** (never "upgrade" the demo form
+away); configured = the Payment Element island (PCI SAQ-A — card data never
+touches this app) + the webhook backstop. The money rules that must never
+drift: the intent amount is ALWAYS server-derived (`computeOrderMoney`), the
+placement verifies it pre-tx AND in-tx (`StripeAmountMismatchError`), the
+`Order.stripePaymentIntentId` UNIQUE anchor + `StripeEvent.eventId` dedup
+row commit WITH the placement, and the refund state's single writer is the
+webhook's `charge.refunded` reflection (never the admin action). See SKILL
+§7.4 + `docs/session_113.md`.
+
 ## Architecture invariants
 
 - **RSC by default**; `"use client"` only for interactive islands. Server Actions (`src/lib/actions/*.ts`) for form mutations; REST route handlers (`src/app/api/*`) for client-island fetches (cart, wishlist, checkout, coupon, contact, addresses, search, newsletter, health).

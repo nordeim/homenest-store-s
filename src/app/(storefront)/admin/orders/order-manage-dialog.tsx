@@ -15,7 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { setOrderStatusAction, setTrackingAction } from "@/lib/actions/admin";
+import { setOrderStatusAction, setTrackingAction, refundOrderAction } from "@/lib/actions/admin";
 import { ORDER_STATUSES } from "@/lib/validation";
 import { formatDateTime, orderStatusBadgeClass } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
@@ -64,6 +64,11 @@ export type OrderManageData = {
   email: string;
   addressLines: string[];
   paymentLabel: string;
+  // The Stripe retrofit (PAY-STRIPE-1): the money-side payment state the
+  // Refund control derives from (the shared refundEligibility seam — the
+  // button and the action can never disagree).
+  paymentStatus: string | null;
+  refundEligible: boolean;
   couponCode: string | null;
   subtotal: number;
   shipping: number;
@@ -80,6 +85,7 @@ const EVENT_ICONS: Record<string, { icon: LucideIcon; className: string }> = {
   placed: { icon: ReceiptText, className: "bg-accent text-primary" },
   status_changed: { icon: RefreshCcw, className: "bg-secondary text-secondary-foreground" },
   tracking_added: { icon: Truck, className: "bg-emerald-100 text-emerald-700" },
+  payment_refunded: { icon: BadgeDollarSign, className: "bg-amber-100 text-amber-700" },
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -118,6 +124,32 @@ export function OrderManageButton({ order }: { order: OrderManageData }) {
   const [carrier, setCarrier] = React.useState(order.carrier ?? "");
   const [trackingNumber, setTrackingNumber] = React.useState(order.trackingNumber ?? "");
   const [trackingPending, setTrackingPending] = React.useState(false);
+
+  // The Stripe refund control (REFUND-ACTION-1): fires ONE idempotent full
+  // refund via the server action; the ORDER's refund state lands when the
+  // webhook's charge.refunded delivery reflects it (the single writer).
+  const [refundPending, setRefundPending] = React.useState(false);
+
+  async function handleRefund() {
+    setRefundPending(true);
+    try {
+      const result = await refundOrderAction(order.id);
+      if (result.ok) {
+        toast({
+          title: `Refund initiated for ${order.number}`,
+          description: "The order's payment state updates when Stripe confirms the refund.",
+          variant: "success",
+        });
+        router.refresh();
+      } else {
+        toast({ title: "Could not refund", description: result.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Something went wrong", description: "The refund was not created. Please try again.", variant: "destructive" });
+    } finally {
+      setRefundPending(false);
+    }
+  }
 
   async function handleStatusUpdate() {
     setStatusPending(true);
@@ -303,7 +335,31 @@ export function OrderManageButton({ order }: { order: OrderManageData }) {
             <h3 className="flex items-center gap-2 text-sm font-semibold">
               <CreditCard className="h-4 w-4 text-primary" aria-hidden /> Payment
             </h3>
-            <p className="mt-2 text-sm text-muted-foreground">{order.paymentLabel}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <p className="text-sm text-muted-foreground">{order.paymentLabel}</p>
+              {order.paymentStatus === "paid" && (
+                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                  Paid
+                </span>
+              )}
+              {order.paymentStatus === "refunded" && (
+                <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                  Refunded
+                </span>
+              )}
+            </div>
+            {order.refundEligible && (
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-3 h-8 w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => void handleRefund()}
+                disabled={refundPending}
+              >
+                {refundPending && <Loader2 className="animate-spin" aria-hidden />}
+                Refund via Stripe
+              </Button>
+            )}
             {order.couponCode && (
               <p className="mt-1 text-sm text-muted-foreground">
                 Coupon: <span className="font-medium text-foreground">{order.couponCode}</span>
@@ -352,9 +408,10 @@ export function OrderManageButton({ order }: { order: OrderManageData }) {
                     <p className="text-sm font-medium">
                       {event.type === "placed" && "Order placed"}
                       {event.type === "tracking_added" && "Tracking added"}
+                      {event.type === "payment_refunded" && "Payment refunded"}
                       {event.type === "status_changed" &&
                         `Status changed${event.status ? ` → ${STATUS_LABELS[event.status] ?? event.status}` : ""}`}
-                      {!["placed", "tracking_added", "status_changed"].includes(event.type) && event.type}
+                      {!["placed", "tracking_added", "status_changed", "payment_refunded"].includes(event.type) && event.type}
                     </p>
                     {event.note && <p className="text-xs text-muted-foreground">{event.note}</p>}
                     <p className="text-[11px] text-muted-foreground/80">{formatDateTime(event.createdAt)}</p>

@@ -192,6 +192,16 @@ model Order {
   shippingAddress String // JSON snapshot of the checkout address
   paymentMethod   String       @default("card") // card | paypal | cod
   cardLast4       String?
+  // Stripe payments (retrofit, PAY-STRIPE-1 — ported from the reference
+  // implementation). stripePaymentIntentId is UNIQUE: the placement
+  // idempotency anchor (the /api/checkout path and the webhook backstop can
+  // never double-place an order for the same PaymentIntent — the unique
+  // violation maps to the already-placed order). paymentStatus: null = the
+  // demo path (no charge); "paid" = a captured Stripe PaymentIntent;
+  // "refunded" = fully refunded via the webhook's charge.refunded reflection.
+  // String, not enum (the SQLite contract).
+  stripePaymentIntentId String? @unique
+  paymentStatus          String?
   carrier         String?
   trackingNumber  String?
   placedAt        DateTime     @default(now())
@@ -222,12 +232,32 @@ model OrderEvent {
   id        String   @id @default(cuid())
   orderId   String
   order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  type      String // "placed" | "status_changed" | "tracking_added"
+  type      String // "placed" | "status_changed" | "tracking_added" | "payment_succeeded" | "payment_failed" | "payment_refunded"
   status    String?
   note      String?
   createdAt DateTime @default(now())
 
   @@index([orderId])
+}
+
+// Stripe webhook dedup (PAY-STRIPE-1 — ported from the reference): the event
+// row is the idempotency anchor; a Stripe re-delivery of an already-processed
+// event short-circuits to a 200 no-op instead of double-processing. eventId is
+// Stripe's evt_* id, UNIQUE. paymentIntentId is the HONEST intent id (the
+// charge-family's `payment_intent` reference when present — a charge is not
+// an intent — else the object's own id). amount is the payload's money
+// magnitude in integer minor units (null for shapes that carry none).
+// failureReason carries the canonical deterministic-failure code at the
+// webhook's permanent-classification write sites (the vocabulary exported
+// from src/lib/stripe-payment.ts); null = no reason known.
+model StripeEvent {
+  id              String   @id @default(cuid())
+  eventId         String   @unique
+  type            String
+  paymentIntentId String?
+  amount          Int?
+  failureReason   String?
+  receivedAt      DateTime @default(now())
 }
 
 model Coupon {

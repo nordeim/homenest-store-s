@@ -51,9 +51,24 @@ automatically by the limiter (`src/lib/rate-limit.ts`).
 | `NEXT_PUBLIC_SITE_URL` | Recommended | Canonical public origin, used for metadata URLs, `sitemap.xml`, `robots.txt`, and JSON-LD (e.g. `https://shop.example.com`). |
 | `NEXT_PUBLIC_DEMO_MODE` | Optional | The login page's demo-credentials quick-fill box. **Production builds hide it by default** (it names the seeded admin account); set `true` to opt in for an evaluation deploy. In development the box is shown unless explicitly `false`. Since session-13 (S13-1) the credentials are passed server-side as props only when enabled — a default production build ships **no credential strings** in the client bundle at all. |
 | `TRUST_CF_CONNECTING_IP` | Optional (default: trust) | Session-13 (S13-7): set `"false"` on **direct deployments** (no Cloudflare edge) so the client-forgeable `cf-connecting-ip` header cannot rotate per-IP rate-limit buckets. Keep the default (or unset) behind Cloudflare. |
+| `STRIPE_SECRET_KEY` | Optional | Session-61 (the Stripe retrofit): the secret key (`sk_live_…`/`sk_test_…`). **Empty = the demo checkout** (clearly labeled, no charges). Set together with the publishable key to activate the real card path: the Payment Element island (PCI SAQ-A — card data never touches this app), a server-minted PaymentIntent (the amount is re-derived server-side from the live cart + coupon + settings), and webhook-driven order placement for interrupted checkouts. |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Optional | The publishable key (`pk_live_…`/`pk_test_…`) for the client island. Must be set for the element to mount; the server/client "configured" checks share one truth table (`src/lib/stripe-config.ts`). |
+| `STRIPE_WEBHOOK_SECRET` | Optional | The signing secret (`whsec_…`) for `POST /api/stripe/webhook` — from the Stripe dashboard's webhook endpoint (add the events `payment_intent.succeeded`, `payment_intent.payment_failed`, `charge.refunded`) or `stripe listen --forward-to localhost:3000/api/stripe/webhook` locally. The backstop for interrupted checkouts (payment captured, browser died before placement) — the dedup row commits WITH the placement; a transient failure answers 500 so Stripe retries. |
 
 Start from `.env.example` (`cp .env.example .env`) — it documents every
 variable above.
+
+**Stripe activation checklist (the three vars set):** the checkout's card
+method renders the Payment Element (test cards: `4242 4242 4242 4242`
+succeeds, `4000 0000 0000 0002` declines); the CSP header gains the
+`js.stripe.com` / `api.stripe.com` / `frame-src` family automatically; the
+admin console gains the Payments ledger (`/admin/payments` — a succeeded
+event with no linked order is the **Refund needed** signal); refunds fire
+from the order dialog's "Refund via Stripe" (one idempotent full refund per
+payment) and the order's payment state updates when Stripe delivers
+`charge.refunded`. Keep the webhook secret in sync whenever you rotate the
+endpoint — a mismatched secret answers 400 `Invalid signature.` and Stripe
+retries with backoff.
 
 ## 5. Database location
 

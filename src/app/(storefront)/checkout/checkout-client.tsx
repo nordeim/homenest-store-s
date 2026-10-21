@@ -18,10 +18,12 @@ import {
 import type { CartLine } from "@/lib/cart";
 import { formatMoney } from "@/lib/money";
 import { newRequestId } from "@/lib/random-id";
+import { isPublishableKeyConfigured } from "@/lib/stripe-config";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toaster";
+import { StripeCheckout, type StripeMintSnapshot } from "@/components/checkout/stripe-pay";
 // sessionStorage handoff key written by the cart page's CouponBox — single-
 // sourced there so the two ends of the handoff can never drift (S6-12).
 import { COUPON_STORAGE_KEY } from "../cart/coupon-box";
@@ -114,15 +116,25 @@ export function CheckoutClient({
   user,
   defaultAddress,
   shipping,
+  stripeEnabled = false,
+  publishableKey = null,
 }: {
   lines: CartLine[];
   subtotal: number;
   user: CheckoutUser | null;
   defaultAddress: CheckoutAddress | null;
   shipping: ShippingConfig;
+  /** The Stripe retrofit (PAY-STRIPE-1): true only when the server resolved
+   *  a real secret — the demo card wizard stays the DEFAULT (OFF). */
+  stripeEnabled?: boolean;
+  publishableKey?: string | null;
 }) {
   const router = useRouter();
   const { toast } = useToast();
+
+  // The client mirror of the server config check (the sentinel mirror: one
+  // truth table — the two sides can never disagree).
+  const stripeOn = stripeEnabled && isPublishableKeyConfigured(publishableKey);
 
   const [step, setStep] = React.useState(0);
   const [email, setEmail] = React.useState(user?.email ?? "");
@@ -154,7 +166,10 @@ export function CheckoutClient({
   // newRequestId (session-7 S7-10): crypto.randomUUID is secure-context-only;
   // the hex fallback keeps plain-HTTP LAN/staging deploys out of the error
   // boundary — the server treats the key as optional either way.
-  const idempotencyKeyRef = React.useRef<string>(newRequestId());
+  // (The Stripe retrofit: lazily-initialized STATE, not a ref — the mint
+  // snapshot below reads it during render, and the value is write-once so
+  // state and ref are behavior-identical here.)
+  const [idempotencyKey] = React.useState<string>(() => newRequestId());
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -285,7 +300,10 @@ export function CheckoutClient({
   }
 
   // ---- Place order ----
-  async function handlePlaceOrder() {
+  // The Stripe path (PAY-STRIPE-1): the island's CONFIRMED PaymentIntent id
+  // rides the body — card data itself never crosses (the Payment Element
+  // owns it). A null/absent id keeps the demo/manual paths byte-identical.
+  async function handlePlaceOrder(stripePaymentIntentId?: string) {
     setSubmitting(true);
     setFormError(null);
     try {
@@ -297,10 +315,14 @@ export function CheckoutClient({
           customerName: fullName.trim(),
           shippingMethod,
           paymentMethod,
-          cardLast4: paymentMethod === "card" ? card.number.replace(/\D/g, "").slice(-4) : "",
+          cardLast4:
+            paymentMethod === "card" && !stripePaymentIntentId
+              ? card.number.replace(/\D/g, "").slice(-4)
+              : "",
           couponCode: coupon?.code ?? "",
           saveAddress: Boolean(user) && saveAddress,
-          idempotencyKey: idempotencyKeyRef.current,
+          idempotencyKey,
+          ...(stripePaymentIntentId ? { stripePaymentIntentId } : {}),
           address: {
             label: "Home",
             fullName: fullName.trim(),
@@ -337,10 +359,119 @@ export function CheckoutClient({
 
   const paymentSummary =
     paymentMethod === "card"
-      ? `Card ending in ${card.number.replace(/\D/g, "").slice(-4) || "••••"}`
+      ? stripeOn
+        ? "Card (secured by Stripe)"
+        : `Card ending in ${card.number.replace(/\D/g, "").slice(-4) || "••••"}`
       : paymentMethod === "paypal"
         ? "PayPal"
         : "Cash on Delivery";
+
+  // The Stripe island's mint snapshot (PAY-STRIPE-1): the placement subset
+  // of the checkout input — the mint re-derives the amount server-side and
+  // the intent's metadata carries this so the webhook backstop can rebuild
+  // the placement if the browser dies between confirm and submit.
+  const stripeSnapshot: StripeMintSnapshot = {
+    email: email.trim(),
+    customerName: fullName.trim(),
+    shippingMethod,
+    couponCode: coupon?.code ?? "",
+    idempotencyKey,
+    address: {
+      fullName: fullName.trim(),
+      phone: addr.phone.trim(),
+      line1: addr.line1.trim(),
+      line2: addr.line2.trim(),
+      city: addr.city.trim(),
+      state: addr.state.trim(),
+      postalCode: addr.postalCode.trim(),
+      country: addr.country.trim(),
+    },
+  };
+
+  // The review anatomy shared by step 3 (the demo path) and the Stripe
+  // island (the combined Payment & Review panel — the element must stay
+  // mounted with the confirm button, so the two steps collapse when the
+  // real payment path is live).
+  const reviewDetails = (
+    <>
+      <ul className="mt-4 divide-y divide-border rounded-xl border border-border" aria-label="Order items">
+        {lines.map((line) => (
+          <li key={line.id} className="flex items-center gap-3 p-3">
+            <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-secondary">
+              <Image src={line.image} alt="" fill sizes="56px" className="object-cover" />
+            </span>
+            <span className="min-w-0 flex-1 text-sm">
+              <span className="block truncate font-medium">{line.name}</span>
+              <span className="text-xs text-muted-foreground">
+                {formatMoney(line.unitPrice)} × {line.quantity}
+              </span>
+            </span>
+            <span className="text-sm font-bold">{formatMoney(line.lineTotal)}</span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-border p-4 text-sm">
+          <p className="font-semibold">Ship To</p>
+          <p className="mt-1.5 text-muted-foreground">
+            {fullName}
+            <br />
+            {addr.line1}
+            {addr.line2 ? `, ${addr.line2}` : ""}
+            <br />
+            {addr.city}, {addr.state} {addr.postalCode}
+            <br />
+            {addr.country}
+            <br />
+            {addr.phone}
+          </p>
+          <p className="mt-2 text-muted-foreground">{email}</p>
+        </div>
+        <div className="rounded-xl border border-border p-4 text-sm">
+          <p className="font-semibold">Payment &amp; Shipping</p>
+          <p className="mt-1.5 text-muted-foreground">{paymentSummary}</p>
+          <p className="mt-1 text-muted-foreground">
+            {shippingMethod === "express" ? "Express (2-3 business days)" : "Standard (5-7 business days)"}
+          </p>
+          {coupon && (
+            <p className="mt-1 text-emerald-700">
+              Coupon {coupon.code} — {coupon.label}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <dl className="mt-5 space-y-2.5 border-t border-border pt-4 text-sm">
+        <div className="flex items-baseline justify-between">
+          <dt className="text-muted-foreground">Subtotal</dt>
+          <dd className="font-semibold">{formatMoney(subtotal)}</dd>
+        </div>
+        {coupon && discount > 0 && (
+          <div className="flex items-baseline justify-between text-emerald-700">
+            <dt>Discount ({coupon.code})</dt>
+            <dd className="font-semibold">-{formatMoney(discount)}</dd>
+          </div>
+        )}
+        <div className="flex items-baseline justify-between">
+          <dt className="text-muted-foreground">Shipping</dt>
+          <dd className="font-semibold">{shippingCost === 0 ? "FREE" : formatMoney(shippingCost)}</dd>
+        </div>
+        <div className="flex items-baseline justify-between">
+          <dt className="text-muted-foreground">Tax</dt>
+          <dd className="font-semibold">{formatMoney(tax)}</dd>
+        </div>
+        <div className="flex items-baseline justify-between border-t border-border pt-3">
+          <dt className="font-bold">Total</dt>
+          <dd className="text-xl font-bold">{formatMoney(total)}</dd>
+        </div>
+      </dl>
+    </>
+  );
+
+  // The combined island mode: card + configured Stripe collapses the
+  // payment + review steps (the Payment Element owns the confirm button).
+  const stripeIsland = step === 1 && stripeOn && paymentMethod === "card";
 
   return (
     <div className="container-page py-10">
@@ -570,7 +701,11 @@ export function CheckoutClient({
                           <option.icon className="h-5 w-5 shrink-0 text-primary" aria-hidden />
                           <span className="flex-1">
                             <span className="block text-sm font-semibold">{option.label}</span>
-                            <span className="block text-xs text-muted-foreground">{option.description}</span>
+                            <span className="block text-xs text-muted-foreground">
+                              {option.id === "card" && stripeOn
+                                ? "Visa, Mastercard, Amex — secured by Stripe"
+                                : option.description}
+                            </span>
                           </span>
                         </span>
                       </label>
@@ -578,7 +713,7 @@ export function CheckoutClient({
                   </div>
                 </fieldset>
 
-                {paymentMethod === "card" && (
+                {paymentMethod === "card" && !stripeOn && (
                   <div className="mt-4 rounded-xl border border-border bg-secondary/40 p-4">
                     <p className="mb-3 flex items-center gap-1.5 text-xs font-medium text-accent-foreground">
                       <Lock className="h-3.5 w-3.5" aria-hidden />
@@ -678,6 +813,25 @@ export function CheckoutClient({
                   )}
                   <p className="mt-2 text-xs text-muted-foreground">Try WELCOME10, SAVE20 or FREESHIP</p>
                 </div>
+
+                {/* The combined Payment & Review island (PAY-STRIPE-1): when
+                    Stripe is configured and the card method is selected, the
+                    payment element + review + Pay button collapse into this
+                    panel (the element must stay mounted with its confirm
+                    button). The demo card form above stays the DEFAULT
+                    (unconfigured) state — untouched. */}
+                {stripeIsland && (
+                  <StripeCheckout
+                    snapshot={stripeSnapshot}
+                    publishableKey={publishableKey}
+                    placementError={formError}
+                    submitting={submitting}
+                    onConfirmed={(intentId) => void handlePlaceOrder(intentId)}
+                    onBack={() => setStep(0)}
+                  >
+                    {reviewDetails}
+                  </StripeCheckout>
+                )}
               </div>
             )}
 
@@ -685,109 +839,40 @@ export function CheckoutClient({
             {step === 2 && (
               <div>
                 <h2 className="text-base font-semibold">Review Your Order</h2>
-
-                <ul className="mt-4 divide-y divide-border rounded-xl border border-border" aria-label="Order items">
-                  {lines.map((line) => (
-                    <li key={line.id} className="flex items-center gap-3 p-3">
-                      <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-secondary">
-                        <Image src={line.image} alt="" fill sizes="56px" className="object-cover" />
-                      </span>
-                      <span className="min-w-0 flex-1 text-sm">
-                        <span className="block truncate font-medium">{line.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatMoney(line.unitPrice)} × {line.quantity}
-                        </span>
-                      </span>
-                      <span className="text-sm font-bold">{formatMoney(line.lineTotal)}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-xl border border-border p-4 text-sm">
-                    <p className="font-semibold">Ship To</p>
-                    <p className="mt-1.5 text-muted-foreground">
-                      {fullName}
-                      <br />
-                      {addr.line1}
-                      {addr.line2 ? `, ${addr.line2}` : ""}
-                      <br />
-                      {addr.city}, {addr.state} {addr.postalCode}
-                      <br />
-                      {addr.country}
-                      <br />
-                      {addr.phone}
-                    </p>
-                    <p className="mt-2 text-muted-foreground">{email}</p>
-                  </div>
-                  <div className="rounded-xl border border-border p-4 text-sm">
-                    <p className="font-semibold">Payment &amp; Shipping</p>
-                    <p className="mt-1.5 text-muted-foreground">{paymentSummary}</p>
-                    <p className="mt-1 text-muted-foreground">
-                      {shippingMethod === "express" ? "Express (2-3 business days)" : "Standard (5-7 business days)"}
-                    </p>
-                    {coupon && (
-                      <p className="mt-1 text-emerald-700">
-                        Coupon {coupon.code} — {coupon.label}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <dl className="mt-5 space-y-2.5 border-t border-border pt-4 text-sm">
-                  <div className="flex items-baseline justify-between">
-                    <dt className="text-muted-foreground">Subtotal</dt>
-                    <dd className="font-semibold">{formatMoney(subtotal)}</dd>
-                  </div>
-                  {coupon && discount > 0 && (
-                    <div className="flex items-baseline justify-between text-emerald-700">
-                      <dt>Discount ({coupon.code})</dt>
-                      <dd className="font-semibold">-{formatMoney(discount)}</dd>
-                    </div>
-                  )}
-                  <div className="flex items-baseline justify-between">
-                    <dt className="text-muted-foreground">Shipping</dt>
-                    <dd className="font-semibold">{shippingCost === 0 ? "FREE" : formatMoney(shippingCost)}</dd>
-                  </div>
-                  <div className="flex items-baseline justify-between">
-                    <dt className="text-muted-foreground">Tax</dt>
-                    <dd className="font-semibold">{formatMoney(tax)}</dd>
-                  </div>
-                  <div className="flex items-baseline justify-between border-t border-border pt-3">
-                    <dt className="font-bold">Total</dt>
-                    <dd className="text-xl font-bold">{formatMoney(total)}</dd>
-                  </div>
-                </dl>
+                {reviewDetails}
               </div>
             )}
 
-            {formError && (
+            {!stripeIsland && formError && (
               <p role="alert" className="mt-5 rounded-lg bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
                 {formError}
               </p>
             )}
 
-            {/* Step navigation */}
-            <div className="mt-8 flex items-center justify-between gap-3 border-t border-border pt-5">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setStep((s) => Math.max(0, s - 1))}
-                disabled={step === 0 || submitting}
-              >
-                Back
-              </Button>
-              {step < STEPS.length - 1 ? (
-                <Button type="button" onClick={handleNext}>
-                  Continue
+            {/* Step navigation — the island mode owns its own Back + Pay
+                buttons (inside the Stripe panel), so the wizard nav hides. */}
+            {!stripeIsland && (
+              <div className="mt-8 flex items-center justify-between gap-3 border-t border-border pt-5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setStep((s) => Math.max(0, s - 1))}
+                  disabled={step === 0 || submitting}
+                >
+                  Back
                 </Button>
-              ) : (
-                <Button type="button" onClick={() => void handlePlaceOrder()} disabled={submitting}>
-                  {submitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-                  {submitting ? "Placing Order…" : `Place Order — ${formatMoney(total)}`}
-                </Button>
-              )}
-            </div>
+                {step < STEPS.length - 1 ? (
+                  <Button type="button" onClick={handleNext}>
+                    Continue
+                  </Button>
+                ) : (
+                  <Button type="button" onClick={() => void handlePlaceOrder()} disabled={submitting}>
+                    {submitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+                    {submitting ? "Placing Order…" : `Place Order — ${formatMoney(total)}`}
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </section>
 

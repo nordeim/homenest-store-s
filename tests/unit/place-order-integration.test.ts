@@ -27,6 +27,7 @@ import {
   placeOrderTx,
   type PlaceOrderArgs,
 } from "@/lib/order-placement";
+import { StripeAmountMismatchError } from "@/lib/stripe-payment";
 import type { CartLine } from "@/lib/cart";
 
 let db: PrismaClient;
@@ -164,6 +165,10 @@ function argsFor(w: World, lines: CartLine[], overrides: Partial<PlaceOrderArgs>
     idempotencyKey: null,
     cartToken: `cart-token-${w.tag}`,
     settings: SETTINGS,
+    // The Stripe retrofit path (PAY-STRIPE-1): the demo default — no intent,
+    // no paid amount, no webhook dedup row.
+    stripePaymentIntentId: null,
+    paidTotalCents: null,
     ...overrides,
   };
 }
@@ -359,5 +364,106 @@ describe("placeOrderTx against the real engine (S26-3)", () => {
     // The order placed; the book is byte-identical (no save, no rollback)
     expect(await db.order.count({ where: { number } })).toBe(1);
     expect(await db.address.count({ where: { userId: w.userId } })).toBe(20);
+  });
+});
+
+describe("placeOrderTx — the Stripe path (PAY-STRIPE-1 retrofit)", () => {
+  it("places a paid order with the intent anchor + paid columns + the Stripe placed-note", async () => {
+    const w = await seedWorld("stripeok", { coupon: { maxRedemptions: null, timesUsed: 0 } });
+
+    // The money world's verified total (subtotal 2500 − 250 coupon + 699 shipping + 180 tax)
+    const number = await placeOrderTx(
+      db, "ORD-2026-301",
+      argsFor(w, linesFor(w), {
+        paymentMethod: "card",
+        stripePaymentIntentId: "pi_stripe_ok_1",
+        paidTotalCents: 3129,
+      }),
+    );
+    expect(number).toBe("ORD-2026-301");
+
+    const order = await db.order.findUnique({
+      where: { number },
+      include: { events: true },
+    });
+    expect(order).not.toBeNull();
+    expect(order!.stripePaymentIntentId).toBe("pi_stripe_ok_1");
+    expect(order!.paymentStatus).toBe("paid");
+    expect(order!.paymentMethod).toBe("card");
+    expect(order!.events[0]!.note).toBe("Order placed via card (Stripe)");
+    // The intent anchor is UNIQUE — the placement idempotency anchor.
+    await expect(
+      placeOrderTx(db, "ORD-2026-302", argsFor(w, linesFor(w), { stripePaymentIntentId: "pi_stripe_ok_1", paidTotalCents: 3129 })),
+    ).rejects.toMatchObject({ code: "P2002" });
+  });
+
+  it("an intent amount that drifts from the in-tx total → StripeAmountMismatchError, NOTHING written", async () => {
+    const w = await seedWorld("stripedrift", { coupon: { maxRedemptions: null, timesUsed: 0 } });
+
+    // The verified amount is stale: the in-tx authority re-derives 3129.
+    await expect(
+      placeOrderTx(db, "ORD-2026-303", argsFor(w, linesFor(w), {
+        stripePaymentIntentId: "pi_stripe_drift_1",
+        paidTotalCents: 999_999,
+      })),
+    ).rejects.toBeInstanceOf(StripeAmountMismatchError);
+
+    expect(await db.order.count({ where: { number: "ORD-2026-303" } })).toBe(0);
+    expect((await db.product.findUnique({ where: { id: w.p1Id } }))!.stock).toBe(10);
+    expect((await db.product.findUnique({ where: { id: w.p2Id } }))!.stock).toBe(3);
+    const row = await db.coupon.findUnique({ where: { code: w.couponCode! } });
+    expect(row!.timesUsed).toBe(0);
+  });
+
+  it("the webhook dedup row commits WITH the placement (the H4d/L9 rule)", async () => {
+    const w = await seedWorld("stripededup", { coupon: { maxRedemptions: null, timesUsed: 0 } });
+
+    const number = await placeOrderTx(
+      db, "ORD-2026-304",
+      argsFor(w, linesFor(w), {
+        paymentMethod: "card",
+        stripePaymentIntentId: "pi_stripe_dedup_1",
+        paidTotalCents: 3129,
+        stripeEvent: {
+          eventId: "evt_stripe_dedup_1",
+          type: "payment_intent.succeeded",
+          paymentIntentId: "pi_stripe_dedup_1",
+          amount: 3129,
+        },
+      }),
+    );
+    expect(number).toBe("ORD-2026-304");
+
+    const row = await db.stripeEvent.findUnique({ where: { eventId: "evt_stripe_dedup_1" } });
+    expect(row).not.toBeNull();
+    expect(row!.type).toBe("payment_intent.succeeded");
+    expect(row!.paymentIntentId).toBe("pi_stripe_dedup_1");
+    expect(row!.amount).toBe(3129);
+    expect(row!.failureReason).toBeNull();
+  });
+
+  it("a FAILED placement rolls the dedup row back WITH it (a committed row would orphan the delivery)", async () => {
+    const w = await seedWorld("stripeduprollback", { coupon: { maxRedemptions: null, timesUsed: 0 } });
+    // Pre-place an order that owns the number: the tx fails AFTER the dedup
+    // row's insert — the engine must restore it (Stripe's retry re-attempts
+    // the FULL placement; a surviving row would short-circuit it).
+    await db.order.create({ data: { number: "ORD-2026-305", email: "prior@test.dev", customerName: "Prior", total: 1, subtotal: 1, shippingAddress: "{}" } });
+
+    await expect(
+      placeOrderTx(db, "ORD-2026-305", argsFor(w, linesFor(w), {
+        stripePaymentIntentId: "pi_stripe_dedup_2",
+        paidTotalCents: 3129,
+        stripeEvent: {
+          eventId: "evt_stripe_dedup_2",
+          type: "payment_intent.succeeded",
+          paymentIntentId: "pi_stripe_dedup_2",
+          amount: 3129,
+        },
+      })),
+    ).rejects.toThrow();
+
+    expect(await db.stripeEvent.count({ where: { eventId: "evt_stripe_dedup_2" } })).toBe(0);
+    // The prior order is the ONLY 305; nothing else was written.
+    expect(await db.order.count({ where: { number: "ORD-2026-305" } })).toBe(1);
   });
 });

@@ -13,12 +13,15 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { refundEligibility } from "@/lib/admin-payments";
 import { deleteCategoryIfEmpty } from "@/lib/admin-categories";
 import { db } from "@/lib/db";
 import { OrderGoneError, applyCarrierTracking } from "@/lib/order-tracking";
 import { applyOrderStatusTransition, canTransitionOrderStatus } from "@/lib/order-status";
 import { settingsPatchSchema, type SettingsPatch } from "@/lib/settings-schema";
 import { updateSettings } from "@/lib/settings";
+import { getStripe, isStripeServerConfigured } from "@/lib/stripe";
+import { stripeRefundIdempotencyKey } from "@/lib/stripe-payment";
 import {
   carouselSlideInputSchema,
   categoryInputSchema,
@@ -533,6 +536,68 @@ export async function setTrackingAction(input: z.input<typeof trackingSchema>): 
   revalidatePath("/admin/orders");
   revalidatePath("/admin");
   revalidatePath("/track-order");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Stripe refunds (the Stripe retrofit, REFUND-ACTION-1)
+// ---------------------------------------------------------------------------
+
+/**
+ * refundOrderAction — the operator refunds a Stripe-paid order.
+ *
+ * Contract (inherited from the reference implementation):
+ * - **The shared eligibility seam**: the SAME `refundEligibility` the order
+ *   dialog's Refund control renders from — the button and the action can
+ *   never disagree.
+ * - **Configured mode**: ONE full refund per intent, idempotent by the
+ *   `refund:<intentId>` Stripe idempotency key (a double-click, a retry, or
+ *   a second operator hours later replays the FIRST refund's response —
+ *   never a second refund of the same charge).
+ * - **This action NEVER writes refund state on the order** — the webhook's
+ *   charge.refunded reflection is the single writer (the deliberate
+ *   one-writer rule); the paymentStatus transition lands when Stripe
+ *   delivers the refund event, not before.
+ */
+export async function refundOrderAction(orderId: string): Promise<AdminActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return { ok: false, error: denied };
+
+  if (!orderId) return { ok: false, error: "Missing order id." };
+
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, number: true, stripePaymentIntentId: true, paymentStatus: true },
+  });
+  if (!order) return { ok: false, error: "Order not found. Refresh the list and try again." };
+
+  const eligibility = refundEligibility(order);
+  if (!eligibility.eligible) {
+    return { ok: false, error: "This order cannot be refunded." };
+  }
+
+  const stripe = getStripe();
+  if (!stripe || !isStripeServerConfigured()) {
+    return { ok: false, error: "Stripe is not configured — refund via the Stripe dashboard." };
+  }
+
+  const intentId = order.stripePaymentIntentId!;
+  try {
+    await stripe.refunds.create(
+      { payment_intent: intentId } as Parameters<typeof stripe.refunds.create>[0],
+      { idempotencyKey: stripeRefundIdempotencyKey(intentId) },
+    );
+  } catch (error) {
+    console.error("[refundOrderAction] refund failed", order.number, intentId, error);
+    return { ok: false, error: "The refund could not be created. Check the Stripe dashboard." };
+  }
+
+  // The webhook's charge.refunded delivery writes the order's refund state
+  // (the single writer); this action only fires the refund. Revalidate so
+  // the dialog re-derives from fresh state on the next open.
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin/payments");
+  revalidatePath("/admin");
   return { ok: true };
 }
 
