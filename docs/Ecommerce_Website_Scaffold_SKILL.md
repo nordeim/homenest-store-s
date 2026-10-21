@@ -1,6 +1,3 @@
-# E-Commerce Website Scaffold — SKILL
-
-```yaml
 ---
 name: ecommerce-website-scaffold
 description: >-
@@ -21,7 +18,6 @@ provenance: >-
   wire-level security gates), cross-checked against the October 2026
   comparative template-suitability audit of all three repositories.
 ---
-```
 
 ## How to Use This Skill
 
