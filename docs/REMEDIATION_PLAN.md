@@ -8100,3 +8100,64 @@ expectations (DB-verified each cycle).
 - [x] S59-1 docs sweep: this section, SKILL v1.56.0 (opening bump + Session 59 Appendix B entry), AGENTS 2..59, CLAUDE tail, session_110.md, worklog Task 60
 - [x] Final gates re-run on the final tree (below)
 - [x] Commit + push to main through the SSH wrapper (fast-forward, no new branches)
+
+# Session 60 (run 61) — 2026-10-21 — the twenty-ninth remediation cycle: the eighth reference-unavailable cycle (environmental) + the first SURVIVING-workspace continuation (no sandbox reset); one Low accepted-debt finding (61-a-1, dev-chain advisory backlog)
+
+## Context
+
+- Tree: `79bd1ec` on main (= `f390e4f`, the pushed run-60 output, + the operator's raw-log commit `docs/session_111.md`, 1 file / 76 insertions, zero src/tests/prisma deltas). Working tree clean at pull.
+- **The first continuation cycle on a SURVIVING workspace since the reset streak began** — no sandbox reset: the repo-local layers (node_modules, the db/ folder, the workspace venv + the ssh shim at /home/z/my-project/bin/ssh, the reference clone at /home/z/my-project/ecommerce-store-ref, the persisted research/ verifiers from run 60) all survived; the GLOBAL npm tooling layer did NOT (lighthouse was absent — reinstalled via `npm install -g lighthouse` 13.5.0; the lesson: "environment survived" is a per-LAYER claim, probe each tool before the step that needs it).
+- The DB deliberately RE-SEEDED fresh for the documented final-capture sequence (rm db/custom.db + `db:setup` with the per-command absolute-export convergence): all seed pins DB-verified by the persisted research/verify-seed.mjs (the Damascus-first display order with all 8 prices/compare-at/review-counts/stocks exact + the S51-1 60s-spaced coupon order FREESHIP → SAVE20 → WELCOME10; fresh-seed baseline 0 orders / 16 template reviews / 2 users).
+- The DATABASE_URL process-env shadow re-confirmed (`file:/home/z/my-project/db/custom.db` — nonexistent) → the per-command absolute-export convergence applied to every DB-touching command, the build, the e2e run, and the capture run.
+
+## Audit summary
+
+- Deep audit 61-a (read-only subagent): **10/10 PASS — the SIXTEENTH consecutive clean audit at every actionable severity** — 0 Critical / 0 High / 0 Medium / 0 production-Low + **1 new Low (61-a-1)** + the standing NIT + 1 Informational:
+  - **61-a-1 (Low, Verified, accepted debt)**: **npm audit became RUNNABLE in this sandbox** (the standing "audit tooling absent" expectation no longer holds) — it reports 11 advisories, ALL in dev/test/CLI chains (vitest→tinypool 2 critical + @vitest/mocker moderate; eslint-config-next→fast-glob/micromatch/braces; prisma CLI→@prisma/config→deepmerge-ts), with **ZERO production reachability proven three ways**: (1) `@prisma/client@6.19.3`'s dependency map is empty, (2) the standalone bundle's node_modules contains no advisory package, (3) no prisma.config.ts exists so the deepmerge path is never exercised. Disposition: documented accepted debt — a future dedicated major-bump cycle (vitest ^5, prisma ^7 when stable — both breaking, full gate re-run), NOT an urgent patch. Recorded in SKILL Appendix B session-60 Lesson 3.
+  - NIT (standing, disposed no-change): `as unknown as` ×4 — identical to the documented anchor (db.ts singleton + 3 intentional test casts).
+  - Informational (disposed no-change): the env-count convention gloss (17 reads / 6 read vars / 5 .env.example-documented).
+  - Every anchor verified standing: 14 specs / 67 e2e tests with zero only/skip/fixme/todo; 49 files / 444 it-declarations; the mobile-nav conditional mount + zero classList; the security greps clean (3 dangerouslySetInnerHTML sites all through jsonLdScript; zero client-side credential strings); the server-client boundary clean (38 "use client" islands' value-import closures reach zero server-only modules — type-aware transitive analysis); the full 14-surface rate-limit grid with Retry-After on every 429; the money contract (integer cents, zero price literals, in-tx computeOrderMoney); deps 16+16 with lighthouse/chrome-launcher/pngjs absent from package.json; skills excluded + 2607 files incl. the 9 operator additions.
+- Clone parity grid: **53/53 discrete checks PASS (42 static + 11 mobile) with ZERO script-side corrections** — the FIRST zero-correction grid since the grid stabilized at 53 checks: the persisted research/ verifiers (rebuilt run-60 with all lessons encoded) ran unmodified — health status-ok/db-up · sitemap 25 URLs private-excluded · robots disallow · noindex on all 8 private surfaces · /products 16 found + first-8 pinned + all 8 prices + compare-at + reviews exact (413 post-e2e Damascus) · home h1 "New Arrivals" + Featured + New Arrivals · 7 guest links · Close-menu 44×44 @330,78 · panel search INPUT 209.3×40 @16,80 · navigate-closes AND toggle-closes · conditional mount verified in DOM.
+- Expanded audit surface 1 (a11y tree, 8 pages × 6 checks, both walk scopes): **50/50 CLEAN** — mains=1 on ALL 8 pages; imgsNoAlt=0 + buttonsNoName=0 + inputsNoLabel=0 (the hidden Server Action inputs excluded per the session-59 lesson).
+- Expanded audit surface 2 (Lighthouse 13.5, home/products/login/product-detail via the manual-chromium workaround, sequential per-page runs): a11y **93/95/96/96 — the post-fix baselines reproducing EXACTLY**; login seo 63 = the intentional is-crawlable noindex penalty + the standing color-contrast component only (failed audits = ["color-contrast", "is-crawlable"]). **Both surfaces clean for the THIRTEENTH consecutive cycle.**
+- Live reference: **UNAVAILABLE for the EIGHTH consecutive cycle** (HTTP 503 with the Base44 publish-the-app shell on /, /products, /login — 10723 bytes, stable across immediate + delayed ~45s retries — environmental). Disposition unchanged: the run-53 live baseline + the seed-embodied pins (DB-verified) carried every expectation; the clone grid carried the full verification load.
+- Reference repo re-verified at **`1ffda3d`** (in sync with origin/main, cloned OUTSIDE the repo tree) and the skills comparison re-confirmed (the operator-curated superset **2607 = 2598 + 9**, catalog md5 identical f69408bf…, every reference skill file present) + the sitemap/SEO comparison re-confirmed (the stricter superset — private surfaces excluded + about/contact + 5 legal routes, DB-failure-safe, cuid /product/[id] route; no adoption gaps).
+
+## Gates (run on the pulled tree; re-run on the final tree)
+
+- lint ✓ · typecheck ✓ · typecheck:tests ✓
+- Unit: **444/444 at 22.45s** (49 files — within the documented 19.77-23.97s range)
+- Build: **22/22 static, zero prisma:error** (compiled 4.2s warm / 15s cold; zero-error verified by explicit grep, not just exit code)
+- E2E: **67/67 at 2.0m** — on the fresh-seed DB, the run doubling as the documented traffic generator: **5 orders (ORD-2026-001…005) / 17 reviews / Damascus 413 / FREESHIP 1 / latest ORD-2026-005, all DB-verified by the persisted traffic verifier** → restore-demo-stock re-topped Damascus 21→24 + French Rolling Pin 43→44.
+- Final gates re-run on the final tree post-docs-edits: lint ✓ · typecheck ✓ · typecheck:tests ✓ · 444/444 unit.
+
+## Screenshots
+
+- The documented final-capture sequence on the normalized DB (fresh seed → ONE e2e as the traffic generator → restore-demo-stock): the single clean capture ran **25/25 green on the FIRST pass** (the S53-1 image gate on a cold server, EIGHTH consecutive cold-server cycle).
+- Byte-level diff (against `git show HEAD:` rasters — the session-59 lesson): **22/25 byte-identical**. The capture crossed the UTC-day boundary (run 60 captured 2026-10-20 ~23:0x UTC; this run 2026-10-21 00:30 UTC) so the UTC-day-drift class fired — 04b-cart-coupon-hint **6ed62e85… at its TWENTY-FOURTH consecutive byte-identical cycle**; 11-checkout, 21-mobile-menu-open, 05-login, 10-register, 15b-admin-coupons, 02-products, 17-admin-analytics, 01-home, 04-cart, 06-09, 13, 15, 16, 18-20, 22, 23 all byte-identical.
+- The 3 changed shots ALL traffic-owned, each VLM-read (band localization → 4x-upscaled crop extraction → VLM read → DB cross-check) and classified:
+  - **03-product-detail** (1157 px, 0.0324%, THREE 11-row bands — the session-60 superset of the documented single-band class): band y1168-1178 the irreducible review-ID band "Review 1792537355751" → "Review 1792541645962" (this run's e2e review "E2E review 1792541645962" @ 2026-10-21T00:14:06.335Z, DB-exact) + bands y1111-1121 and y1285-1295 the template-review date labels "Oct 20, 2026" → "Oct 21, 2026" (this run's seed stamped its template reviews Oct 21 UTC vs run-60's Oct 20).
+  - **12-admin-dashboard** (10738 px, 0.4991%): the revenue chart's rolling day-window slid one day with the calendar — x-axis labels "Oct 7…Oct 19" → "Oct 8…Oct 20", tooltip "Oct 15" → "Oct 16", the chart line re-rendering beneath (the date-bearing class on the chart-axis surface).
+  - **14-admin-orders** (16535 px, 0.8706%): the order rows' placedAt dates "Oct 20, 2026" → "Oct 21, 2026" (this run's ORD-2026-001…005 placed 2026-10-21T00:13-00:14 UTC vs run-60's Oct 20 23:0x — the VLM row-read DB-verified: same order numbers, customers, statuses, totals).
+- The rasters faithfully display this run's DB truth; zero repo action. (Methodology note: the multi-band extraction generalized the single-band band-crop tool — research/band-crop-multi.mjs, git-ignored scratch.)
+
+## S60-1 (docs sweep)
+
+- The plan's Session 60 section (this section); SKILL v1.56.0 → v1.57.0 (project_state opening "sessions 2-59" → "sessions 2-60" + the Session 60 Appendix B entry with the four lessons: the THREE-band UTC-day superset on 03; the rolling-chart-axis slide on 12; the npm-audit availability change + the accepted-debt disposition (61-a-1); the per-LAYER tooling-availability check); AGENTS plan range 2..59 → 2..60; CLAUDE unit-bullet session-60 tail; README/PAD/DEPLOYMENT drift-checked (all anchors verified accurate — unchanged; the 444/67 anchors stay accurate); `docs/session_112.md`; repo worklog Task 61. The grep-after-sweep discipline applied — every claimed bump grepped for the new literal before committing.
+- Change-set: the 3 traffic-owned screenshots (03/12/14) + the docs sweep. ZERO changes in src/tests/prisma.
+
+## Execution log
+
+- [x] git pull refresh: 79bd1ec on main (docs/session_111.md only over f390e4f — 1 file / 76 insertions, zero src/tests/prisma deltas, verified by git show --stat); working tree clean
+- [x] Documentation review + codebase validation BEFORE work: AGENTS.md, CLAUDE.md, README.md, Project_Architecture_Document.md, homenest-store-s_SKILL.md (v1.56.0), session_110.md + session_111.md + the plan's Session 59 + worklog Task 60 — the documented contracts verified in source (db-path.ts anchors, sitemap privacy + STATIC_ROUTES, robots disallow, the mobile-nav conditional mount `if (!mobileNavOpen) return null`, .env.example's 5 vars, the 10 index:false surfaces, skills exclusion in tsc/eslint + vitest/playwright scoping, .gitignore)
+- [x] Environment: per-layer verification (repo layers survived; global lighthouse reinstalled); fresh-DB re-seed with all pins DB-verified
+- [x] Gate chain: lint · typecheck · typecheck:tests · 444/444 unit at 22.45s · build 22/22 static zero prisma:error · 67/67 e2e at 2.0m + the traffic class DB-verified + restore-demo-stock
+- [x] Reference repo 1ffda3d in sync + skills superset 2607 = 2598 + 9 (catalog md5 identical) + sitemap/SEO stricter superset re-confirmed
+- [x] Live-reference probe: HTTP 503 stable across immediate + delayed retries (8th cycle, environmental)
+- [x] Clone parity grid 53/53 (42 static + 11 mobile) — ZERO script-side corrections
+- [x] a11y tree audit 50/50 CLEAN + Lighthouse a11y 93/95/96/96 exact (login seo 63 = intentional noindex + standing color-contrast only)
+- [x] Deep audit 61-a (read-only subagent): 10/10 PASS — 16th consecutive clean audit + 1 new Low accepted-debt finding (61-a-1) + the standing NIT disposed no-change
+- [x] Screenshots: 25/25 green first pass; 22/25 byte-identical (vs git-show ground truth); the 3 changed shots all VLM-classified traffic-owned (the 03 three-band superset + 12's chart-axis slide + 14's order-date cells), DB-cross-checked
+- [x] S60-1 docs sweep: this section, SKILL v1.57.0 (opening bump + Session 60 Appendix B entry), AGENTS 2..60, CLAUDE tail, session_112.md, worklog Task 61
+- [x] Final gates re-run on the final tree (below)
+- [x] Commit + push to main through the SSH wrapper (fast-forward, no new branches)
