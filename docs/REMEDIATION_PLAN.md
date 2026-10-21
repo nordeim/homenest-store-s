@@ -8161,3 +8161,64 @@ expectations (DB-verified each cycle).
 - [x] S60-1 docs sweep: this section, SKILL v1.57.0 (opening bump + Session 60 Appendix B entry), AGENTS 2..60, CLAUDE tail, session_112.md, worklog Task 61
 - [x] Final gates re-run on the final tree (below)
 - [x] Commit + push to main through the SSH wrapper (fast-forward, no new branches)
+
+# Session 62 (run 63) — 2026-10-21 — the thirtieth remediation cycle: the fresh-clone recovery after sandbox reset #13 + the docs-trail integrity cycle (the committed-conflict-marker defect 63-a-1); the Stripe-retrofit raster debt paid (session-61 was the run-62 FEATURE cycle — documented in SKILL §7.4 + Appendix B session-61 + docs/session_114.md, no plan section by design)
+
+## Context
+
+- Tree: `ad63308` on main (the operator's three raw-log commits over run-62's `32c92b8`: a306b4e added docs/session_113.md + session_114.md + session_115.md; 5e5e3c9 added the Ecommerce_Codebase_Template_Evaluation_Report.md + Ecommerce_Website_Scaffold_SKILL.md cross-repo reference docs; ad63308 trimmed the scaffold skill). Working tree clean at clone.
+- Fresh-clone recovery: the sandbox reset wiped everything (node_modules, db/, the ssh shim, the reference clone, the persisted research/ verifiers) — the full environment was rebuilt (npm install, .env + fresh AUTH_SECRET, db:setup with all seed pins DB-verified, chromium-1248 reinstalled).
+- The DATABASE_URL process-env shadow re-confirmed (`file:/home/z/my-project/db/custom.db` — nonexistent) → the per-command absolute-export convergence applied to every DB-touching command, the build, the e2e run, and the capture run.
+- The parity/a11y verifiers were REBUILT from scratch (research/parity-static.mjs + parity-mobile.mjs + a11y-tree.mjs — the git-ignored scratch class) with the documented lessons re-encoded: the article-root card locator, the pagination split (page 1 = 12 cards; the "16 products found" text pin), the hidden Server Action inputs excluded, the auth-pair navs=0 expectation.
+
+## Audit summary
+
+- Deep audit 63-a (read-only subagent): **9/9 code anchors PASS — zero findings in src/tests/prisma/configs** — with the actionable findings ALL in the documentation trail:
+  - **63-a-1 (Medium, Verified, FIXED this cycle)**: `docs/session_113.md` carried COMMITTED git conflict markers (`<<<<<<< HEAD` at line 1, `=======` at 70, `>>>>>>> 32c92b8` at 294) — the operator's a306b4e pasted the conflicted file while simultaneously saving both sides as session_114.md (the Stripe narrative, byte-identical) and session_115.md (the run-62 raw log). Fixed content-preserving: session_113.md now holds ONLY the unique run-61 raw log (lines 2-69); the duplicated narrative side was deleted (it lives byte-identically in session_114.md). The trail reads cleanly now: 110=narr60, 111=raw60, 112=narr61, 113=raw61, 114=narr62, 115=raw62, 116=narr63.
+  - **63-a-2 (Low, Verified, FIXED)**: the stale Stripe-narrative pointers — AGENTS.md §Stripe, SKILL.md project_state, worklog Task 62 — referenced docs/session_113.md (pre-a306b4e numbering); repointed to docs/session_114.md with a TRAIL NOTE on the worklog entry.
+  - **63-a-3 (NIT, Verified, FIXED)**: session_114.md's H1 said "Session 113 (run 62)" inside the file named session_114.md; retitled to "Session 114 (run 62)".
+  - **NEW standing gate**: the docs sweep now greps `^(<<<<<<<|=======|>>>>>>>)` over the whole repo — a committed conflict marker can never land again (this class slipped through 115 sessions of sweeps because no gate looked for it).
+  - Informational, disposed no-change: the stripe-pay.tsx theme map (documented deliberate — the iframe cannot read page CSS); playwright forbidOnly CI-only (zero .only/.skip/.fixme/.todo in tests/ — the grep is clean).
+- Clone parity grid: **53/53 discrete checks PASS (35 static + 18 mobile)** — the rebuilt verifiers with two script-side corrections en route (the pagination split; the auth-pair navs=0) — health status-ok/db-up · sitemap 25 URLs private-excluded + about/contact + 5 legal routes · robots disallow · noindex on all 8 private surfaces · /products "16 products found" + page-1 12 cards + Damascus-first + first-8 prices + compare-at + reviews · home h1 "New Arrivals" + Featured + New Arrivals + 8 category tiles · JSON-LD home + Product · manifest + icon · CSP present · no X-Powered-By · og/twitter cards · footer legal links · mobile: conditional mount in DOM · 5 nav links + ≥7 guest links · search INPUT 209.3×40 @(16,80) · Close-menu 44×44 @(330,78) · aria-current pill · navigate-closes AND toggle-closes · scroll lock.
+- a11y tree audit (8 pages × 6 checks): **48/48 CLEAN** — mains=1 + h1s=1 + imgsNoAlt=0 + buttonsNoName=0 + inputsNoLabel=0 on all 8 pages; the auth pair pinned navs=0 (the intentional standalone auth design).
+- Live reference: **UNAVAILABLE for the NINTH consecutive cycle** (HTTP 503 with the Base44 publish-the-app shell, 10723 bytes, stable across immediate + delayed ~45s retries — environmental). Disposition unchanged: the run-53 live baseline + the seed-embodied pins (DB-verified) carried every expectation; the clone grid carried the verification load.
+- Reference repo re-verified at **`1ffda3d`** (in sync with origin/main, cloned OUTSIDE the repo tree) and the skills comparison re-confirmed (the operator-curated superset **2607 = 2598 + 9**, catalog md5 identical f69408bf…, zero reference files missing) + the sitemap/SEO comparison re-confirmed (the stricter superset: private surfaces excluded + about/contact + 5 legal routes + DB-failure-safe + the cuid /product/[id] route; the reference lists login/register/wishlist and has NO DB-failure guard — no adoption gaps).
+
+## Gates (run on the pulled tree; re-run on the final tree)
+
+- lint ✓ · typecheck ✓ · typecheck:tests ✓
+- Unit: **496/496 at 23.36s** (52 files — within the documented range)
+- Build: **22/22 static, zero prisma:error** (grep-verified, not just exit code)
+- E2E: **67/67 at 2.0m** — on the fresh-seed DB, the run doubling as the documented traffic generator: **5 orders (ORD-2026-001…005) / 17 reviews / Damascus 413 / FREESHIP 1 / latest ORD-2026-005, all DB-verified** → restore-demo-stock re-topped Damascus 21→24 + French Rolling Pin 43→44.
+
+## Screenshots
+
+- The documented final-capture sequence on the normalized DB (fresh seed → ONE e2e as the traffic generator → restore-demo-stock): the single clean capture ran **25/25 green on the FIRST pass** (the S53-1 image gate on a cold server, ninth consecutive cycle).
+- Byte-level diff (against `git show HEAD:` rasters — the session-59 lesson): **16/25 byte-identical** — 04b-cart-coupon-hint at its TWENTY-FIFTH consecutive byte-identical cycle, 21-mobile-menu-open, 11-checkout, 05-login, 10-register, 01-home, 02-products, 04-cart, 06-09, 19, 20, 22, 23.
+- The 9 changed shots ALL VLM-classified (band localization → 3-4x-upscaled crop extraction → VLM read → DB cross-check) and classified to TWO classes, zero repo action on the rendering:
+  - **The Stripe-retrofit raster debt (8 shots — 12/13/14/15/15b/16/17/18)**: run 62 added the admin sidebar "Payments" nav item (the /admin/payments ledger route) but refreshed ZERO screenshots (its 37-file change-set was src/tests/prisma/docs only) — so every admin shot's committed raster predated the sidebar. The diff is exactly the inserted "Payments" nav row + the ~44px downward shift of the existing items (the six ~44px-spaced 14-16px bands at x128-335 — sidebar-only; the content areas held pixel-identical). The older-committed shots (13/15/15b/16/17/18, last raster-refreshed sessions 38-45 era) carry the same single class. This cycle's capture pays the debt: the refreshed rasters are the proof the Stripe retrofit's admin surfaces render correctly.
+  - **03-product-detail** (682 px, 0.0191%, the single documented 11-row band y1168-1178): the irreducible review-ID band "Review 1792541645962" → "Review 1792551229009" — exactly this run's e2e-minted review "E2E review 1792551229009" @ 2026-10-21T02:53:49.477Z (DB-exact). The raster faithfully displays this run's DB truth.
+- Same-UTC-day capture on both sides for 12/14 (run 61 at Oct 21 00:30 UTC; this run at Oct 21 03:13 UTC) so the UTC-day drift class did NOT fire — the rolling chart axis and the order-date cells held (both runs' ORD-2026-001 on Oct 21 UTC).
+
+## S62-1 (docs sweep — the docs-trail integrity cycle)
+
+- The 63-a-1/2/3 fixes (session_113.md resolved to the unique run-61 raw log; the three stale pointers repointed to session_114.md; the session_114.md H1 retitle) + the NEW standing conflict-marker gate (grep over the whole repo — verified CLEAN after the fix).
+- The worklog Task 62 entry gained its missing `---` separator + `Task ID: 62` header (run 62 had appended it without the separator — a formatting defect this cycle also fixes).
+- The plan's Session 62 section (this section); SKILL v1.58.0 → v1.59.0 (project_state opening "sessions 2-60" → "sessions 2-62" + the Session 62 Appendix B entry with the three lessons: the committed-conflict-marker class + the standing grep gate; the feature-cycle raster-debt class — a feature commit that changes ANY rendered surface must refresh the rasters in the same cycle; the worklog-separator discipline); AGENTS plan range 2..60 → 2..62; the CLAUDE unit-bullet session-62 tail; README/PAD/DEPLOYMENT drift-checked (the 496/67 anchors stay accurate — unchanged); docs/session_116.md; the repo worklog Task 63.
+- Change-set: the 9 refreshed screenshots (the Stripe-retrofit raster debt + the irreducible review band) + the docs-trail fixes + the docs sweep. ZERO changes in src/tests/prisma.
+
+## Execution log
+
+- [x] git clone (sandbox reset #13): `ad63308` on main (the operator's 3 raw-log commits over run-62's 32c92b8 — a306b4e/5e5e3c9/ad63308, verified by git show --stat)
+- [x] Documentation review + codebase validation BEFORE work: AGENTS.md, CLAUDE.md, README.md, Project_Architecture_Document.md, homenest-store-s_SKILL.md (v1.58.0), session_113.md + session_114.md + session_115.md + the plan's Session 60 + worklog Tasks 61/62 — the documented contracts verified in source (db-path.ts anchors, sitemap privacy + STATIC_ROUTES, robots disallow, the mobile-nav conditional mount, .env.example's 8 env vars incl. the Stripe trio, skills exclusion, .gitignore)
+- [x] Environment rebuilt: npm install (Next 16.4.0 / Prisma 6.19.3) · .env (DATABASE_URL contract + fresh AUTH_SECRET) · db:setup (seed pins DB-verified: Damascus-first 19999/27999/412 reviews/24 stock; coupons WELCOME10→SAVE20→FREESHIP; 0 orders / 16 template reviews / 2 users) · chromium-1248 reinstalled
+- [x] Gate chain on the pulled tree: lint · typecheck · typecheck:tests · 496/496 unit at 23.36s · build 22/22 static zero prisma:error · 67/67 e2e at 2.0m + the traffic class DB-verified + restore-demo-stock
+- [x] Reference repo re-verified at 1ffda3d (in sync, cloned OUTSIDE the repo tree); skills superset 2607 = 2598 + 9 (catalog md5 identical, zero missing); sitemap/SEO stricter superset re-confirmed
+- [x] Live-reference probe: HTTP 503 stable across immediate + delayed ~45s retries (9th cycle, environmental)
+- [x] The parity/a11y verifiers REBUILT (research/ scratch) with the documented lessons encoded; clone parity grid 53/53 (35 static + 18 mobile) with two script-side corrections (the pagination split; the auth-pair navs=0)
+- [x] a11y tree audit 48/48 CLEAN (8 pages × 6 checks)
+- [x] Deep audit 63-a (read-only subagent): 9/9 code anchors PASS; the docs-trail findings 63-a-1/2/3 — all FIXED this cycle + the standing conflict-marker gate added
+- [x] Screenshots: 25/25 green first pass; 16/25 byte-identical (vs git-show ground truth); the 9 changed shots all VLM-classified (the Stripe-raster-debt class ×8 + the irreducible review band on 03), DB-cross-checked where applicable
+- [x] S62-1 docs sweep: this section, the trail fixes, SKILL v1.59.0 (opening bump + Session 62 Appendix B entry), AGENTS 2..62, CLAUDE tail, session_116.md, worklog Task 63 (+ the Task 62 separator fix)
+- [x] Final gates re-run on the final tree (below)
+- [x] Commit + push to main through the SSH wrapper (fast-forward, no new branches)
