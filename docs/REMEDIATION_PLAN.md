@@ -8222,3 +8222,116 @@ expectations (DB-verified each cycle).
 - [x] S62-1 docs sweep: this section, the trail fixes, SKILL v1.59.0 (opening bump + Session 62 Appendix B entry), AGENTS 2..62, CLAUDE tail, session_116.md, worklog Task 63 (+ the Task 62 separator fix)
 - [x] Final gates re-run on the final tree (below)
 - [x] Commit + push to main through the SSH wrapper (fast-forward, no new branches)
+
+# Session 63 (run 64) — 2026-10-21 — the thirty-first remediation cycle: the second SURVIVING-workspace continuation + the traffic-owned-pin hardening cycle
+
+> Zero findings at Critical/High/Medium/Low (deep audit 64-a: 9/9 code anchors
+> PASS, three informational NITs — all documented intentional behavior: the
+> demo-credential opt-in surface, the local `.env` hygiene note, and
+> `Product.rating Float` being the one non-integer numeric column, which is a
+> 0–5 aggregate, not money). Zero changes in src/tests/prisma — the change-set
+> is the 1 traffic-owned screenshot (03's irreducible review-ID band) + the
+> docs sweep. The standing conflict-marker grep gate ran CLEAN (its second
+> consecutive cycle).
+
+## The cycle
+
+The workspace SURVIVED (the second consecutive no-reset continuation): the
+pull was a fast-forward of exactly one file (`docs/session_117.md`, 87
+insertions — the operator's raw log of run 63), the environment verified
+per-layer (node_modules, db/, .env, the venv-less shim-less state, the
+reference clone, AND the persisted `research/` verifiers — the first cycle
+where the parity grid did NOT need rebuilding), and the DATABASE_URL
+process-env shadow (still `file:/home/z/my-project/db/custom.db`,
+nonexistent) was converged via the SYMLINK variant of the documented trap
+disposition (`ln -sfn <repo>/db /home/z/my-project/db`) — one setup, every
+later command converges regardless of which env wins, strictly more durable
+than the per-command absolute-export of runs 61–63.
+
+The gate chain on the pulled tree: lint ✓ · typecheck ✓ · typecheck:tests ✓
+· **496/496 unit at 23.48s** · **build 22/22 static, zero prisma:error** ·
+**67/67 e2e at 2.0m** — then the documented final-capture normalization
+(fresh reseed with every pin DB-verified: Damascus-first 19999/27999/412
+reviews/24 stock, coupons WELCOME10→SAVE20→FREESHIP, 0 orders / 16 template
+reviews / 2 users; ONE e2e as the traffic generator: 5 orders / 17 reviews /
+Damascus 413 / FREESHIP 1 / latest ORD-2026-005, all DB-exact; restore-demo
+stock re-topped Damascus 21→24 + French Rolling Pin 43→44).
+
+## The verification surfaces
+
+- **Reference repo** re-verified at `1ffda3d` (fetch + rev-parse: local HEAD
+  == origin/main — in sync, cloned OUTSIDE the repo tree).
+- **Skills comparison**: the operator-curated superset re-confirmed — 2607
+  files = the reference's 2598 + the operator's 9; the shared
+  skills-catalog.md md5 IDENTICAL (f69408bf…); zero reference skill files
+  missing. The `skills/` folder remains excluded from every gate's scope.
+- **Sitemap/SEO comparison**: the stricter superset re-confirmed by source
+  read — the reference lists login/register/wishlist in its sitemap and has
+  no DB-failure guard; the clone excludes every private surface, adds
+  about/contact + the 5 legal routes, is DB-failure-safe, and uses the cuid
+  /product/[id] route. No adoption gaps.
+- **Live reference**: HTTP 503 with the Base44 publish-the-app shell (10723
+  bytes) on /, /products, /login — stable across immediate + delayed ~45s
+  retries. The TENTH consecutive unavailable cycle (environmental); the
+  run-53 live baseline + the seed-embodied pins carried every expectation.
+- **Clone parity grid**: 53/53 discrete checks PASS (35 static + 18 mobile)
+  — the PERSISTED run-63 verifiers ran (the surviving-workspace dividend)
+  with exactly ONE script-side correction: the traffic-owned review-pin
+  drift (the static grid's Damascus-card pin `\(41[23]\)` failed at 414 —
+  each e2e run adds exactly +1 Damascus review; widened to the
+  traffic-tolerant `\(41[2-9]\)` range pin, encoded IN the script per the
+  session-62 verifier-rebuild lesson). The mobile grid 18/18 untouched —
+  the Tailwind v4 mobile-nav contract (conditional mount, toggle-closes,
+  scroll lock, active-pill) holds unmodified.
+- **a11y tree audit**: 48/48 CLEAN (8 pages × 6 checks).
+- **Deep audit 64-a** (read-only subagent): 9/9 code anchors PASS — mobile
+  nav conditional mount with ZERO `classList` matches repo-wide; full-hsl()
+  @theme tokens + the hover custom-variant + no tailwind.config.*; the
+  sitemap/robots/noindex privacy contract; the db-path resolution; the
+  Stripe seams (sentinel mirror, pure seams, lazy client, raw-body webhook
+  verification, the intent UNIQUE anchor + dedup model); test integrity
+  with ZERO .only/.skip/fixme/todo; security greps clean; the client-island
+  boundary clean. Fresh-eyes: zero console.log, zero `any`, zero
+  TODO/FIXME, zero dead code.
+
+## The screenshots
+
+The documented final-capture sequence on the normalized DB: **25/25 green
+on the single clean cold-server pass** (the S53-1 image gate). Byte-level
+diff vs `git show HEAD:` ground truth: **24/25 byte-identical** — every
+deterministic pin held (04b-cart-coupon-hint, 21-mobile-menu-open, all nine
+admin shots incl. the run-63 Payments-nav refresh, 05-login, 10-register,
+15b-admin-coupons, 02-products, 01-home, 04-cart, 06–09, 11-checkout,
+13, 15–20, 22, 23). The sole changed shot **03-product-detail**: 617 px
+(0.0173%) confined to the single documented 11-row band y1168-1178, col
+extent 245-310 — the irreducible review-ID band "Review 1792551229009" →
+"Review 1792558432284", exactly this run's e2e-minted row (DB-exact:
+`E2E review 1792558432284` @ 04:53:52.531Z on the fresh-seed DB). The
+band-localization scratch (pngjs installed `--no-save`, the diff script
+parked in git-ignored `research/`) left the package manifests untouched —
+verified by git status.
+
+## S63-1 (docs sweep)
+
+This section; SKILL v1.59.0 → v1.60.0 (project_state opening "sessions
+2-62" → "sessions 2-63" + the Session 63 Appendix B entry with the four
+lessons below); AGENTS plan range 2..62 → 2..63; the CLAUDE unit-bullet
+session-63 tail; `docs/session_118.md` (this run's narrative); the repo
+worklog Task 64. README/PAD/DEPLOYMENT drift-checked accurate — unchanged
+(the 496/67/8-env-var anchors stay accurate).
+
+## Execution log
+
+- [x] git pull: fast-forward f6e5498 → 5655cbf (docs/session_117.md only — the operator's raw log of run 63, 87 insertions, verified by git show --stat); working tree clean
+- [x] Documentation review + codebase validation BEFORE work: AGENTS.md, CLAUDE.md, README.md, Project_Architecture_Document.md, homenest-store-s_SKILL.md (v1.59.0), session_114.md + session_116.md + session_117.md + the plan's Session 62 + worklog Tasks 62/63
+- [x] Environment verified per-layer (surviving workspace); DATABASE_URL shadow converged via the symlink disposition
+- [x] Gate chain on the pulled tree: lint · typecheck · typecheck:tests · 496/496 unit at 23.48s · build 22/22 static zero prisma:error · 67/67 e2e at 2.0m
+- [x] Reference repo re-verified at 1ffda3d (HEAD == origin/main); skills superset 2607 = 2598 + 9 (catalog md5 identical, zero missing); sitemap/SEO stricter superset re-confirmed
+- [x] Live-reference probe: HTTP 503 stable across immediate + delayed ~45s retries (10th cycle, environmental)
+- [x] Clone parity grid 53/53 (35 static + 18 mobile) with ONE script-side correction (the traffic-tolerant review pin — zero repo impact); a11y tree audit 48/48 CLEAN
+- [x] Deep audit 64-a (read-only subagent): 9/9 code anchors PASS, zero actionable findings (three informational NITs, all documented intentional behavior)
+- [x] Standing conflict-marker grep gate: CLEAN (second consecutive cycle)
+- [x] Screenshots: the normalized final-capture sequence — 25/25 green on the single cold pass; 24/25 byte-identical (vs git-show ground truth); 03's single-band change classified + DB-cross-checked (this run's e2e review, DB-exact)
+- [x] S63-1 docs sweep: this section, SKILL v1.60.0 (opening bump + Session 63 Appendix B entry), AGENTS 2..63, CLAUDE tail, session_118.md, worklog Task 64
+- [x] Final gates re-run green on the final tree
+- [x] Commit + push to main through the SSH wrapper (fast-forward, no new branches)
