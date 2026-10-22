@@ -1,7 +1,7 @@
 # Skills Inventory — my-pi-agent
 
-> Auto-generated comprehensive inventory of the spec-compliant skill packages under `skills/`. **Synced with `skills/skills-catalog.md` (2026-10-02) — catalog is source of truth.**
-> **218 skills** listed (13920 files, 4 nested sub-skills/templates inside entries). A skill is listed only when its top-level folder under `skills/` contains a `SKILL.md` with a skill-spec-compliant YAML header — `name` (lowercase letters, digits, hyphens; max 64 chars; matches the folder name) and `description` (non-empty; max 1024 chars). 21 grouping folders without a top-level `SKILL.md` and 28 folders whose frontmatter fails validation are excluded — full list in [Validation & Exclusions](#validation--exclusions) below.
+> Auto-generated comprehensive inventory of the spec-compliant skill packages under `skills/`. **Synced with `skills/skills-catalog.md` (2026-10-22) — catalog is source of truth.**
+> **248 skills** listed (14075 files, 4 nested sub-skills/templates inside entries). A skill is listed only when its top-level folder under `skills/` contains a `SKILL.md` with a skill-spec-compliant YAML header — `name` (lowercase letters, digits, hyphens; max 64 chars; matches the folder name) and `description` (non-empty; max 1024 chars). 21 grouping folders without a top-level `SKILL.md` and 29 folders whose frontmatter fails validation are excluded — full list in [Validation & Exclusions](#validation--exclusions) below.
 
 ---
 
@@ -24,14 +24,14 @@ Skills are listed alphabetically within each category. Use the category index be
 
 ## Category Index
 
-1. **Frontend Development & UI Engineering** — 50 skills — [jump](#1-frontend-development--ui-engineering)
+1. **Frontend Development & UI Engineering** — 52 skills — [jump](#1-frontend-development--ui-engineering)
 2. **Design Artifacts & Visual Creation** — 16 skills — [jump](#2-design-artifacts--visual-creation)
 3. **Full-Stack & Backend Development** — 13 skills — [jump](#3-full-stack--backend-development)
-4. **AI / ML / Multimodal SDK Skills** — 11 skills — [jump](#4-ai--ml--multimodal-sdk-skills)
-5. **Testing, QA & Performance** — 28 skills — [jump](#5-testing-qa--performance)
-6. **Code Quality, Security & Architecture** — 23 skills — [jump](#6-code-quality-security--architecture)
-7. **Planning, Workflow & Project Management** — 32 skills — [jump](#7-planning-workflow--project-management)
-8. **Documentation & Content Creation** — 24 skills — [jump](#8-documentation--content-creation)
+4. **AI / ML / Multimodal SDK Skills** — 12 skills — [jump](#4-ai--ml--multimodal-sdk-skills)
+5. **Testing, QA & Performance** — 31 skills — [jump](#5-testing-qa--performance)
+6. **Code Quality, Security & Architecture** — 35 skills — [jump](#6-code-quality-security--architecture)
+7. **Planning, Workflow & Project Management** — 40 skills — [jump](#7-planning-workflow--project-management)
+8. **Documentation & Content Creation** — 28 skills — [jump](#8-documentation--content-creation)
 9. **Career, Learning & Personal Development** — 12 skills — [jump](#9-career-learning--personal-development)
 10. **DevOps, Infrastructure & External Integrations** — 9 skills — [jump](#10-devops-infrastructure--external-integrations)
 
@@ -40,7 +40,7 @@ Skills are listed alphabetically within each category. Use the category index be
 ## 1. Frontend Development & UI Engineering
 
 > Skills for building, styling, and shipping production-grade web interfaces.
-> **50 skills** in this category.
+> **52 skills** in this category.
 
 ### `agent-browser`
 
@@ -119,7 +119,7 @@ Skills are listed alphabetically within each category. Use the category index be
 
 | Name | Path | Description |
 |------|------|-------------|
-| `rutalist-portfolio-nextjs` | `skills/brutalist-portfolio-nextjs/rutalist-portfolio-nextjs` | Build, port, or remediate an avant-garde, anti-generic personal portfolio using Next.js 16 App Router with a Tactile Brutalism + High-End Editorial design system. Covers the complete architectural lifecycle from Vite SPA migration through four remediation phases to production: CSS-first design tokens with dual-theme (Night/Day), client-side SPA orchestrator embedded in Next.js, hash-based routing with keyboard focus management, lazy-loaded sections with ErrorBoundary + Suspense, optional database with graceful null handling, WCAG AAA accessibility (discriminated union API responses, ARIA, r... |
+| `brutalist-portfolio-nextjs` | `skills/brutalist-portfolio-nextjs/rutalist-portfolio-nextjs` | Build, port, or remediate an avant-garde, anti-generic personal portfolio using Next.js 16 App Router with a Tactile Brutalism + High-End Editorial design system. Covers the complete architectural lifecycle from Vite SPA migration through four remediation phases to production: CSS-first design tokens with dual-theme (Night/Day), client-side SPA orchestrator embedded in Next.js, hash-based routing with keyboard focus management, lazy-loaded sections with ErrorBoundary + Suspense, optional database with graceful null handling, WCAG AAA accessibility (discriminated union API responses, ARIA, r... |
 
 ### `charts`
 
@@ -158,11 +158,11 @@ Skills are listed alphabetically within each category. Use the category index be
 
 - **Path**: `skills/design`
 - **SKILL.md**: [`skills/design/SKILL.md`](skills/design/SKILL.md)
-- **Title**: Design Skill
+- **Title**: Design Skill（设计技能）
 - **Files**: 561
 - **Structure**: flat
 
-> Route design-related HTML artifact tasks to the right artifact skill, reference, design system generation, or export skill.
+> Route design-related HTML artifact tasks (landing pages, portfolios, prototypes, decks, content pages, web tools, social cards, info-interactive) to the right artifact skill, and decide whether to use design-system-reference, design-system-generation, or export. Use for any UI/visual/HTML design work.
 
 ### `e-commerce-nextjs16-monorepo`
 
@@ -423,6 +423,18 @@ Skills are listed alphabetically within each category. Use the category index be
 
 > MVP/production React 19 + TypeScript 6 strict + Vite 8 (Rolldown) + Tailwind CSS v4 CSS-first @theme. File-based routing, pnpm, Vitest + Playwright E2E. Covers complete lifecycle from scaffold to shipping tested, type-safe, WCAG AAA, production-grade code. Use when building new greenfield web apps with modern React + Vite + Tailwind v4.
 
+### `replicate-web-app`
+
+- **Path**: `skills/replicate-web-app`
+- **SKILL.md**: [`skills/replicate-web-app/SKILL.md`](skills/replicate-web-app/SKILL.md)
+- **Title**: Authorized Web Application Investigation and Reconstruction
+- **License**: MIT
+- **Version**: 5.1.0
+- **Files**: 5
+- **Structure**: flat
+
+> Investigate an authorized web application (clone, copy, migrate, replicate, rebuild, make a copy of; supports no-code platforms like Base44, Lovable, Bolt, Replit) using REA and browser evidence, then build and verify a production-quality, behaviorally similar web application in the current codebase. Use when asked to clone, replicate, migrate, or rebuild a web app.
+
 ### `sanity-best-practices`
 
 - **Path**: `skills/sanity-best-practices`
@@ -559,6 +571,17 @@ Skills are listed alphabetically within each category. Use the category index be
 - **Structure**: flat
 
 > Vue 3.5+ (Composition API) + Nuxt 4 full-stack TypeScript workflow skill. Covers the reactivity system (ref vs reactive, computed, watch vs watchEffect, automatic dependency tracking — fundamentally different from React hooks' manual dependency arrays), Single File Components (.vue with <script setup>), Nuxt 4 project structure (app/ directory, server/api/, nuxt.config.ts), file-based routing with definePageMeta, layout system, data fetching (useFetch, useAsyncData, $fetch), server routes via Nitro engine, Pinia for state management (the modern Vuex successor), nuxt-auth (Auth.js wrapper) o...
+
+### `web-app-foundation`
+
+- **Path**: `skills/web-app-foundation`
+- **SKILL.md**: [`skills/web-app-foundation/SKILL.md`](skills/web-app-foundation/SKILL.md)
+- **Title**: Web App Foundation — Master Engineering Skill
+- **Version**: 1.0.0
+- **Files**: 1
+- **Structure**: flat
+
+> Master engineering skill for scaffolding, extending, or remediating ANY production web application with authentication, a dashboard, and charting on Next.js 16 App Router + React 19 + TypeScript strict + Tailwind CSS v4 (CSS-first) + Prisma + SQLite/PostgreSQL + Zustand + recharts. Distilled and generalized from four sibling production codebases (digma, neo-crm, project-management, zero-balance — 1,177 commits of build/remediation history). Covers the full stack: env contract, db-path seam, scrypt+HMAC auth with verification/reset/revocation, zod-validated API envelope, per-user tenancy, KP...
 
 ### `web-frameworks`
 
@@ -908,7 +931,7 @@ Skills are listed alphabetically within each category. Use the category index be
 ## 4. AI / ML / Multimodal SDK Skills
 
 > Skills that wrap the z-ai-web-dev-sdk or other AI/ML model clients for multimodal tasks.
-> **11 skills** in this category.
+> **12 skills** in this category.
 
 ### `aminer-academic-search`
 
@@ -932,6 +955,18 @@ Skills are listed alphabetically within each category. Use the category index be
 - **Structure**: `scripts/`
 
 > Personalized academic paper recommendation via AMiner rec5 API. Activate this skill whenever the user asks for paper recommendations, whether triggered by /aminer-dp, /skill aminer-dp, or any natural language request such as 'recommend me papers on multimodal agents'. When invoked: extract topics/scholar signals from the input yourself, call handle_trigger.py with structured fields, then present the Markdown in `reply_text` to the user.
+
+### `aminer-deep-search`
+
+- **Path**: `skills/aminer-deep-search`
+- **SKILL.md**: [`skills/aminer-deep-search/SKILL.md`](skills/aminer-deep-search/SKILL.md)
+- **Title**: AMiner Deep Search
+- **Version**: 2.0.0
+- **Author**: AMiner
+- **Files**: 8
+- **Structure**: `scripts/`
+
+> Activate this skill when the user wants deep, multi-round academic paper collection for a survey or literature review. The host model (the model running this skill) drives the loop itself: it expands queries, judges relevance, snowballs backward references, and decides when to stop. The bundled scripts are pure tool commands that call documented AMiner Open Platform endpoints and print JSON tool results only — no extra LLM configuration is needed. Use this skill for broad topic exploration, survey bibliography construction, and collecting hundreds of candidate papers with AMiner IDs and tit...
 
 ### `auto-target-tracker`
 
@@ -1045,7 +1080,7 @@ Skills are listed alphabetically within each category. Use the category index be
 ## 5. Testing, QA & Performance
 
 > Skills for test design, end-to-end testing, performance work, and quality assurance.
-> **28 skills** in this category.
+> **31 skills** in this category.
 
 ### `before-and-after`
 
@@ -1190,6 +1225,16 @@ Skills are listed alphabetically within each category. Use the category index be
 
 > Records visual proof while testing UI behavior — the agent tests the app hands-on via computer use while a screen recording with structured test/assertion annotations captures the session — then posts the video and a results summary to the PR and tracker issue. Use whenever a change needs verifiable evidence that it works, instead of prose claims — including headless environments (scripted screenshots and probes) and non-UI changes (measured numbers, output pairs).
 
+### `full-page-screenshot`
+
+- **Path**: `skills/full-page-screenshot`
+- **SKILL.md**: [`skills/full-page-screenshot/SKILL.md`](skills/full-page-screenshot/SKILL.md)
+- **Title**: Full-Page Website Screenshot — Quality-Gated Capture Methodology
+- **Files**: 6
+- **Structure**: `scripts/`
+
+> Capture pixel-perfect, full-page PNG screenshots of any website, landing page, or web app using the agent-browser CLI, with load verification, lazy-content scroll triggering, and post-capture integrity checks. Use this skill whenever the user asks to screenshot, screen-capture, or snapshot a webpage, save a page/site/landing page as a PNG or image file, document how a rendered page looks, or visually verify a built page — even if they only say "grab the page", "capture the landing page", or "save this site as an image" and never literally say "full page" or "screenshot".
+
 ### `interview-designer`
 
 - **Path**: `skills/interview-designer`
@@ -1242,6 +1287,26 @@ Skills are listed alphabetically within each category. Use the category index be
 - **Structure**: `references/`
 
 > Automate browser interactions, test web pages and work with Playwright tests. Is a better choice for traditional browser testing - multi-browser support (Firefox, WebKit), Playwright-native locators, and the run-code command for custom Playwright snippets.
+
+### `principle-prove-it-works`
+
+- **Path**: `skills/principle-prove-it-works`
+- **SKILL.md**: [`skills/principle-prove-it-works/SKILL.md`](skills/principle-prove-it-works/SKILL.md)
+- **Title**: Prove It Works
+- **Files**: 1
+- **Structure**: flat
+
+> Apply after completing a task, before declaring done. Verify against the real artifact (run the feature, read the actual value, inspect the diff), not a proxy, self-report, or 'it compiles.'
+
+### `principle-test-behavior-not-implementation`
+
+- **Path**: `skills/principle-test-behavior-not-implementation`
+- **SKILL.md**: [`skills/principle-test-behavior-not-implementation/SKILL.md`](skills/principle-test-behavior-not-implementation/SKILL.md)
+- **Title**: Test Behavior, Not Implementation
+- **Files**: 1
+- **Structure**: flat
+
+> Apply when you write, change, or keep a test. Assert what the code's users can observe, so that the test fails when that behavior breaks and keeps passing when only the internals change.
 
 ### `readme-md`
 
@@ -1343,7 +1408,7 @@ Skills are listed alphabetically within each category. Use the category index be
 ## 6. Code Quality, Security & Architecture
 
 > Skills for code review, security hardening, architecture decisions, and refactoring.
-> **23 skills** in this category.
+> **35 skills** in this category.
 
 ### `anti-pua`
 
@@ -1354,6 +1419,26 @@ Skills are listed alphabetically within each category. Use the category index be
 - **Structure**: flat
 
 > 识别和分析PUA（Pickup Artist）及情感操纵行为的专业心理分析工具。具备人格分析、心理侧写、情感分析能力，能够识别情感操纵、煤气灯操纵、虐待等有毒关系模式，评估人格特质（如黑暗三人格、脆弱型自恋等），预测对方行为并给出具体的相处建议。当用户需要：分析对方言行动机、识别PUA/情感操纵行为、评估NPD（自恋型人格障碍）倾向、识别操纵行为、预测对方未来行为、寻求健康关系建议、分析黑暗三人格或光明三人格时使用此skill。
+
+### `architect`
+
+- **Path**: `skills/architect`
+- **SKILL.md**: [`skills/architect/SKILL.md`](skills/architect/SKILL.md)
+- **Title**: Architect
+- **Files**: 4
+- **Structure**: `references/`
+
+> Sketch types, signatures, and module structure before code, then stay in the loop while implementation fills in. Use for /architect, 'architect this', 'design this', or non-trivial work where jumping to code would lock in the wrong shape.
+
+### `blast-radius`
+
+- **Path**: `skills/blast-radius`
+- **SKILL.md**: [`skills/blast-radius/SKILL.md`](skills/blast-radius/SKILL.md)
+- **Title**: Blast radius
+- **Files**: 1
+- **Structure**: flat
+
+> Find what a change could break somewhere else before it ships, beyond the diff, and prove the one fact it's safe because of by running real code instead of writing it up. Use for 'blast radius of X', 'what could this break', reviewing a small diff you don't trust, or a brief that asserts something about existing code ('make X public', 'X already handles Y') before you design against that assertion.
 
 ### `clean-code`
 
@@ -1428,6 +1513,16 @@ Skills are listed alphabetically within each category. Use the category index be
 
 > Manages deprecation and migration. Use when removing old systems, APIs, or features. Use when migrating users from one implementation to another. Use when deciding whether to maintain or sunset existing code.
 
+### `deslop`
+
+- **Path**: `skills/deslop`
+- **SKILL.md**: [`skills/deslop/SKILL.md`](skills/deslop/SKILL.md)
+- **Title**: Remove AI code slop
+- **Files**: 1
+- **Structure**: flat
+
+> Remove AI-generated code slop and clean up code style
+
 ### `distill-codebase-skill`
 
 - **Path**: `skills/distill-codebase-skill`
@@ -1484,6 +1579,16 @@ Skills are listed alphabetically within each category. Use the category index be
 - **Structure**: `references/`
 
 > Iteratively improves a PR (GitHub), MR (GitLab), or shelved changelist (Perforce) until Greptile gives it a 5/5 confidence score with zero unresolved comments. Identical to greploop, but triggers reviews by tagging @greptile-apps, which bypasses Greptile's file-count limit on huge PRs that the plain @greptile mention refuses to review. Use when the user wants to fully optimize a large PR/MR/CL against Greptile's code review standards.
+
+### `how`
+
+- **Path**: `skills/how`
+- **SKILL.md**: [`skills/how/SKILL.md`](skills/how/SKILL.md)
+- **Title**: How
+- **Files**: 3
+- **Structure**: `references/`
+
+> Use for "how does X work", code walkthroughs before changing something, and placement / ownership / layering questions ("where should this live", "which package owns this", "is this the right layer"). Explains subsystem architecture, runtime flow, onboarding mental models. Use why for motivation.
 
 ### `improve-codebase-architecture`
 
@@ -1547,6 +1652,86 @@ Skills are listed alphabetically within each category. Use the category index be
 
 > Structured task planning with clear breakdowns, dependencies, and verification criteria. Use when implementing features, refactoring, or any multi-step work.
 
+### `principle-build-the-lever`
+
+- **Path**: `skills/principle-build-the-lever`
+- **SKILL.md**: [`skills/principle-build-the-lever/SKILL.md`](skills/principle-build-the-lever/SKILL.md)
+- **Title**: Build the Lever
+- **Files**: 1
+- **Structure**: flat
+
+> Apply to any non-trivial work, not just bulk work: edits, migrations, analyses, checks. Build the tool that does it or proves it (codemod, script, generator, or a skill your subagents follow) instead of working by hand. The tool is the artifact a reviewer can rerun.
+
+### `principle-fix-root-causes`
+
+- **Path**: `skills/principle-fix-root-causes`
+- **SKILL.md**: [`skills/principle-fix-root-causes/SKILL.md`](skills/principle-fix-root-causes/SKILL.md)
+- **Title**: Fix Root Causes
+- **Files**: 1
+- **Structure**: flat
+
+> Apply when debugging. Trace each symptom back to the first place the system went wrong and fix it there. A guard is a fix only when the state it handles is legitimate.
+
+### `principle-foundational-thinking`
+
+- **Path**: `skills/principle-foundational-thinking`
+- **SKILL.md**: [`skills/principle-foundational-thinking/SKILL.md`](skills/principle-foundational-thinking/SKILL.md)
+- **Title**: Foundational Thinking
+- **Files**: 1
+- **Structure**: flat
+
+> Apply before writing logic: choosing core types and data structures, sequencing scaffold-vs-feature work, asking what concurrent actors share. Get the data structures right so downstream code becomes obvious.
+
+### `principle-guard-the-context-window`
+
+- **Path**: `skills/principle-guard-the-context-window`
+- **SKILL.md**: [`skills/principle-guard-the-context-window/SKILL.md`](skills/principle-guard-the-context-window/SKILL.md)
+- **Title**: Guard the Context Window
+- **Files**: 1
+- **Structure**: flat
+
+> Apply when context is filling up: large outputs, long files, repeated reads, fan-out planning. Route bulk to subagents; keep summaries in the main thread, not raw payloads.
+
+### `principle-laziness-protocol`
+
+- **Path**: `skills/principle-laziness-protocol`
+- **SKILL.md**: [`skills/principle-laziness-protocol/SKILL.md`](skills/principle-laziness-protocol/SKILL.md)
+- **Title**: Laziness Protocol
+- **Files**: 1
+- **Structure**: flat
+
+> Apply when refactoring, evaluating diff size, or tempted to add abstractions, layers, or signal threading. Bias toward deletion and the smallest change that solves the problem.
+
+### `principle-never-block-on-the-human`
+
+- **Path**: `skills/principle-never-block-on-the-human`
+- **SKILL.md**: [`skills/principle-never-block-on-the-human/SKILL.md`](skills/principle-never-block-on-the-human/SKILL.md)
+- **Title**: Never Block on the Human
+- **Files**: 1
+- **Structure**: flat
+
+> Apply when tempted to ask 'should I do X?' on reversible work.
+
+### `principle-sequence-verifiable-units`
+
+- **Path**: `skills/principle-sequence-verifiable-units`
+- **SKILL.md**: [`skills/principle-sequence-verifiable-units/SKILL.md`](skills/principle-sequence-verifiable-units/SKILL.md)
+- **Title**: Sequence work into verifiable units
+- **Files**: 1
+- **Structure**: flat
+
+> Apply to multi-step work (sweeps, migrations, runs of similar edits) and to how you stack commits and PRs. Break work into small units that each end in a verifiable state, check each before the next, and order delivery so the sequence proves itself to a reviewer.
+
+### `principle-subtract-before-you-add`
+
+- **Path**: `skills/principle-subtract-before-you-add`
+- **SKILL.md**: [`skills/principle-subtract-before-you-add/SKILL.md`](skills/principle-subtract-before-you-add/SKILL.md)
+- **Title**: Subtract Before You Add
+- **Files**: 1
+- **Structure**: flat
+
+> Apply when sequencing an addition, refactor, or rewrite. Remove dead code, redundant validators, and stub references first, then build on the simpler base.
+
 ### `scaffold-exercises`
 
 - **Path**: `skills/scaffold-exercises`
@@ -1592,7 +1777,7 @@ Skills are listed alphabetically within each category. Use the category index be
 ## 7. Planning, Workflow & Project Management
 
 > Skills for planning work, managing projects, orchestrating sub-agents, and shipping.
-> **32 skills** in this category.
+> **40 skills** in this category.
 
 ### `ask-matt`
 
@@ -1633,6 +1818,36 @@ Skills are listed alphabetically within each category. Use the category index be
 - **Structure**: flat
 
 > Records decisions and documentation. Use when making architectural decisions, changing public APIs, shipping features, or when you need to record context that future engineers and agents will need to understand the codebase.
+
+### `fix-ci`
+
+- **Path**: `skills/fix-ci`
+- **SKILL.md**: [`skills/fix-ci/SKILL.md`](skills/fix-ci/SKILL.md)
+- **Title**: Fix CI
+- **Files**: 1
+- **Structure**: flat
+
+> Find failing PR checks, inspect logs or external check links, and apply focused fixes
+
+### `fix-merge-conflicts`
+
+- **Path**: `skills/fix-merge-conflicts`
+- **SKILL.md**: [`skills/fix-merge-conflicts/SKILL.md`](skills/fix-merge-conflicts/SKILL.md)
+- **Title**: Fix merge conflicts
+- **Files**: 1
+- **Structure**: flat
+
+> Resolve merge conflicts non-interactively, validate build and tests, and finalize conflict resolution
+
+### `get-pr-comments`
+
+- **Path**: `skills/get-pr-comments`
+- **SKILL.md**: [`skills/get-pr-comments/SKILL.md`](skills/get-pr-comments/SKILL.md)
+- **Title**: Get PR comments
+- **Files**: 1
+- **Structure**: flat
+
+> Fetch and summarize review comments from the active pull request
 
 ### `git-workflow-and-versioning`
 
@@ -1684,6 +1899,16 @@ Skills are listed alphabetically within each category. Use the category index be
 
 > Implement a piece of work based on a spec or set of tickets.
 
+### `implement-spec`
+
+- **Path**: `skills/implement-spec`
+- **SKILL.md**: [`skills/implement-spec/SKILL.md`](skills/implement-spec/SKILL.md)
+- **Title**: implement-spec
+- **Files**: 2
+- **Structure**: flat
+
+> Implement the result of /to-spec and /to-tickets in code.
+
 ### `interview-prep`
 
 - **Path**: `skills/interview-prep`
@@ -1713,6 +1938,16 @@ Skills are listed alphabetically within each category. Use the category index be
 - **Structure**: `scripts/`, `references/`
 
 > Design and scaffold an agent "loop" — an unattended, scheduled, self-verifying agent workflow. Use this whenever the user wants to automate a recurring task, schedule an agent, run an agent unattended or overnight, set up monitoring, triage, or alerting, poll something on a cadence, or turn a manual repeated workflow into a self-running one — even if they never say the word "loop." If a request implies "do this every day / on a schedule / until some condition holds, without me typing each time," reach for this skill. It walks the seven-question blueprint, picks the simplest loop pattern, an...
+
+### `make-pr-easy-to-review`
+
+- **Path**: `skills/make-pr-easy-to-review`
+- **SKILL.md**: [`skills/make-pr-easy-to-review/SKILL.md`](skills/make-pr-easy-to-review/SKILL.md)
+- **Title**: Make PR Easy to Review
+- **Files**: 1
+- **Structure**: flat
+
+> Prepare PRs for review by cleaning noisy history, improving PR descriptions, and adding reviewer guidance without changing code behavior. Use for "make this easy to review", "tidy this PR", "clean up commits", or "annotate the diff".
 
 ### `marketing-mode`
 
@@ -1788,6 +2023,16 @@ Skills are listed alphabetically within each category. Use the category index be
 
 > Breaks work into ordered tasks. Use when you have a spec or clear requirements and need to break work into implementable tasks. Use when a task feels too large to start, when you need to estimate scope, or when parallel work is possible.
 
+### `poteto-mode`
+
+- **Path**: `skills/poteto-mode`
+- **SKILL.md**: [`skills/poteto-mode/SKILL.md`](skills/poteto-mode/SKILL.md)
+- **Title**: Poteto mode
+- **Files**: 74
+- **Structure**: `scripts/`, `references/`
+
+> poteto's agent style for concise, detailed responses, deliberate subagents, unslopped prose, simple code, and verified work. Use for poteto, /poteto-mode, or requests to work in this style.
+
 ### `pptx-generator`
 
 - **Path**: `skills/pptx-generator`
@@ -1799,6 +2044,26 @@ Skills are listed alphabetically within each category. Use the category index be
 - **Structure**: `references/`
 
 > Generate, edit, and read PowerPoint presentations. Create from scratch with PptxGenJS (cover, TOC, content, section divider, summary slides), edit existing PPTX via XML workflows, or extract text with markitdown. Triggers: PPT, PPTX, PowerPoint, presentation, slide, deck, slides.
+
+### `pr`
+
+- **Path**: `skills/pr`
+- **SKILL.md**: [`skills/pr/SKILL.md`](skills/pr/SKILL.md)
+- **Title**: pr
+- **Files**: 3
+- **Structure**: flat
+
+> Use when writing a PR body.
+
+### `retro`
+
+- **Path**: `skills/retro`
+- **SKILL.md**: [`skills/retro/SKILL.md`](skills/retro/SKILL.md)
+- **Title**: retro
+- **Files**: 2
+- **Structure**: flat
+
+> Conduct a retrospective on a coding session.
 
 ### `shipping-and-launch`
 
@@ -1926,7 +2191,7 @@ Skills are listed alphabetically within each category. Use the category index be
 ## 8. Documentation & Content Creation
 
 > Skills that produce documents, presentations, spreadsheets, PDFs, or written content.
-> **24 skills** in this category.
+> **28 skills** in this category.
 
 ### `agents-md`
 
@@ -2028,7 +2293,17 @@ Skills are listed alphabetically within each category. Use the category index be
 - **Files**: 4
 - **Structure**: flat
 
-> Build and sharpen a project's domain model. Use when discussing codebase terminology, writing or editing a CONTEXT.md, or recording or editing an ADR.
+> Build and sharpen a project's domain model. Use when discussing codebase terminology, writing or editing a GLOSSARY.md, or recording or editing an ADR.
+
+### `experiment-suite`
+
+- **Path**: `skills/experiment-suite`
+- **SKILL.md**: [`skills/experiment-suite/SKILL.md`](skills/experiment-suite/SKILL.md)
+- **Title**: Experiment Suite
+- **Files**: 18
+- **Structure**: `references/`
+
+> Use when the user has a research question and needs a complete experiment package — design document, runnable code, results (measured or simulated with honest provenance), publication-grade figures, structured report. Single-stage, no Python runtime.
 
 ### `handoff`
 
@@ -2051,6 +2326,16 @@ Skills are listed alphabetically within each category. Use the category index be
 - **Structure**: flat
 
 > Remove signs of AI-generated writing and restore natural human voice. Archetype-based detection with heuristic triage, genre-gated positive humanization, forensic artifact scanning, and a dedicated fiction protocol. Synthesizes all prior editions (v1–v6) into a single operational system. Resilient to model evolution; safe for token-constrained environments.
+
+### `literature-survey`
+
+- **Path**: `skills/literature-survey`
+- **SKILL.md**: [`skills/literature-survey/SKILL.md`](skills/literature-survey/SKILL.md)
+- **Title**: Literature Survey
+- **Files**: 11
+- **Structure**: `references/`
+
+> Use when the user wants a comprehensive literature survey on a specific research topic. Outputs a complete PDF survey (6–20 pages, 60+ real citations, 100+ recommended) with LaTeX source, taxonomy figures, and a classified literature table. Single-stage, no Python runtime.
 
 ### `markdown-to-html`
 
@@ -2127,6 +2412,16 @@ Skills are listed alphabetically within each category. Use the category index be
 
 > Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. Use when the user wants a topic researched, docs or API facts gathered, or reading legwork delegated to a background agent.
 
+### `research-explorer`
+
+- **Path**: `skills/research-explorer`
+- **SKILL.md**: [`skills/research-explorer/SKILL.md`](skills/research-explorer/SKILL.md)
+- **Title**: Research Explorer
+- **Files**: 1
+- **Structure**: flat
+
+> Use when the user has a vague research direction and wants to explore feasible specific topics. Outputs a structured analysis with candidate topics, innovation/feasibility scoring, and a pre-survey of 20–30 representative works. Single-stage, no Python runtime.
+
 ### `resume-builder`
 
 - **Path**: `skills/resume-builder`
@@ -2156,6 +2451,16 @@ Skills are listed alphabetically within each category. Use the category index be
 - **Structure**: flat
 
 > 智能督学助手，管理用户的长期学习项目工作流。当用户表达学习项目相关意图时触发：创建/制定学习计划（"我想学X"、"帮我制定计划"）、汇报学习进度（"学完了"、"今天搞定了"、"完成今日任务"）、查询计划状态（"我学到哪了"、"看下进度"）、查看学习报告（"日报""周报""月报""项目总结""5月10号到15号的报告"）、晨间/晚间打卡复盘、督促、动态调整计划、抱怨学不下去时（情绪支持）。**🔴 项目生成流程铁律**：项目生成成功后**必须一口气走完"项目→知识点→计划表"**，禁止只汇报"项目已生成 / X 个知识点 / X 个模块"就停下，必须**立即**输出"DAY / 项目 / 知识点 / 时长 / 难度"表格供用户确认 DAY 安排，否则视为流程失败。**🔴 报告查询铁律**：用户表达查看学习报告意图时（日报/周报/月报/项目总结/任意时间段），必须从 USER.md 取**对应时间段**的 `project_id` + `knowledge_id`，传给 `study_buddy_supervise` 工具的 `study_check` action 拿原始数据，按"模块3 主动报告查询"输出，**全程只读不写 USER.md**。**不处理**：单次出题（→ quiz-mastery）、Cheatsheet 生成（→ cheat-sheet）、把题目文件导入做练习...
+
+### `technical-writing`
+
+- **Path**: `skills/technical-writing`
+- **SKILL.md**: [`skills/technical-writing/SKILL.md`](skills/technical-writing/SKILL.md)
+- **Title**: Technical writing
+- **Files**: 1
+- **Structure**: flat
+
+> Layered technical-writing standard: Diátaxis structure, Google developer style sentences, STE instruction rules, Global English syntax. Use for /technical-writing or when writing or reviewing docs, RFCs, readmes, PR descriptions, or commit messages.
 
 ### `to-distill-project-into-skill`
 
@@ -2338,7 +2643,7 @@ Skills are listed alphabetically within each category. Use the category index be
 
 | Name | Path | Description |
 |------|------|-------------|
-| `luxeverse-architect-skill` | `skills/luxeverse-architect/luxeverse-architect-skill` | Comprehensive Architectural & Execution Framework for Cinematic, Production-Grade, Anti-Generic Web Platforms |
+| `luxeverse-architect` | `skills/luxeverse-architect/luxeverse-architect-skill` | Comprehensive Architectural & Execution Framework for Cinematic, Production-Grade, Anti-Generic Web Platforms |
 
 ### `multi-search-engine`
 
@@ -2427,15 +2732,15 @@ Skills are listed alphabetically within each category. Use the category index be
 
 ## Summary Statistics
 
-- **Spec-compliant skills listed**: 218
-- **Top-level folders under `skills/` scanned**: 267
-- **Folders with a top-level `SKILL.md`**: 246
+- **Spec-compliant skills listed**: 248
+- **Top-level folders under `skills/` scanned**: 298
+- **Folders with a top-level `SKILL.md`**: 277
 - **Grouping folders without a top-level `SKILL.md` (excluded)**: 21
-- **Folders whose `SKILL.md` frontmatter fails skill-spec validation (excluded)**: 28
-- **Total files across listed skills**: 13920
+- **Folders whose `SKILL.md` frontmatter fails skill-spec validation (excluded)**: 29
+- **Total files across listed skills**: 14075
 - **Listed skills with nested sub-skills / templates**: 4 (4 nested sub-skills total)
-- **Listed skills with `scripts/`**: 61
-- **Listed skills with `references/`**: 50
+- **Listed skills with `scripts/`**: 64
+- **Listed skills with `references/`**: 55
 - **Listed skills with `scenes/`**: 2
 - **Listed skills with `routes/`**: 2
 - **Listed skills with `engines/`**: 1
@@ -2445,17 +2750,17 @@ Skills are listed alphabetically within each category. Use the category index be
 
 | # | Category | Skills |
 |---|----------|--------|
-| 1 | Frontend Development & UI Engineering | 50 |
+| 1 | Frontend Development & UI Engineering | 52 |
 | 2 | Design Artifacts & Visual Creation | 16 |
 | 3 | Full-Stack & Backend Development | 13 |
-| 4 | AI / ML / Multimodal SDK Skills | 11 |
-| 5 | Testing, QA & Performance | 28 |
-| 6 | Code Quality, Security & Architecture | 23 |
-| 7 | Planning, Workflow & Project Management | 32 |
-| 8 | Documentation & Content Creation | 24 |
+| 4 | AI / ML / Multimodal SDK Skills | 12 |
+| 5 | Testing, QA & Performance | 31 |
+| 6 | Code Quality, Security & Architecture | 35 |
+| 7 | Planning, Workflow & Project Management | 40 |
+| 8 | Documentation & Content Creation | 28 |
 | 9 | Career, Learning & Personal Development | 12 |
 | 10 | DevOps, Infrastructure & External Integrations | 9 |
-| | **Total** | **218** |
+| | **Total** | **248** |
 
 ---
 
@@ -2491,7 +2796,7 @@ These folders hold nested sub-skills or auxiliary content but are not skills the
 | `thinking-and-docs` | `before-building`, `brain-to-docs`, `decisions`, `level-up`, `next-decision`, `prompt-me`, `read-all-adrs`, `remind`, `save-idea`, `short` |
 | `valuation-reviewer` | `skills/ic-memo`, `skills/portfolio-monitoring`, `skills/returns-analysis`, `skills/xlsx-author` |
 
-### `SKILL.md` frontmatter not spec-compliant (28)
+### `SKILL.md` frontmatter not spec-compliant (29)
 
 These folders contain a `SKILL.md`, but its YAML header violates the skill spec (fix the frontmatter to have the skill included in the next sync):
 
@@ -2501,8 +2806,9 @@ These folders contain a `SKILL.md`, but its YAML header violates the skill spec 
 | `TTS` | `name: TTS` — lowercase letters, digits and hyphens only |
 | `VLM` | `name: VLM` — lowercase letters, digits and hyphens only |
 | `ai-news-collectors` | `name: ai-news-collector` does not match folder name `ai-news-collectors` |
-| `aminer-free-academic` | `description` is 1477 chars — exceeds 1024-char limit |
+| `aminer-free-academic` | `description` is 1478 chars — exceeds 1024-char limit |
 | `dotnet-9` | `description` is 1322 chars — exceeds 1024-char limit |
+| `ecommerce_website_scaffold` | `name: ecommerce-website-scaffold` does not match folder name `ecommerce_website_scaffold` |
 | `fastapi-sqlalchemy` | `description` is 1326 chars — exceeds 1024-char limit |
 | `fastify` | `description` is 1773 chars — exceeds 1024-char limit |
 | `flutter` | `description` is 1101 chars — exceeds 1024-char limit |
@@ -2512,7 +2818,7 @@ These folders contain a `SKILL.md`, but its YAML header violates the skill spec 
 | `htmx` | `description` is 1777 chars — exceeds 1024-char limit |
 | `keystonejs-6` | `description` is 2168 chars — exceeds 1024-char limit |
 | `nestjs` | `description` is 1502 chars — exceeds 1024-char limit |
-| `nextjs16-react19-tailwindv4-trpcv11-drizzle-better-auth` | `description` is 1130 chars — exceeds 1024-char limit |
+| `nextjs16-react19-tailwindv4-trpcv11-drizzle-better-auth` | `description` is 1131 chars — exceeds 1024-char limit |
 | `pdf-old-20260806` | `name: pdf` does not match folder name `pdf-old-20260806` |
 | `phoenix-1-7` | `description` is 1456 chars — exceeds 1024-char limit |
 | `podcast-generate` | `name: Podcast Generate` — lowercase letters, digits and hyphens only; `name: Podcast Generate` does not match folder name `podcast-generate` |
