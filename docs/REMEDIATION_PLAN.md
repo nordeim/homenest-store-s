@@ -9379,3 +9379,176 @@ DEPLOYMENT.md drift-checked accurate — unchanged.
 - [x] S69-3 docs sweep: this section, SKILL v1.66.0 (opening bump + Session 69 Appendix B entry), AGENTS 2..69, CLAUDE tail, README/PAD count bumps, session_130.md, worklog Tasks 70-a + 70
 - [x] Final gates re-run green on the final tree (lint · typecheck · typecheck:tests · 496/496 unit · build · 68/68 e2e)
 - [x] Commit + push to main through the SSH wrapper (fast-forward, no new branches)
+
+## Session 70 — Run 71 (the thirty-eighth remediation cycle: the fresh-clone recovery + the clean-verification cycle)
+
+> Zero changes in src/tests/prisma. The change-set: the 1 traffic-owned
+> screenshot (03-product-detail's review-ID band — this run's e2e row,
+> 685 px in the same 11-row band y1168-1178, DB-exact) + the docs sweep
+> (this section; SKILL v1.66.0 → v1.67.0 with the project_state opening
+> sessions 2-69 → 2-70 + the Session 70 Appendix B entry with the four
+> lessons [the combobox-vs-select class; the static-responsive-pair
+> class; the page-aware landmark expectation; the agent-browser
+> eval-quoting family]; AGENTS plan range 2..69 → 2..70; the CLAUDE
+> unit-bullet session-70 tail; docs/session_132.md; the repo worklog
+> Tasks 71-a + 71). No e2e/unit count changes this cycle (496/68 —
+> verified against README/PAD, no drift). DEPLOYMENT.md drift-checked
+> accurate — unchanged.
+
+### The recovery and the review
+
+The sandbox started clean (no local clone — the git clone to `e573a2a`
+on main = run 70's `ff65bd2` plus the operator's session_131.md raw-log
+commit — a docs-only delta, `src/tests/prisma` byte-identical, verified
+by `git diff ff65bd2..e573a2a -- src tests prisma` → EMPTY). The
+environment was rebuilt from the documented runbook: npm install
+(Next 16.4.0 / Prisma 6.19.3), `.env` with the DATABASE_URL contract + a
+fresh AUTH_SECRET, the SYMLINK convergence for the re-confirmed
+process-env shadow (`/home/z/my-project/.env` →
+`file:/home/z/my-project/db/custom.db`; `ln -sfn <repo>/db
+/home/z/my-project/db`), `db:setup` with every seed pin DB-verified
+(Damascus-first 19999/27999/412/24, rating 4.9; coupons FREESHIP →
+SAVE20 → WELCOME10 all 0-used; the 0/16/2 baseline asserted directly;
+the authored first-8 order matching the session-34 pinning), and
+chromium-1248 installed in the foreground (the documented session-44
+class).
+
+The docs review covered AGENTS.md, CLAUDE.md, README.md, PAD, the SKILL
+at v1.66.0, session_131.md (the operator's raw log of run 70),
+session_130.md (run 70's formal narrative), the plan's Session 69
+section, and the worklog Tasks 70-a + 70. The documented contracts were
+verified in source before any work: the db-path resolution anchors, the
+sitemap privacy + STATIC_ROUTES, the robots disallow set, the
+mobile-nav conditional mount + zero classList repo-wide, the
+.env.example surface, the skills exclusion across all five tooling
+configs, and .gitignore.
+
+### The gate chain (all green on the pulled tree)
+
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · **496/496 unit at 23.44s**
+(52 files) · **build green, zero prisma:error** (grep-verified; 22/22
+static pages; the standalone server.js present; `ƒ /_not-found` in the
+route table — the S69-2 fix holds) · **68/68 e2e at 1.9m** — the run
+doubling as the documented traffic generator: 5 orders
+(ORD-2026-001…005) / 17 reviews / Damascus 413 / FREESHIP 1, all
+DB-verified, then restore-demo-stock re-topped Damascus 21→24 + French
+Rolling Pin 43→44.
+
+### The verification surfaces
+
+- **Reference repo**: re-verified at `bb2dc8e` — unchanged since run 70
+  (`git fetch` + `rev-parse`: local HEAD == origin/main, cloned OUTSIDE
+  the repo tree).
+- **Skills comparison**: the landscape is UNCHANGED since run 70 — the
+  clone's superset stays **2809 = the reference's 2770 + the operator's
+  39** (find-based; all `pdf-old-20260806/**`); MISSING=0; all 2770
+  shared files byte-identical; the two skills-catalog md5s MATCH
+  (`d45937371e02f3cbc9fd9130bff5ae79` on both sides).
+- **Sitemap/SEO comparison**: the stricter superset re-confirmed by
+  source read on both sides (the reference lists wishlist/login/register
+  in its sitemap with no DB-failure guard and an inline base-URL
+  fallback; the clone excludes every private surface, adds about/
+  contact + the 5 legal routes, is DB-failure-safe, and single-sources
+  `siteBaseUrl()`). No adoption gaps.
+- **Live reference**: HTTP 503 with the Base44 publish-the-app shell
+  (10339 bytes on / and /login), stable across immediate + delayed
+  ~45s retries — the **SEVENTEENTH consecutive dark cycle**
+  (environmental). The documented parity baseline carried every
+  expectation.
+- **Clone parity grid**: rebuilt at **67/67 (45 static + 22 mobile)**.
+  Two first-run failures were both VERIFIER-SIDE expectation bugs, both
+  fixed script-side with zero repo impact (the documented
+  verifier-expectation family): the products filters are Radix Selects —
+  `role="combobox"` buttons carrying `aria-label="Filter by category"`
+  and `aria-label="Sort products"`, NOT native `<select>` elements; and
+  the mobile panel's `lg:hidden` is a static responsive pair (the
+  documented ALLOWED pattern — the v4 trap is JS-TOGGLING display
+  utilities), which a `\bhidden\b` regex false-matched — replaced by
+  the exact standalone-token check. The mobile grid encodes the full
+  Tailwind v4 contract: conditional mount, no-JS-toggled-hidden, toggle
+  opens/closes, scroll lock engaging/releasing, the bg-primary active
+  pill, the aria-label flip, the panel search flow (`q=mixer` →
+  Professional Stand Mixer), the route-change close from a different
+  route, no horizontal overflow at 390px, and the close-button (44×44
+  @330,78) + search-box (209×40 @16,80) geometry pins.
+- **a11y tree audit**: rebuilt at **48/48 CLEAN** (8 pages × 6 checks
+  on the cuid detail URL; decorative `alt=""` counted CORRECT; hidden
+  Server Action inputs excluded). One first-run expectation bug fixed
+  script-side: the (auth) pages deliberately ship ONLY `<main>` (S47-1)
+  — the landmark check is now page-aware instead of blanket
+  banner+main+contentinfo.
+- **agent-browser cross-check**: rebuilt at **36/36 PASS** — the mobile
+  surface (viewport APPLIED and asserted at 390 via innerWidth), the
+  full panel anatomy via scoped snapshots, the close-button geometry
+  (44×44) + green-circular class, the scroll-lock cycle, the panel
+  search flow (`q=mixer` → Professional Stand Mixer via the
+  scoped-snapshot ref), the route-change close + reopen + close cycle,
+  the desktop search flow (viewport asserted at 1280), the
+  product-detail anatomy on the cuid route, the 404 hydration (S69-2
+  verified on this surface too), ZERO console/page errors (the
+  document-404 status-log exemption), supplementary rasters under
+  git-ignored `research/agent-browser/` via absolute paths. NEW CLI
+  lessons encoded: `eval` output is JSON-QUOTED — strip quotes before
+  shell comparison; `find label` is AMBIGUOUS when the panel search and
+  the desktop header search share the aria-label — drive by the
+  scoped-snapshot ref, re-parsed right before use; the a11y-tree
+  snapshot hides input placeholders — eval the attribute; `find role
+  button box --name` returns empty — use eval + getBoundingClientRect.
+- **Deep audit 71-a** (read-only subagent): **9/9 code anchors PASS with
+  file:line evidence, ZERO actionable findings** — the twenty-fourth
+  consecutive clean audit; the standing conflict-marker grep gate CLEAN
+  on its ninth consecutive cycle. Three informational notes, all
+  no-change dispositions: (I-1) 51 tracked `.ts` files under `skills/`
+  pre-date the fence claims' scope (identical to the 3fdf441 baseline;
+  all fully fenced by the five gates — the prior cycles' "zero .ts"
+  claims were scoped to the NEW operator payloads, which do carry zero
+  TypeScript); (I-2) the standing dev-fallback literal duplication
+  (auth.ts/order-access.ts, cosmetic); (I-3) the decorative
+  equals-banners now live only in git-ignored build output. The prior
+  cycle's S69-1 docstring fix was verified intact.
+
+### The screenshots
+
+The documented final-capture sequence on the normalized DB — fresh
+reseed (rm-before-reseed; 0/16/2 baseline, every pin DB-verified) → ONE
+e2e as the traffic generator (68/68; the exact documented class: 5
+orders / 17 reviews / Damascus 413 / FREESHIP 1 / latest ORD-2026-005;
+the e2e-minted review by "E2E Reviewer" @ 2026-10-23T06:12:49Z,
+DB-exact) → restore-demo-stock (Damascus 21→24 + French Rolling Pin
+43→44) → the single clean capture on a COLD server after the 60s
+login-limiter window (kill-by-port-owner applied preventively at EVERY
+server transition — zero orphaned-server incidents): **25/25 green,
+zero failures** (the single-shot S53-1 gate).
+
+Byte-level diff vs `git show HEAD:` ground truth: **24/25
+byte-identical** — the same-UTC-day window held again (12 and 14 at
+byte-identity). The sole delta: **03-product-detail, 685 px (0.0192%)
+in the single documented 11-row review-ID band y1168-1178** — this
+run's e2e-minted review row replacing the ground truth's, DB-exact
+(pixel-band-classified via pngjs `--no-save`, package manifests
+untouched).
+
+### The docs sweep
+
+The plan's Session 70 section (this section); SKILL v1.66.0 → v1.67.0
+(project_state opening "sessions 2-69" → "sessions 2-70" + the Session
+70 Appendix B entry with the four lessons); AGENTS plan range 2..69 →
+2..70; the CLAUDE unit-bullet session-70 tail; docs/session_132.md
+(this run's narrative); the repo worklog Tasks 71-a + 71. No test-count
+changes (496 unit / 68 e2e — README/PAD verified, no drift);
+DEPLOYMENT.md drift-checked accurate — unchanged.
+
+### Execution log
+
+- [x] git clone (clean sandbox): e573a2a on main (the operator's session_131.md raw-log commit over run-70's ff65bd2); working tree clean; src/tests/prisma byte-identical (git diff ff65bd2..e573a2a -- src tests prisma → EMPTY)
+- [x] Documentation review + codebase validation BEFORE work: AGENTS.md, CLAUDE.md, README.md, PAD, SKILL v1.66.0, session_131.md + session_130.md + the plan's Session 69 + worklog Tasks 70-a/70; the documented contracts verified in source
+- [x] Environment rebuilt: npm install (Next 16.4.0 / Prisma 6.19.3) · .env (DATABASE_URL contract + fresh AUTH_SECRET) · the SYMLINK shadow convergence · db:setup with all seed pins DB-verified · chromium-1248 (foreground)
+- [x] Gate chain on the pulled tree: lint · typecheck · typecheck:tests · 496/496 unit at 23.44s · build green zero prisma:error (22/22 static; ƒ /_not-found holds) · 68/68 e2e at 1.9m (the traffic generator, all pins DB-verified; restore-demo-stock re-topped)
+- [x] Reference repo re-verified at bb2dc8e (unchanged since run 70; in sync, cloned OUTSIDE the repo tree); skills superset 2809 = 2770 + 39 (MISSING=0, shared files byte-identical, catalogs md5 MATCH); sitemap/SEO stricter superset re-confirmed
+- [x] Live-reference probe: HTTP 503 stable across immediate + delayed ~45s retries (17th cycle, environmental)
+- [x] Clone parity grid rebuilt: 67/67 after two verifier-side expectation fixes (Radix comboboxes; the lg:hidden static pair), both script-side zero repo impact; a11y tree audit 48/48 CLEAN (page-aware landmark expectation); agent-browser cross-check rebuilt at 36/36 (the eval-quoting family lessons)
+- [x] Deep audit 71-a (read-only subagent): 9/9 code anchors PASS, zero actionable findings (twenty-fourth consecutive clean audit; three informational notes, no-change); standing conflict-marker gate CLEAN (ninth consecutive cycle)
+- [x] Screenshots: the normalized final-capture sequence — 25/25 green on the single cold pass; 24/25 byte-identical; the sole delta pixel-band-classified + DB-cross-checked (03's review-ID band, 685 px)
+- [x] Docs sweep: this section, SKILL v1.67.0 (opening bump + Session 70 Appendix B entry), AGENTS 2..70, CLAUDE tail, docs/session_132.md, worklog Tasks 71-a + 71
+- [x] Final gates re-run green on the final tree (lint · typecheck · typecheck:tests · 496/496 unit · build · 68/68 e2e)
+- [x] Commit + push to main through the SSH wrapper (fast-forward, no new branches)
