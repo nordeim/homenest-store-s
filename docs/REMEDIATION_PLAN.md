@@ -9008,3 +9008,182 @@ unchanged (the 496/67/8-env-var anchors stay accurate).
 - [x] S67-1 docs sweep: this section, SKILL v1.64.0 (opening bump + Session 67 Appendix B entry), AGENTS 2..67, CLAUDE tail, session_126.md, worklog Task 68
 - [x] Final gates re-run green on the final tree
 - [x] Commit + push to main through the SSH wrapper (fast-forward, no new branches)
+
+## Session 68 — Run 69 (the thirty-sixth remediation cycle: the fresh-clone recovery + the timing-tolerant-verifier cycle)
+
+> Zero changes in src/tests/prisma. The change-set is the 3 traffic-owned
+> screenshots (03-product-detail's review-ID bands + 12-admin-dashboard's and
+> 14-admin-orders's UTC-day drift receipts — the run-62 class firing its
+> second consecutive cycle, DB-exact) + the docs sweep (this section; SKILL
+> v1.64.0 → v1.65.0 with the project_state opening sessions 2-67 → 2-68 +
+> the Session 68 Appendix B entry with the four lessons [the RSC DOM-swap
+> race class; the seed-pin sort-direction class; the same-route panel-open
+> class; the UTC-day drift receipt + the rg-no-path stdin lesson]; AGENTS
+> plan range 2..67 → 2..68; the CLAUDE unit-bullet session-68 tail;
+> docs/session_128.md; the repo worklog Tasks 69-a + 69).
+
+### The recovery and the review
+
+The sandbox started clean (no local clone — the git clone to `a0deef7` on
+main = run 68's `a0a03fc` plus the operator's session_127.md raw-log +
+skills-curation commit, 13 more operator-owned skill files, the superset
+now 2770 = 2598 reference + 172 operator-owned, MISSING=0). The
+environment was rebuilt from the documented runbook: npm install
+(Next 16.4.0 / Prisma 6.19.3), `.env` with the DATABASE_URL contract + a
+fresh AUTH_SECRET, the symlink convergence for the process-env shadow
+(`/home/z/my-project/.env` → `file:/home/z/my-project/db/custom.db`;
+`ln -sfn <repo>/db /home/z/my-project/db` — one file, both winners),
+`db:setup` with every seed pin DB-verified (Damascus-first 19999/27999/
+412/24; coupons 0-used; 0/16/2 baseline asserted by the verifier itself),
+and chromium-1248 reinstalled.
+
+The docs review covered AGENTS.md, CLAUDE.md, README.md, PAD, the SKILL
+at v1.64.0, session_126.md + session_127.md, the plan's Session 67
+section, and the worklog Tasks 68-a + 68. The documented contracts were
+verified in source before any work: the db-path resolution anchors, the
+sitemap privacy + STATIC_ROUTES, the robots disallow set, the mobile-nav
+conditional mount + zero classList repo-wide, the .env.example surface,
+the skills exclusion across all five tooling configs, and .gitignore.
+
+### The gate chain (all green on the pulled tree)
+
+lint ✓ · typecheck ✓ · typecheck:tests ✓ · **496/496 unit at 23.25s**
+(52 files) · **build green, zero prisma:error** (grep-verified; 22/22
+static pages; the standalone server.js present) · **67/67 e2e at 2.0m**
+— the run doubling as the documented traffic generator: 5 orders
+(ORD-2026-001…005) / 17 reviews / Damascus 413 / FREESHIP 1, all
+DB-verified, then restore-demo-stock re-topped Damascus 21→24 + French
+Rolling Pin 43→44.
+
+### The verification surfaces
+
+- **Reference repo** re-verified at `1ffda3d` — `git fetch` +
+  `rev-parse`: local HEAD == origin/main (in sync, cloned OUTSIDE the
+  repo tree).
+- **Skills comparison**: the operator-curated superset grew — **2770
+  files = the reference's 2598 + the operator's 172** (find-based
+  count; the operator's `a0deef7` commit added 13 more skill files —
+  ExtractWisdom + stock-analysis-skill); zero reference skill files
+  missing (MISSING=0); 20 shared files deliberately evolved by the
+  operator (unchanged count from run 68); the catalog md5 divergence
+  remains operator-intentional.
+- **Sitemap/SEO comparison**: the stricter superset re-confirmed by
+  source read on both sides — the reference lists wishlist/login/
+  register in its sitemap and has no DB-failure guard; the clone
+  excludes every private surface, adds about/contact + the 5 legal
+  routes, is DB-failure-safe, and uses the cuid `/product/[id]` route.
+  No adoption gaps.
+- **Live reference**: HTTP 503 with the Base44 publish-the-app shell
+  (10339 bytes on /), stable across immediate + delayed ~45s retries.
+  The FIFTEENTH consecutive unavailable cycle (environmental); the
+  documented parity baseline carried every expectation.
+- **Clone parity grid**: REBUILT from scratch at **73/73 discrete
+  checks PASS (51 static + 22 mobile)** — the strict throw-on-false
+  `vis()` helper upgraded to timing-tolerant polling
+  (`locator.waitFor({ state: "visible", timeout: 8000 })`), which
+  unmasked ZERO repo issues but required the RSC DOM-swap race fix in
+  the verifier itself (the e2e layer's `expect().toBeVisible()` retry
+  semantics encoded). Two sequencing lessons en route, both
+  script-side zero repo impact: the seed-pin sort-direction class
+  ("Damascus-first" = createdAt DESC — the /products "Newest" sort;
+  an asc-ordered verifier put Damascus LAST) and the same-route
+  panel-open class (clicking "Products" while already on /products
+  changes no pathname, so the route-change close correctly does NOT
+  fire — the check must be sequenced from a different route). The
+  mobile grid encodes the full Tailwind v4 contract: conditional
+  mount, toggle-closes, scroll lock engaging/releasing, the
+  bg-primary active pill, the aria-label flip, the panel search flow
+  (waitForURL re-encoded), route-change close, no horizontal overflow
+  at 390px.
+- **agent-browser cross-check**: rebuilt at **28/28** — the mobile
+  surface (viewport 390×844 APPLIED and asserted via innerWidth) with
+  the full panel anatomy (hamburger aria-label toggle, searchbox, the
+  Mobile navigation landmark, the 5 nav links, Sign In, Wishlist, the
+  body scroll lock engaging and releasing, panel unmount on close, the
+  route-change close), the panel search flow (`q=mixer` → Professional
+  Stand Mixer), the desktop search flow (viewport asserted at 1280),
+  the product-detail anatomy on the cuid route (In Stock / Add to
+  Cart / Buy Now / Customer Reviews / You May Also Like), ZERO console
+  or page errors, supplementary rasters under git-ignored
+  `research/agent-browser/` via absolute paths. The run-68 CLI
+  lessons (set viewport over set device; [ref=eNN] → @eNN) encoded in
+  the persisted script.
+- **a11y tree audit**: 48/48 CLEAN (8 pages × 6 checks on the cuid
+  detail URL; decorative `alt=""` counted CORRECT; hidden Server
+  Action inputs excluded).
+- **Deep audit 69-a** (read-only subagent): **9/9 code anchors PASS,
+  zero actionable findings** — the twenty-second consecutive clean
+  audit, verified anchor-by-anchor with file:line evidence (the
+  operator's `a0deef7` delta confirmed as docs/skills-only;
+  src/tests/prisma untouched since the audit-67a baseline; the
+  stock-analysis-skill TypeScript payload fenced out of all five
+  gates). Its one informational note — the dev-fallback literal
+  duplicated beside DEV_FALLBACK_SECRET — carried from 68-a,
+  cosmetic. Its methodology lesson: `rg` with NO path argument blocks
+  indefinitely on this sandbox's non-TTY stdin (killed at 100-240s
+  twice while explicit-path runs finish in ~0.02s) — always pass the
+  explicit `.` path.
+- **Standing conflict-marker grep gate**: CLEAN (seventh consecutive
+  cycle — zero matches repo-wide including the gitignored scratch).
+
+### The screenshots
+
+The documented final-capture sequence on the normalized DB — fresh
+reseed (the rm-before-reseed lesson: `rm db/custom.db` + db:setup
+restored the 0/16/2 baseline with every pin DB-verified) → ONE e2e as
+the traffic generator (the exact documented class: 5 orders / 17
+reviews / Damascus 413 / FREESHIP 1 / latest ORD-2026-005; the
+e2e-minted review "E2E review 1792714509797" @ 2026-10-23T00:15:10Z,
+DB-exact) → restore-demo-stock (Damascus 21→24 + French Rolling Pin
+43→44) → the single clean capture on a COLD server after the 60s
+login-limiter window (kill-by-port-owner applied preventively at EVERY
+server transition — zero orphaned-server incidents): **25/25 green,
+zero failures** (the single-shot S53-1 gate).
+
+Byte-level diff vs `git show HEAD:` ground truth: **22/25
+byte-identical** — the 3 changed shots all pixel-band-classified
+(pngjs, the script parked in git-ignored research/) + DB-cross-checked:
+
+- **03-product-detail**: 1266 px (0.0354%) in three 11-row bands
+  (y1111-1121, y1168-1178, y1285-1295) — the documented traffic-owned
+  review-ID neighborhood, exactly this run's e2e-minted review row
+  (DB-exact).
+- **12-admin-dashboard**: 1669 px (0.0776%) — the 14-day revenue
+  chart's day-label axis band (y674-681, 1278 px) + the recent-orders
+  rows (5 uniform 11-row bands of 60 px) + one KPI line (y566-577):
+  the UTC-day drift class, its second consecutive firing — this run's
+  e2e minted its orders on Oct-23 UTC (DB-exact: all five placedAt
+  2026-10-23T00:14-15Z) vs the ground truth's Oct-22 capture.
+- **14-admin-orders**: 300 px (0.0158%) — the 5 order rows' date bands
+  (5 uniform 11-row bands of 60 px), the same UTC-day drift class,
+  DB-exact.
+
+The package manifests stayed untouched by the pngjs install
+(`--no-save`, verified by git status).
+
+### S68-1 (docs sweep)
+
+The plan's Session 68 section (this section); SKILL v1.64.0 → v1.65.0
+(project_state opening "sessions 2-67" → "sessions 2-68" + the Session
+68 Appendix B entry with the four lessons: the RSC DOM-swap race
+class; the seed-pin sort-direction class; the same-route panel-open
+class; the UTC-day drift receipt with the rg-no-path stdin lesson);
+AGENTS plan range 2..67 → 2..68; the CLAUDE unit-bullet session-68
+tail; docs/session_128.md (this run's narrative); the repo worklog
+Tasks 69-a + 69. README/PAD/DEPLOYMENT drift-checked accurate —
+unchanged (the 496/67/8-env-var anchors stay accurate).
+
+### Execution log
+
+- [x] git clone (clean sandbox): a0deef7 on main (the operator's session_127.md raw-log + skills-curation commit over run-68's a0a03fc); working tree clean
+- [x] Documentation review + codebase validation BEFORE work: AGENTS.md, CLAUDE.md, README.md, PAD, SKILL v1.64.0, session_126.md + session_127.md + the plan's Session 67 + worklog Tasks 68-a/68; the documented contracts verified in source
+- [x] Environment rebuilt: npm install (Next 16.4.0 / Prisma 6.19.3) · .env (DATABASE_URL contract + fresh AUTH_SECRET) · the SYMLINK shadow convergence · db:setup with all seed pins DB-verified (the verifier's own sort-direction fix en route) · chromium-1248
+- [x] Gate chain on the pulled tree: lint · typecheck · typecheck:tests · 496/496 unit at 23.25s · build green zero prisma:error · 67/67 e2e at 2.0m (the traffic generator, all pins DB-verified; restore-demo-stock re-topped)
+- [x] Reference repo re-verified at 1ffda3d (in sync, cloned OUTSIDE the repo tree); skills superset 2770 = 2598 + 172 (the operator's curation delta recorded, MISSING=0, 20 shared files deliberately evolved); sitemap/SEO stricter superset re-confirmed
+- [x] Live-reference probe: HTTP 503 stable across immediate + delayed ~45s retries (15th cycle, environmental)
+- [x] Clone parity grid REBUILT with timing-tolerant strict pins: 73/73 (51 static + 22 mobile) after the RSC DOM-swap race + two sequencing fixes, all script-side zero repo impact; a11y tree audit 48/48 CLEAN; agent-browser cross-check rebuilt at 28/28
+- [x] Deep audit 69-a (read-only subagent): 9/9 code anchors PASS, zero actionable findings (twenty-second consecutive clean audit); standing conflict-marker gate CLEAN (seventh consecutive cycle)
+- [x] Screenshots: the normalized final-capture sequence (rm-before-reseed) — 25/25 green on the single cold pass; 22/25 byte-identical; the 3 changed shots pixel-band-classified + DB-cross-checked (the UTC-day drift receipt, second consecutive firing)
+- [x] S68-1 docs sweep: this section, SKILL v1.65.0 (opening bump + Session 68 Appendix B entry), AGENTS 2..68, CLAUDE tail, session_128.md, worklog Tasks 69-a + 69
+- [x] Final gates re-run green on the final tree
+- [x] Commit + push to main through the SSH wrapper (fast-forward, no new branches)
