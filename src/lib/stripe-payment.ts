@@ -199,8 +199,11 @@ export function verifyPaymentIntentForPlacement(
  * Thrown by `placeOrderTx` when the Stripe path's transaction-re-derived
  * total does not match the verified intent amount — the residual TOCTOU
  * guard (a price/coupon/settings drift between the pre-tx verification and
- * the in-tx money authority). The /api/checkout path maps it to the same
- * customer-safe "cart changed" copy; the webhook maps it to the
+ * the in-tx money authority). /api/checkout maps the PRE-TX amount drift to
+ * the customer-safe "cart changed" 409 (the island's re-mint signal); this
+ * in-tx throw is not a CheckoutError, so the route's fallback answers the
+ * generic customer-safe 500 copy — the transaction still rolls back, so no
+ * order is placed against the mismatched charge. The webhook maps it to the
  * amount-mismatch refund trail. Lives HERE (not in order-placement.ts) so
  * both routes can instanceof it without an import cycle.
  */

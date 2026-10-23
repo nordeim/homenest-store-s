@@ -152,4 +152,20 @@ test.describe("seo + platform", () => {
     expect(headers["permissions-policy"]).toContain("camera=()");
     expect(headers["x-content-type-options"]).toBe("nosniff");
   });
+
+  test("the branded 404 hydrates on the server (CSP nonce class, S69-2)", async ({ page }) => {
+    // The CSP proxy stamps a per-request nonce on every response; a
+    // PRERENDERED 404 shell bakes no/build-time nonces into its script
+    // tags, so the browser silently refuses them and hydration never
+    // happens — the exact class the (auth) layout's `await connection()`
+    // documents. not-found.tsx renders no forms, but its Links fall back
+    // to full page loads and every hard 404 logged ~16 CSP violations
+    // to the console (first caught by the run-70 parity grid's 404
+    // surface — no prior grid visited the route). The fix makes the
+    // route render per-request; this pin holds it.
+    await page.goto("/no-such-route-xyz");
+    const heading = page.getByRole("heading", { name: "Page Not Found" });
+    await expect(heading).toBeVisible();
+    await page.waitForSelector('html[data-hydrated="true"]', { timeout: 20_000 });
+  });
 });

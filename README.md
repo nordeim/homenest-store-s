@@ -1,6 +1,6 @@
 # HomeNest Kitchen
 
-![Next.js](https://img.shields.io/badge/Next.js-16-black) ![React](https://img.shields.io/badge/React-19-149ECA) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6) ![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4_CSS--first-38BDF8) ![Prisma](https://img.shields.io/badge/Prisma-6_+_SQLite-2D3748) ![Stripe](https://img.shields.io/badge/Stripe-payments-635FF5) ![Tests](https://img.shields.io/badge/tests-496_unit_·_67_e2e-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue)
+![Next.js](https://img.shields.io/badge/Next.js-16-black) ![React](https://img.shields.io/badge/React-19-149ECA) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6) ![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4_CSS--first-38BDF8) ![Prisma](https://img.shields.io/badge/Prisma-6_+_SQLite-2D3748) ![Stripe](https://img.shields.io/badge/Stripe-payments-635FF5) ![Tests](https://img.shields.io/badge/tests-496_unit_·_68_e2e-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue)
 
 A production-grade e-commerce storefront + admin back office — a visual-and-functional **superset** of the Base44 reference app at [`nest-culinary-hub.base44.app`](https://nest-culinary-hub.base44.app/). Premium kitchenware catalog, guest carts, coupons, order tracking, reviews, legal pages, **real Stripe card payments** (Payment Element + webhook backstop — OFF by default, see `.env.example`), and a full admin console, on Next.js 16 · React 19 · TypeScript strict · Tailwind CSS v4 · Prisma 6 + SQLite.
 
@@ -52,7 +52,7 @@ Demo accounts (seeded):
 | UI primitives | Radix UI + CVA + lucide-react | latest | Accessible dialogs, selects, sheets, toasts |
 | Charts | Recharts | ^3 | Admin revenue/analytics |
 | Validation | Zod | ^3.25 | Every external input boundary |
-| Tests | Vitest · Playwright | ^3.2 · ^1.64 | 496 unit · 67 e2e |
+| Tests | Vitest · Playwright | ^3.2 · ^1.64 | 496 unit · 68 e2e |
 
 ```mermaid
 flowchart TB
@@ -122,7 +122,7 @@ flowchart TB
 npm run test            # 496 unit tests (Vitest, node env; the six .tsx component tests — toaster/hero-carousel/quantity-stepper/cart-widgets/product-card/star-rating.test.tsx — run under jsdom)
 npm run typecheck:tests # the unit/e2e/seed sources are type-checked too
 npm run build           # required before e2e (suite starts the standalone server)
-npm run test:e2e        # 67 e2e tests (Playwright; server auto-started on :3100)
+npm run test:e2e        # 68 e2e tests (Playwright; server auto-started on :3100)
 npx playwright test tests/e2e/mobile-navigation.spec.ts   # single spec
 ```
 

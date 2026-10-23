@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { connection } from "next/server";
 import { CookingPot } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -10,9 +11,18 @@ export const metadata: Metadata = {
 // ---------------------------------------------------------------------------
 // Root 404 — rendered inside the root layout (no storefront chrome), so the
 // card is centered on the warm cream background with its own full-height shell.
+//
+// `await connection()` is REQUIRED (S69-2): the CSP proxy stamps a
+// per-request nonce on every response, but a PRERENDERED 404 shell bakes
+// no/build-time nonces into its script tags — the browser silently refuses
+// them, hydration never happens, and every hard 404 logged a burst of CSP
+// violations to the console (the exact class the (auth) layout documents).
+// The page has no forms, but without hydration its Links degrade to full
+// page loads and the app shell never comes alive on this route.
 // ---------------------------------------------------------------------------
 
-export default function NotFound() {
+export default async function NotFound() {
+  await connection();
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
       <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 text-center shadow-sm sm:p-10">
